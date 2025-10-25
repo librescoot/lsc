@@ -1,6 +1,7 @@
 package power
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -18,7 +19,14 @@ var statusCmd = &cobra.Command{
 		// Fetch power manager data
 		pmData, err := RedisClient.HGetAll("power-manager")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to fetch power-manager data: %v\n"), err)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch power-manager data: %v\n"), err)
+			}
 			return
 		}
 
@@ -33,6 +41,53 @@ var statusCmd = &cobra.Command{
 
 		// Fetch inhibitors
 		inhibitors, _ := RedisClient.SMembers("power-manager:busy-services")
+
+		// JSON output
+		if JSONOutput != nil && *JSONOutput {
+			parseInt := func(s string) int {
+				v, _ := strconv.Atoi(s)
+				return v
+			}
+			parseFloat := func(s string) float64 {
+				v, _ := strconv.ParseFloat(s, 64)
+				return v
+			}
+
+			output := map[string]interface{}{
+				"power_manager": map[string]interface{}{
+					"state":        pmData["state"],
+					"power_source": pmuxData["selected-input"],
+					"inhibitors":   inhibitors,
+				},
+			}
+
+			if len(auxBattery) > 0 {
+				output["aux_battery"] = map[string]interface{}{
+					"voltage_v":      parseFloat(auxBattery["voltage"]) / 1000.0,
+					"charge_percent": parseInt(auxBattery["charge"]),
+					"charge_status":  auxBattery["charge-status"],
+				}
+			}
+
+			if len(cbBattery) > 0 && cbBattery["present"] == "true" {
+				output["cb_battery"] = map[string]interface{}{
+					"present":        true,
+					"charge_percent": parseInt(cbBattery["charge"]),
+					"charge_status":  cbBattery["charge-status"],
+					"health_percent": parseInt(cbBattery["state-of-health"]),
+					"cycles":         parseInt(cbBattery["cycle-count"]),
+					"temperature_c":  parseInt(cbBattery["temperature"]),
+				}
+			} else {
+				output["cb_battery"] = map[string]interface{}{
+					"present": false,
+				}
+			}
+
+			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+			fmt.Println(string(jsonBytes))
+			return
+		}
 
 		// Display power manager status
 		format.PrintSection("Power Manager")

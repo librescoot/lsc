@@ -1,6 +1,7 @@
 package power
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -15,11 +16,28 @@ var runCmd = &cobra.Command{
 	Long:  `Request the power manager to transition to run (normal operation) state.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := RedisClient.LPush("scooter:power", "run"); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send run command: %v\n"), err)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "run",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send run command: %v\n"), err)
+			}
 			return
 		}
 
-		fmt.Println(format.Success("Power state set to: run"))
+		if JSONOutput != nil && *JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "run",
+				"status":  "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Power state set to: run"))
+		}
 	},
 }
 

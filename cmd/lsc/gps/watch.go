@@ -2,6 +2,7 @@ package gps
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -31,7 +32,9 @@ var watchCmd = &cobra.Command{
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		go func() {
 			<-sigChan
-			fmt.Println(format.Dim("\nStopping GPS watch..."))
+			if JSONOutput == nil || !*JSONOutput {
+				fmt.Println(format.Dim("\nStopping GPS watch..."))
+			}
 			cancel()
 		}()
 
@@ -39,8 +42,10 @@ var watchCmd = &cobra.Command{
 		pubsub := RedisClient.Subscribe(ctx, "gps")
 		defer pubsub.Close()
 
-		fmt.Println(format.Success("Watching GPS updates... (Ctrl+C to stop)"))
-		fmt.Println()
+		if JSONOutput == nil || !*JSONOutput {
+			fmt.Println(format.Success("Watching GPS updates... (Ctrl+C to stop)"))
+			fmt.Println()
+		}
 
 		ch := pubsub.Channel()
 
@@ -65,11 +70,43 @@ func printGPSUpdate(ctx context.Context) {
 		return
 	}
 
-	if watchCompact {
+	if JSONOutput != nil && *JSONOutput {
+		printJSONUpdate(gpsData)
+	} else if watchCompact {
 		printCompactUpdate(gpsData)
 	} else {
 		printFullUpdate(gpsData)
 	}
+}
+
+func printJSONUpdate(gpsData map[string]string) {
+	parseFloat := func(s string) float64 {
+		v, _ := strconv.ParseFloat(s, 64)
+		return v
+	}
+
+	output := map[string]interface{}{
+		"timestamp":  time.Now().Unix(),
+		"connected":  gpsData["connected"] == "1",
+		"active":     gpsData["active"] == "1",
+		"state":      gpsData["state"],
+		"fix_type":   gpsData["fix"],
+		"latitude":   parseFloat(gpsData["latitude"]),
+		"longitude":  parseFloat(gpsData["longitude"]),
+		"altitude":   parseFloat(gpsData["altitude"]),
+		"speed":      parseFloat(gpsData["speed"]),
+		"course":     parseFloat(gpsData["course"]),
+		"eph":        parseFloat(gpsData["eph"]),
+		"quality":    parseFloat(gpsData["quality"]),
+		"hdop":       parseFloat(gpsData["hdop"]),
+		"pdop":       parseFloat(gpsData["pdop"]),
+		"vdop":       parseFloat(gpsData["vdop"]),
+		"gps_time":   gpsData["timestamp"],
+		"updated":    gpsData["updated"],
+	}
+
+	jsonBytes, _ := json.Marshal(output)
+	fmt.Println(string(jsonBytes))
 }
 
 func printCompactUpdate(gpsData map[string]string) {

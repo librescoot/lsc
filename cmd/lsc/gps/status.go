@@ -1,6 +1,7 @@
 package gps
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -19,12 +20,65 @@ var statusCmd = &cobra.Command{
 		// Fetch GPS data
 		gpsData, err := RedisClient.HGetAll("gps")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to fetch GPS data: %v\n"), err)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch GPS data: %v\n"), err)
+			}
 			return
 		}
 
 		if len(gpsData) == 0 {
-			fmt.Println(format.Warning("No GPS data available"))
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": "No GPS data available",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Warning("No GPS data available"))
+			}
+			return
+		}
+
+		// If JSON output is requested
+		if JSONOutput != nil && *JSONOutput {
+			parseFloat := func(s string) float64 {
+				v, _ := strconv.ParseFloat(s, 64)
+				return v
+			}
+
+			output := map[string]interface{}{
+				"connected": gpsData["connected"] == "1",
+				"active":    gpsData["active"] == "1",
+				"state":     gpsData["state"],
+				"fix_type":  gpsData["fix"],
+			}
+
+			// Add position if available
+			if gpsData["state"] == "fix-established" || gpsData["state"] == "tracking" {
+				output["position"] = map[string]interface{}{
+					"latitude":  parseFloat(gpsData["latitude"]),
+					"longitude": parseFloat(gpsData["longitude"]),
+					"altitude":  parseFloat(gpsData["altitude"]),
+					"speed":     parseFloat(gpsData["speed"]),
+					"course":    parseFloat(gpsData["course"]),
+				}
+				output["accuracy"] = map[string]interface{}{
+					"eph":     parseFloat(gpsData["eph"]),
+					"quality": parseFloat(gpsData["quality"]),
+					"hdop":    parseFloat(gpsData["hdop"]),
+					"pdop":    parseFloat(gpsData["pdop"]),
+					"vdop":    parseFloat(gpsData["vdop"]),
+				}
+				output["timestamp"] = gpsData["timestamp"]
+				output["updated"] = gpsData["updated"]
+			}
+
+			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+			fmt.Println(string(jsonBytes))
 			return
 		}
 

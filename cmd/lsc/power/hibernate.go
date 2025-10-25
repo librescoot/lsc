@@ -1,6 +1,7 @@
 package power
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -28,12 +29,29 @@ var hibernateCmd = &cobra.Command{
 		}
 
 		if err := RedisClient.LPush("scooter:power", command); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": command,
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
+			}
 			return
 		}
 
-		fmt.Printf("%s Power state set to: %s\n", format.Success("✓"), command)
-		fmt.Println(format.Warning("Warning: System will power off"))
+		if JSONOutput != nil && *JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": command,
+				"status":  "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Printf("%s Power state set to: %s\n", format.Success("✓"), command)
+			fmt.Println(format.Warning("Warning: System will power off"))
+		}
 	},
 }
 

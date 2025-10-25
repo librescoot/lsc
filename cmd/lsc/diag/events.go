@@ -23,7 +23,6 @@ var (
 	eventsCount  int
 	eventsFollow bool
 	eventsFilter string
-	eventsJSON   bool
 )
 
 var eventsCmd = &cobra.Command{
@@ -143,7 +142,7 @@ func followEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 }
 
 func printEvent(msg redis.XMessage) {
-	if eventsJSON {
+	if JSONOutput != nil && *JSONOutput {
 		printEventJSON(msg)
 		return
 	}
@@ -263,7 +262,6 @@ func init() {
 	eventsCmd.Flags().IntVar(&eventsCount, "count", 50, "Maximum number of events to show")
 	eventsCmd.Flags().BoolVar(&eventsFollow, "follow", false, "Follow the stream (like tail -f)")
 	eventsCmd.Flags().StringVar(&eventsFilter, "filter", "", "Filter events by regex pattern")
-	eventsCmd.Flags().BoolVar(&eventsJSON, "json", false, "Output events in JSON format")
 
 	DiagCmd.AddCommand(eventsCmd)
 }
