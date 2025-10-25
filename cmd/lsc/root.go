@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"librescoot/lsc/cmd/lsc/diag"
+	"librescoot/lsc/cmd/lsc/gps"
 	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
@@ -23,8 +24,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
 
-	// Add diag subcommand
+	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
+	rootCmd.AddCommand(gps.GpsCmd)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -54,8 +56,9 @@ interface for common operations.`,
 			return err
 		}
 
-		// Make Redis client available to diag subcommands
+		// Make Redis client available to subcommands
 		diag.SetRedisClient(redisClient)
+		gps.SetRedisClient(redisClient)
 
 		return nil
 	},
