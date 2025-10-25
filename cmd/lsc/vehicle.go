@@ -2,6 +2,7 @@ package lsc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -28,16 +29,35 @@ var vehicleLockCmd = &cobra.Command{
 	Short: "Lock the scooter",
 	Long:  `Lock the scooter and transition to stand-by state.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Locking scooter...")
+		if !JSONOutput {
+			fmt.Println("Locking scooter...")
+		}
 
 		// Send lock command
 		if err := redisClient.LPush("scooter:state", "lock"); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send lock command: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "lock",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send lock command: %v\n"), err)
+			}
 			return
 		}
 
 		if noBlock {
-			fmt.Println(format.Success("Lock command sent"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "lock",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Lock command sent"))
+			}
 			return
 		}
 
@@ -46,11 +66,29 @@ var vehicleLockCmd = &cobra.Command{
 		defer cancel()
 
 		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
-			fmt.Fprintf(os.Stderr, format.Warning("Lock command sent but state confirmation timed out\n"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "lock",
+					"status":  "timeout",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Warning("Lock command sent but state confirmation timed out\n"))
+			}
 			return
 		}
 
-		fmt.Println(format.Success("Scooter locked successfully"))
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "lock",
+				"status":  "success",
+				"state":   "stand-by",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Scooter locked successfully"))
+		}
 	},
 }
 
@@ -59,16 +97,35 @@ var vehicleUnlockCmd = &cobra.Command{
 	Short: "Unlock the scooter",
 	Long:  `Unlock the scooter and transition to parked or ready-to-drive state.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Unlocking scooter...")
+		if !JSONOutput {
+			fmt.Println("Unlocking scooter...")
+		}
 
 		// Send unlock command
 		if err := redisClient.LPush("scooter:state", "unlock"); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "unlock",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
+			}
 			return
 		}
 
 		if noBlock {
-			fmt.Println(format.Success("Unlock command sent"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "unlock",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Unlock command sent"))
+			}
 			return
 		}
 
@@ -86,14 +143,31 @@ var vehicleUnlockCmd = &cobra.Command{
 		for {
 			select {
 			case <-timeout:
-				fmt.Fprintf(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "unlock",
+						"status":  "timeout",
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
+				}
 				return
 			case msg := <-ch:
 				if msg.Payload == "state" {
 					// Check current state
 					state, err := redisClient.HGet("vehicle", "state")
 					if err == nil && (state == "parked" || state == "ready-to-drive") {
-						fmt.Println(format.Success(fmt.Sprintf("Scooter unlocked successfully (state: %s)", state)))
+						if JSONOutput {
+							output, _ := json.Marshal(map[string]interface{}{
+								"command": "unlock",
+								"status":  "success",
+								"state":   state,
+							})
+							fmt.Println(string(output))
+						} else {
+							fmt.Println(format.Success(fmt.Sprintf("Scooter unlocked successfully (state: %s)", state)))
+						}
 						return
 					}
 				}
@@ -107,16 +181,35 @@ var vehicleHibernateCmd = &cobra.Command{
 	Short: "Lock and request hibernation",
 	Long:  `Lock the scooter and request the system to enter hibernation mode.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Requesting hibernation...")
+		if !JSONOutput {
+			fmt.Println("Requesting hibernation...")
+		}
 
 		// Send lock-hibernate command
 		if err := redisClient.LPush("scooter:state", "lock-hibernate"); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "hibernate",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
+			}
 			return
 		}
 
 		if noBlock {
-			fmt.Println(format.Success("Hibernate command sent"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "hibernate",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Hibernate command sent"))
+			}
 			return
 		}
 
@@ -125,11 +218,29 @@ var vehicleHibernateCmd = &cobra.Command{
 		defer cancel()
 
 		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
-			fmt.Fprintf(os.Stderr, format.Warning("Hibernate command sent but state confirmation timed out\n"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "hibernate",
+					"status":  "timeout",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Warning("Hibernate command sent but state confirmation timed out\n"))
+			}
 			return
 		}
 
-		fmt.Println(format.Success("Hibernation requested successfully"))
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "hibernate",
+				"status":  "success",
+				"state":   "stand-by",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Hibernation requested successfully"))
+		}
 	},
 }
 
@@ -139,16 +250,35 @@ var vehicleOpenCmd = &cobra.Command{
 	Short:   "Open the seatbox",
 	Long:    `Send command to open the seatbox lock.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Opening seatbox...")
+		if !JSONOutput {
+			fmt.Println("Opening seatbox...")
+		}
 
 		// Send open command
 		if err := redisClient.LPush("scooter:seatbox", "open"); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send seatbox open command: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "open",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send seatbox open command: %v\n"), err)
+			}
 			return
 		}
 
 		if noBlock {
-			fmt.Println(format.Success("Seatbox open command sent"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "open",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Seatbox open command sent"))
+			}
 			return
 		}
 
@@ -157,11 +287,28 @@ var vehicleOpenCmd = &cobra.Command{
 		defer cancel()
 
 		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "seatbox:lock", "open", 5*time.Second); err != nil {
-			fmt.Fprintf(os.Stderr, format.Warning("Seatbox command sent but lock confirmation timed out\n"))
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "open",
+					"status":  "timeout",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Warning("Seatbox command sent but lock confirmation timed out\n"))
+			}
 			return
 		}
 
-		fmt.Println(format.Success("Seatbox opened successfully"))
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "open",
+				"status":  "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Seatbox opened successfully"))
+		}
 	},
 }
 

@@ -1,8 +1,10 @@
 package lsc
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"librescoot/lsc/internal/format"
 
@@ -17,19 +19,40 @@ var statusCmd = &cobra.Command{
 		// Fetch data from Redis
 		vehicleData, err := redisClient.HGetAll("vehicle")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Error fetching vehicle data: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Error fetching vehicle data: %v\n"), err)
+			}
 			return
 		}
 
 		ecuData, err := redisClient.HGetAll("engine-ecu")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Error fetching ECU data: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Error fetching ECU data: %v\n"), err)
+			}
 			return
 		}
 
 		battery0Data, err := redisClient.HGetAll("battery:0")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Error fetching battery:0 data: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Error fetching battery:0 data: %v\n"), err)
+			}
 			return
 		}
 
@@ -37,6 +60,12 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			// Battery 1 might not exist, ignore error
 			battery1Data = make(map[string]string)
+		}
+
+		// If JSON output is requested, output structured JSON
+		if JSONOutput {
+			outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data)
+			return
 		}
 
 		// Display Vehicle Status
@@ -92,6 +121,85 @@ var statusCmd = &cobra.Command{
 
 		fmt.Println() // Trailing newline
 	},
+}
+
+func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data map[string]string) {
+	// Helper function to parse int
+	parseInt := func(s string) int {
+		v, _ := strconv.Atoi(s)
+		return v
+	}
+
+	// Helper function to parse float
+	parseFloat := func(s string) float64 {
+		v, _ := strconv.ParseFloat(s, 64)
+		return v
+	}
+
+	// Build structured JSON output
+	output := map[string]interface{}{
+		"vehicle": map[string]interface{}{
+			"state":      vehicleData["state"],
+			"kickstand":  vehicleData["kickstand"],
+			"brakes": map[string]string{
+				"left":  vehicleData["brake:left"],
+				"right": vehicleData["brake:right"],
+			},
+			"blinker": format.SafeValueOr(vehicleData["blinker:switch"], "off"),
+			"seatbox": format.SafeValueOr(vehicleData["seatbox:lock"], "closed"),
+		},
+		"motor": map[string]interface{}{
+			"speed_kph":       parseFloat(ecuData["speed"]),
+			"rpm":             parseInt(ecuData["rpm"]),
+			"throttle":        ecuData["throttle"] == "true",
+			"odometer_km":     parseFloat(ecuData["odometer"]) / 1000.0,
+			"voltage_v":       parseFloat(ecuData["motor:voltage"]) / 1000.0,
+			"current_a":       parseFloat(ecuData["motor:current"]) / 1000.0,
+			"temperature_c":   parseInt(ecuData["temperature"]),
+			"kers":            ecuData["kers"] == "true",
+		},
+	}
+
+	// Add battery 0
+	if battery0Data["present"] == "true" {
+		output["battery_0"] = map[string]interface{}{
+			"present":           true,
+			"state":             battery0Data["state"],
+			"charge_percent":    parseInt(battery0Data["charge"]),
+			"voltage_v":         parseFloat(battery0Data["voltage"]) / 1000.0,
+			"current_a":         parseFloat(battery0Data["current"]) / 1000.0,
+			"temperature_c":     parseInt(battery0Data["temperature:0"]),
+			"temperature_state": battery0Data["temperature-state"],
+			"cycles":            parseInt(battery0Data["cycle-count"]),
+			"health_percent":    parseInt(battery0Data["state-of-health"]),
+		}
+	} else {
+		output["battery_0"] = map[string]interface{}{
+			"present": false,
+		}
+	}
+
+	// Add battery 1
+	if battery1Data["present"] == "true" {
+		output["battery_1"] = map[string]interface{}{
+			"present":           true,
+			"state":             battery1Data["state"],
+			"charge_percent":    parseInt(battery1Data["charge"]),
+			"voltage_v":         parseFloat(battery1Data["voltage"]) / 1000.0,
+			"current_a":         parseFloat(battery1Data["current"]) / 1000.0,
+			"temperature_c":     parseInt(battery1Data["temperature:0"]),
+			"temperature_state": battery1Data["temperature-state"],
+			"cycles":            parseInt(battery1Data["cycle-count"]),
+			"health_percent":    parseInt(battery1Data["state-of-health"]),
+		}
+	} else {
+		output["battery_1"] = map[string]interface{}{
+			"present": false,
+		}
+	}
+
+	jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(jsonBytes))
 }
 
 func init() {

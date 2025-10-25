@@ -2,6 +2,7 @@ package lsc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -24,7 +25,20 @@ var settingsListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		settings, err := redisClient.HGetAll("settings")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to fetch settings: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch settings: %v\n"), err)
+			}
+			return
+		}
+
+		if JSONOutput {
+			jsonBytes, _ := json.MarshalIndent(settings, "", "  ")
+			fmt.Println(string(jsonBytes))
 			return
 		}
 
@@ -61,7 +75,23 @@ var settingsGetCmd = &cobra.Command{
 
 		value, err := redisClient.HGet("settings", key)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to get setting '%s': %v\n"), key, err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to get setting '%s': %v\n"), key, err)
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"key":   key,
+				"value": value,
+			})
+			fmt.Println(string(output))
 			return
 		}
 
@@ -93,18 +123,45 @@ Common settings:
 
 		// Set the value in Redis hash
 		if err := redisClient.HSet("settings", key, value); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to set setting '%s': %v\n"), key, err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to set setting '%s': %v\n"), key, err)
+			}
 			return
 		}
 
 		// Publish the change so services can react
 		ctx := context.Background()
 		if err := redisClient.Publish(ctx, "settings", key); err != nil {
-			fmt.Fprintf(os.Stderr, format.Warning("Setting updated but publish failed: %v\n"), err)
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"key":     key,
+					"value":   value,
+					"status":  "warning",
+					"message": "Setting updated but publish failed",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Warning("Setting updated but publish failed: %v\n"), err)
+			}
 			return
 		}
 
-		fmt.Println(format.Success(fmt.Sprintf("Setting '%s' = '%s'", key, value)))
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"key":    key,
+				"value":  value,
+				"status": "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success(fmt.Sprintf("Setting '%s' = '%s'", key, value)))
+		}
 	},
 }
 

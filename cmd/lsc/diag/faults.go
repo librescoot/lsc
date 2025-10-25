@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"librescoot/lsc/internal/format"
@@ -30,6 +31,17 @@ var faultsCmd = &cobra.Command{
 		}
 
 		totalFaults := len(vehicleFaults) + len(battery0Faults) + len(battery1Faults)
+
+		if JSONOutput != nil && *JSONOutput {
+			output, _ := json.MarshalIndent(map[string]interface{}{
+				"total_faults": totalFaults,
+				"vehicle":      vehicleFaults,
+				"battery_0":    battery0Faults,
+				"battery_1":    battery1Faults,
+			}, "", "  ")
+			fmt.Println(string(output))
+			return
+		}
 
 		if totalFaults == 0 {
 			fmt.Println(format.Success("No active faults"))

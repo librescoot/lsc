@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -21,10 +22,81 @@ var batteryCmd = &cobra.Command{
 			batteryIDs = args
 		}
 
-		for _, id := range batteryIDs {
-			showBattery(id)
+		if JSONOutput != nil && *JSONOutput {
+			// Collect all battery data for JSON output
+			batteries := make([]interface{}, 0)
+			for _, id := range batteryIDs {
+				batteryData := getBatteryData(id)
+				if batteryData != nil {
+					batteries = append(batteries, batteryData)
+				}
+			}
+			jsonBytes, _ := json.MarshalIndent(map[string]interface{}{
+				"batteries": batteries,
+			}, "", "  ")
+			fmt.Println(string(jsonBytes))
+		} else {
+			for _, id := range batteryIDs {
+				showBattery(id)
+			}
 		}
 	},
+}
+
+func getBatteryData(id string) map[string]interface{} {
+	data, err := RedisClient.HGetAll(fmt.Sprintf("battery:%s", id))
+	if err != nil {
+		return nil
+	}
+
+	// Check if battery is present
+	if data["present"] != "true" {
+		return map[string]interface{}{
+			"id":      id,
+			"present": false,
+		}
+	}
+
+	// Parse numeric values
+	parseInt := func(s string) int {
+		v, _ := strconv.Atoi(s)
+		return v
+	}
+	parseFloat := func(s string) float64 {
+		v, _ := strconv.ParseFloat(s, 64)
+		return v
+	}
+
+	// Get faults
+	faults, _ := RedisClient.SMembers(fmt.Sprintf("battery:%s:faults", id))
+
+	return map[string]interface{}{
+		"id":      id,
+		"present": true,
+		"state":   data["state"],
+		"charge": map[string]interface{}{
+			"charge_percent": parseInt(data["charge"]),
+			"voltage_v":      parseFloat(data["voltage"]) / 1000.0,
+			"current_a":      parseFloat(data["current"]) / 1000.0,
+		},
+		"temperature": map[string]interface{}{
+			"sensor_0_c": parseInt(data["temperature:0"]),
+			"sensor_1_c": parseInt(data["temperature:1"]),
+			"sensor_2_c": parseInt(data["temperature:2"]),
+			"sensor_3_c": parseInt(data["temperature:3"]),
+			"state":      data["temperature-state"],
+		},
+		"health": map[string]interface{}{
+			"cycles":         parseInt(data["cycle-count"]),
+			"health_percent": parseInt(data["state-of-health"]),
+		},
+		"identity": map[string]interface{}{
+			"serial_number":     format.SafeValueOr(data["serial-number"], ""),
+			"manufacturing_date": format.SafeValueOr(data["manufacturing-date"], ""),
+			"firmware_version":  format.SafeValueOr(data["fw-version"], ""),
+		},
+		"faults": faults,
+	}
 }
 
 func showBattery(id string) {

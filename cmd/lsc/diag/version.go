@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -17,7 +18,14 @@ var versionCmd = &cobra.Command{
 		// Fetch version data from various sources
 		system, err := RedisClient.HGetAll("system")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to fetch system data: %v\n"), err)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch system data: %v\n"), err)
+			}
 			return
 		}
 
@@ -25,6 +33,52 @@ var versionCmd = &cobra.Command{
 		battery0Data, _ := RedisClient.HGetAll("battery:0")
 		battery1Data, _ := RedisClient.HGetAll("battery:1")
 		otaData, _ := RedisClient.HGetAll("ota")
+
+		if JSONOutput != nil && *JSONOutput {
+			// Build JSON output
+			output := map[string]interface{}{
+				"system": map[string]interface{}{
+					"mdb":         format.SafeValueOr(system["mdb-version"], ""),
+					"dbc":         format.SafeValueOr(system["dbc-version"], ""),
+					"nrf":         format.SafeValueOr(system["nrf-fw-version"], ""),
+					"environment": format.SafeValueOr(system["environment"], ""),
+				},
+				"components": map[string]interface{}{
+					"ecu": format.SafeValueOr(ecuData["fw-version"], ""),
+				},
+				"ota": map[string]interface{}{
+					"system":       format.SafeValueOr(otaData["system"], ""),
+					"status":       format.SafeValueOr(otaData["status"], ""),
+					"fresh_update": otaData["fresh-update"] == "true",
+				},
+			}
+
+			// Add battery info
+			batteries := make(map[string]interface{})
+			if battery0Data["present"] == "true" {
+				batteries["0"] = map[string]interface{}{
+					"present":       true,
+					"version":       format.SafeValueOr(battery0Data["fw-version"], ""),
+					"serial_number": format.SafeValueOr(battery0Data["serial-number"], ""),
+				}
+			} else {
+				batteries["0"] = map[string]interface{}{"present": false}
+			}
+			if battery1Data["present"] == "true" {
+				batteries["1"] = map[string]interface{}{
+					"present":       true,
+					"version":       format.SafeValueOr(battery1Data["fw-version"], ""),
+					"serial_number": format.SafeValueOr(battery1Data["serial-number"], ""),
+				}
+			} else {
+				batteries["1"] = map[string]interface{}{"present": false}
+			}
+			output["batteries"] = batteries
+
+			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
+			fmt.Println(string(jsonBytes))
+			return
+		}
 
 		// Display system versions
 		format.PrintSection("System Versions")

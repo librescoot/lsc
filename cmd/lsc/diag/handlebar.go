@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -20,19 +21,46 @@ var handlebarCmd = &cobra.Command{
 
 		// Validate argument
 		if action != "lock" && action != "unlock" {
-			fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'lock' or 'unlock'\n"), action)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "handlebar",
+					"status":  "error",
+					"error":   fmt.Sprintf("invalid action: %s", action),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'lock' or 'unlock'\n"), action)
+			}
 			return
 		}
 
 		// Send command
 		command := fmt.Sprintf("handlebar:%s", action)
 		if err := RedisClient.LPush("scooter:hardware", command); err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to send handlebar command: %v\n"), err)
+			if JSONOutput != nil && *JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "handlebar",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send handlebar command: %v\n"), err)
+			}
 			return
 		}
 
-		fmt.Printf("%s Handlebar %s command sent\n", format.Success("✓"), action)
-		fmt.Println(format.Dim("Note: This bypasses the automatic handlebar control"))
+		if JSONOutput != nil && *JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "handlebar",
+				"status":  "success",
+				"action":  action,
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Printf("%s Handlebar %s command sent\n", format.Success("✓"), action)
+			fmt.Println(format.Dim("Note: This bypasses the automatic handlebar control"))
+		}
 	},
 }
 

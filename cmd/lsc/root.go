@@ -65,6 +65,11 @@ interface for common operations.`,
 		gps.SetRedisClient(redisClient)
 		power.SetRedisClient(redisClient)
 
+		// Make JSONOutput flag available to subcommands
+		diag.SetJSONOutput(&JSONOutput)
+		gps.SetJSONOutput(&JSONOutput)
+		power.SetJSONOutput(&JSONOutput)
+
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
