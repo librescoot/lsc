@@ -17,7 +17,10 @@ var noBlock bool
 var vehicleCmd = &cobra.Command{
 	Use:   "vehicle",
 	Short: "Control vehicle state and hardware",
-	Long:  `Control vehicle lock/unlock state, hibernation, and seatbox.`,
+	Long: `Control vehicle lock/unlock state, hibernation, and seatbox.
+
+Note: Handlebar lock/unlock is automatic and controlled by the vehicle state machine.
+It unlocks when the vehicle is unlocked and locks when locked.`,
 }
 
 var vehicleLockCmd = &cobra.Command{
@@ -130,16 +133,11 @@ var vehicleHibernateCmd = &cobra.Command{
 	},
 }
 
-var vehicleSeatboxCmd = &cobra.Command{
-	Use:   "seatbox",
-	Short: "Control seatbox",
-	Long:  `Control the seatbox lock. Only 'open' command is available (spring-loaded mechanism).`,
-}
-
-var vehicleSeatboxOpenCmd = &cobra.Command{
-	Use:   "open",
-	Short: "Open the seatbox",
-	Long:  `Send command to open the seatbox lock.`,
+var vehicleOpenCmd = &cobra.Command{
+	Use:     "open",
+	Aliases: []string{"open-seatbox"},
+	Short:   "Open the seatbox",
+	Long:    `Send command to open the seatbox lock.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Opening seatbox...")
 
@@ -175,9 +173,7 @@ func init() {
 	vehicleCmd.AddCommand(vehicleLockCmd)
 	vehicleCmd.AddCommand(vehicleUnlockCmd)
 	vehicleCmd.AddCommand(vehicleHibernateCmd)
-
-	vehicleSeatboxCmd.AddCommand(vehicleSeatboxOpenCmd)
-	vehicleCmd.AddCommand(vehicleSeatboxCmd)
+	vehicleCmd.AddCommand(vehicleOpenCmd)
 
 	rootCmd.AddCommand(vehicleCmd)
 }
