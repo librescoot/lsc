@@ -25,6 +25,9 @@ type XStream = rdb.XStream
 // PubSub represents a Redis pub/sub subscription
 type PubSub = rdb.PubSub
 
+// XReadArgs represents arguments for XREAD command
+type XReadArgs = rdb.XReadArgs
+
 // NewClient creates a new Redis client instance
 func NewClient(addr string) *Client {
 	return &Client{
@@ -126,7 +129,7 @@ func (c *Client) Publish(ctx context.Context, channel string, message interface{
 }
 
 // XRead reads messages from Redis streams
-func (c *Client) XRead(ctx context.Context, args *rdb.XReadArgs) ([]XStream, error) {
+func (c *Client) XRead(ctx context.Context, args *XReadArgs) ([]XStream, error) {
 	return c.client.XRead(ctx, args).Result()
 }
 
