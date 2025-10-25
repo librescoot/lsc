@@ -331,64 +331,46 @@ var engineCmd = &cobra.Command{
 	},
 }
 
-// bat shortcut (battery diagnostics)
-var batCmd = &cobra.Command{
-	Use:   "bat [id...]",
-	Short: "Show battery info (shortcut for 'diag battery')",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Find and execute the diag battery command
-		for _, c := range diag.DiagCmd.Commands() {
-			if c.Name() == "battery" {
-				c.Run(c, args)
-				return
-			}
+// createDiagShortcut creates a shortcut command that mirrors a diag subcommand
+func createDiagShortcut(name string, aliases []string) *cobra.Command {
+	// Find the real command
+	var realCmd *cobra.Command
+	for _, c := range diag.DiagCmd.Commands() {
+		if c.Name() == name {
+			realCmd = c
+			break
 		}
-	},
-}
+	}
+	if realCmd == nil {
+		return nil
+	}
 
-// ver shortcut (version info)
-var verCmd = &cobra.Command{
-	Use:   "ver",
-	Short: "Show firmware versions (shortcut for 'diag version')",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Find and execute the diag version command
-		for _, c := range diag.DiagCmd.Commands() {
-			if c.Name() == "version" {
-				c.Run(c, args)
-				return
-			}
-		}
-	},
-}
+	// Create shortcut with same properties
+	shortcut := &cobra.Command{
+		Use:                realCmd.Use,
+		Aliases:            aliases,
+		Short:              realCmd.Short,
+		Long:               realCmd.Long,
+		Args:               realCmd.Args,
+		ValidArgs:          realCmd.ValidArgs,
+		ValidArgsFunction:  realCmd.ValidArgsFunction,
+		Run:                realCmd.Run,
+		RunE:               realCmd.RunE,
+		PreRun:             realCmd.PreRun,
+		PreRunE:            realCmd.PreRunE,
+		PostRun:            realCmd.PostRun,
+		PostRunE:           realCmd.PostRunE,
+		PersistentPreRun:   realCmd.PersistentPreRun,
+		PersistentPreRunE:  realCmd.PersistentPreRunE,
+		PersistentPostRun:  realCmd.PersistentPostRun,
+		PersistentPostRunE: realCmd.PersistentPostRunE,
+	}
 
-// faults shortcut
-var faultsCmd = &cobra.Command{
-	Use:   "faults",
-	Short: "Show active faults (shortcut for 'diag faults')",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Find and execute the diag faults command
-		for _, c := range diag.DiagCmd.Commands() {
-			if c.Name() == "faults" {
-				c.Run(c, args)
-				return
-			}
-		}
-	},
-}
+	// Copy flags
+	shortcut.Flags().AddFlagSet(realCmd.Flags())
+	shortcut.PersistentFlags().AddFlagSet(realCmd.PersistentFlags())
 
-// events shortcut
-var eventsCmd = &cobra.Command{
-	Use:   "events",
-	Short: "View fault events (shortcut for 'diag events')",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Find and execute the diag events command
-		for _, c := range diag.DiagCmd.Commands() {
-			if c.Name() == "events" {
-				c.Run(c, args)
-				return
-			}
-		}
-	},
+	return shortcut
 }
 
 // get shortcut (get setting)
@@ -417,16 +399,26 @@ func init() {
 	unlockCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
 	openCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
 
-	// Add shortcut commands to root
+	// Add vehicle/hardware shortcut commands to root
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
 	rootCmd.AddCommand(openCmd)
 	rootCmd.AddCommand(dbcCmd)
 	rootCmd.AddCommand(engineCmd)
-	rootCmd.AddCommand(batCmd)
-	rootCmd.AddCommand(verCmd)
-	rootCmd.AddCommand(faultsCmd)
-	rootCmd.AddCommand(eventsCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
+
+	// Create diagnostic shortcuts that mirror the full commands
+	if batCmd := createDiagShortcut("battery", []string{"bat"}); batCmd != nil {
+		rootCmd.AddCommand(batCmd)
+	}
+	if verCmd := createDiagShortcut("version", []string{"ver"}); verCmd != nil {
+		rootCmd.AddCommand(verCmd)
+	}
+	if faultsCmd := createDiagShortcut("faults", nil); faultsCmd != nil {
+		rootCmd.AddCommand(faultsCmd)
+	}
+	if eventsCmd := createDiagShortcut("events", nil); eventsCmd != nil {
+		rootCmd.AddCommand(eventsCmd)
+	}
 }
