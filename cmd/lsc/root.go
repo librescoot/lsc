@@ -39,11 +39,22 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "lsc",
 	Short: "lsc - librescoot control CLI",
-	Long: `A command-line interface for controlling and monitoring
-librescoot ECUs and services via Redis.
+	Long: `lsc is a command-line interface for controlling and monitoring LibreScoot
+electric scooters via Redis.
 
-It abstracts away the direct Redis commands, providing a user-friendly
-interface for common operations.`,
+It provides convenient access to:
+  • Vehicle state management (lock/unlock, hibernate, force-lock)
+  • LED control (cues and fade animations)
+  • Power management (run/suspend/hibernate/reboot states)
+  • OTA updates (status and installation)
+  • GPS tracking and monitoring
+  • Battery diagnostics and status
+  • Alarm system control
+  • Hardware control (dashboard, engine, handlebar, seatbox)
+  • Settings management
+  • Fault monitoring and event streaming
+
+All commands support JSON output mode (--json) for automation and scripting.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Temporarily suppress stderr to hide redis library warnings
 		oldStderr := os.Stderr
