@@ -244,6 +244,74 @@ var vehicleHibernateCmd = &cobra.Command{
 	},
 }
 
+var vehicleForceLockCmd = &cobra.Command{
+	Use:   "force-lock",
+	Short: "Force lock without physical locking",
+	Long:  `Force the scooter into stand-by state without waiting for physical locks to engage. Use with caution.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if !JSONOutput {
+			fmt.Println("Force locking scooter...")
+		}
+
+		// Send force-lock command
+		if err := redisClient.LPush("scooter:state", "force-lock"); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "force-lock",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send force-lock command: %v\n"), err)
+			}
+			return
+		}
+
+		if noBlock {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "force-lock",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Force-lock command sent"))
+			}
+			return
+		}
+
+		// Wait for state to change to stand-by
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "force-lock",
+					"status":  "timeout",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Warning("Force-lock command sent but state confirmation timed out\n"))
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "force-lock",
+				"status":  "success",
+				"state":   "stand-by",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Scooter force-locked successfully"))
+		}
+	},
+}
+
 var vehicleOpenCmd = &cobra.Command{
 	Use:     "open",
 	Aliases: []string{"open-seatbox"},
@@ -319,6 +387,7 @@ func init() {
 	// Add subcommands
 	vehicleCmd.AddCommand(vehicleLockCmd)
 	vehicleCmd.AddCommand(vehicleUnlockCmd)
+	vehicleCmd.AddCommand(vehicleForceLockCmd)
 	vehicleCmd.AddCommand(vehicleHibernateCmd)
 	vehicleCmd.AddCommand(vehicleOpenCmd)
 

@@ -8,6 +8,7 @@ import (
 
 	"librescoot/lsc/cmd/lsc/diag"
 	"librescoot/lsc/cmd/lsc/gps"
+	"librescoot/lsc/cmd/lsc/ota"
 	"librescoot/lsc/cmd/lsc/power"
 	"librescoot/lsc/internal/redis"
 
@@ -30,6 +31,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
 	rootCmd.AddCommand(gps.GpsCmd)
+	rootCmd.AddCommand(ota.OTACmd)
 	rootCmd.AddCommand(power.PowerCmd)
 }
 
@@ -63,11 +65,13 @@ interface for common operations.`,
 		// Make Redis client available to subcommands
 		diag.SetRedisClient(redisClient)
 		gps.SetRedisClient(redisClient)
+		ota.SetRedisClient(redisClient)
 		power.SetRedisClient(redisClient)
 
 		// Make JSONOutput flag available to subcommands
 		diag.SetJSONOutput(&JSONOutput)
 		gps.SetJSONOutput(&JSONOutput)
+		ota.SetJSONOutput(&JSONOutput)
 		power.SetJSONOutput(&JSONOutput)
 
 		return nil
