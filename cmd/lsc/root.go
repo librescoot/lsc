@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"librescoot/lsc/cmd/lsc/diag"
 	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,9 @@ func init() {
 	log.SetOutput(io.Discard)
 
 	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
+
+	// Add diag subcommand
+	rootCmd.AddCommand(diag.DiagCmd)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -49,6 +53,10 @@ interface for common operations.`,
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
 			return err
 		}
+
+		// Make Redis client available to diag subcommands
+		diag.SetRedisClient(redisClient)
+
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
