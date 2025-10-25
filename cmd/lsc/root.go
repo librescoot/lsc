@@ -8,6 +8,7 @@ import (
 
 	"librescoot/lsc/cmd/lsc/diag"
 	"librescoot/lsc/cmd/lsc/gps"
+	"librescoot/lsc/cmd/lsc/power"
 	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
@@ -27,6 +28,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
 	rootCmd.AddCommand(gps.GpsCmd)
+	rootCmd.AddCommand(power.PowerCmd)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -59,6 +61,7 @@ interface for common operations.`,
 		// Make Redis client available to subcommands
 		diag.SetRedisClient(redisClient)
 		gps.SetRedisClient(redisClient)
+		power.SetRedisClient(redisClient)
 
 		return nil
 	},
