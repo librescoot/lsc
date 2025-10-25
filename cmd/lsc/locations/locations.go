@@ -56,19 +56,17 @@ func SetJSONOutput(jsonOutput *bool) {
 
 // loadAllLocations discovers and loads all saved locations from Redis
 func loadAllLocations() ([]SavedLocation, error) {
-	// Get all keys matching the pattern
-	client := RedisClient.GetClient()
-	ctx := context.Background()
-	keys, err := client.Keys(ctx, locationsKeyPrefix+".*").Result()
+	// Get all fields from settings hash
+	settings, err := RedisClient.HGetAll("settings")
 	if err != nil {
 		return nil, err
 	}
 
-	// Extract unique IDs from keys
+	// Extract unique IDs from field names
 	idMap := make(map[int]bool)
 	re := regexp.MustCompile(`^dashboard\.saved-locations\.(\d+)\.`)
-	for _, key := range keys {
-		matches := re.FindStringSubmatch(key)
+	for field := range settings {
+		matches := re.FindStringSubmatch(field)
 		if len(matches) >= 2 {
 			if id, err := strconv.Atoi(matches[1]); err == nil {
 				idMap[id] = true
