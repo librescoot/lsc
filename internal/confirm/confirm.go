@@ -52,10 +52,10 @@ func WaitForFieldValue(ctx context.Context, client *redis.Client, hashKey, field
 
 // WaitForStateChange waits for vehicle state to change to expected value
 func WaitForStateChange(ctx context.Context, client *redis.Client, expectedState string, timeout time.Duration) error {
-	return WaitForFieldValue(ctx, "vehicle", "state", expectedState, timeout)
+	return WaitForFieldValue(ctx, client, "vehicle", "state", expectedState, timeout)
 }
 
 // WaitForAlarmStatus waits for alarm status to change to expected value
 func WaitForAlarmStatus(ctx context.Context, client *redis.Client, expectedStatus string, timeout time.Duration) error {
-	return WaitForFieldValue(ctx, "alarm", "status", expectedStatus, timeout)
+	return WaitForFieldValue(ctx, client, "alarm", "status", expectedStatus, timeout)
 }
