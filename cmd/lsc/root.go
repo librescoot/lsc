@@ -2,6 +2,8 @@ package lsc
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 
 	"librescoot/lsc/internal/redis"
@@ -14,6 +16,13 @@ var (
 	redisAddr   string
 )
 
+func init() {
+	// Suppress all default log output (Redis client uses this)
+	log.SetOutput(io.Discard)
+
+	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "lsc",
@@ -24,11 +33,19 @@ librescoot ECUs and services via Redis.
 It abstracts away the direct Redis commands, providing a user-friendly
 interface for common operations.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Suppress Redis library warnings/logs
-		os.Setenv("REDIS_OM_LOG_LEVEL", "error")
+		// Temporarily suppress stderr to hide redis library warnings
+		oldStderr := os.Stderr
+		devNull, _ := os.Open(os.DevNull)
+		os.Stderr = devNull
 
 		redisClient = redis.NewClient(redisAddr)
-		if err := redisClient.Connect(); err != nil {
+		err := redisClient.Connect()
+
+		// Restore stderr
+		os.Stderr = oldStderr
+		devNull.Close()
+
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
 			return err
 		}
@@ -45,8 +62,4 @@ interface for common operations.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
-}
-
-func init() {
-	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
 }
