@@ -19,16 +19,37 @@ import (
 )
 
 var (
-	eventsSince  string
-	eventsCount  int
-	eventsFollow bool
-	eventsFilter string
+	eventsSince   string
+	eventsUntil   string
+	eventsCount   int
+	eventsFollow  bool
+	eventsFilter  string
+	eventsReverse bool
 )
 
 var eventsCmd = &cobra.Command{
 	Use:   "events",
 	Short: "View fault event stream",
-	Long:  `Display fault events from the events:faults stream with optional filtering and follow mode.`,
+	Long: `Display fault events from the events:faults stream with filtering and follow mode.
+
+Time range filtering (similar to journalctl):
+  --since <duration>   Show events since duration ago (e.g., 1h, 24h, 7d, 1w)
+  --until <duration>   Show events until duration ago (limits upper bound)
+
+Output control (similar to tail):
+  -n, --lines <N>      Show at most N events (default 50)
+  -r, --reverse        Show newest events first (default: oldest first)
+  -f, --follow         Follow the stream in real-time
+
+Filtering:
+  --filter <regex>     Filter events by regex pattern (matches group, code, or description)
+
+Examples:
+  lsc events --since 1h                 # Last hour of events
+  lsc events --since 24h --until 1h     # Events between 24h and 1h ago
+  lsc events -n 10 -r                   # Last 10 events, newest first
+  lsc events -f                         # Follow events in real-time
+  lsc events --filter "battery"         # Events containing "battery"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var filterRegex *regexp.Regexp
 		if eventsFilter != "" {
@@ -63,6 +84,7 @@ var eventsCmd = &cobra.Command{
 func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 	// Determine the start ID based on --since
 	startID := "0"
+	var sinceTime time.Time
 	if eventsSince != "" {
 		duration, err := parseDuration(eventsSince)
 		if err != nil {
@@ -70,14 +92,29 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 			return
 		}
 		// Calculate the approximate stream ID from timestamp
-		sinceTime := time.Now().Add(-duration)
+		sinceTime = time.Now().Add(-duration)
 		startID = fmt.Sprintf("%d-0", sinceTime.UnixMilli())
 	}
 
-	// Read from stream
+	// Determine the end time based on --until
+	var untilTime time.Time
+	if eventsUntil != "" {
+		duration, err := parseDuration(eventsUntil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, format.Error("Invalid duration '%s': %v\n"), eventsUntil, err)
+			return
+		}
+		untilTime = time.Now().Add(-duration)
+	}
+
+	// Read from stream (get more than count to allow for filtering)
+	readCount := int64(eventsCount * 2)
+	if readCount < 100 {
+		readCount = 100
+	}
 	streams, err := RedisClient.XRead(ctx, &redis.XReadArgs{
 		Streams: []string{"events:faults", startID},
-		Count:   int64(eventsCount),
+		Count:   readCount,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to read events: %v\n"), err)
@@ -89,12 +126,53 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 		return
 	}
 
-	// Process and display events
-	events := streams[0].Messages
-	for _, msg := range events {
+	// Filter and collect events
+	var filteredEvents []redis.XMessage
+	for _, msg := range streams[0].Messages {
+		// Parse timestamp from message ID
+		idParts := strings.Split(msg.ID, "-")
+		if len(idParts) > 0 {
+			if ms, err := strconv.ParseInt(idParts[0], 10, 64); err == nil {
+				eventTime := time.UnixMilli(ms)
+
+				// Filter by time range
+				if !sinceTime.IsZero() && eventTime.Before(sinceTime) {
+					continue
+				}
+				if !untilTime.IsZero() && eventTime.After(untilTime) {
+					continue
+				}
+			}
+		}
+
+		// Filter by regex
 		if !matchesFilter(msg, filterRegex) {
 			continue
 		}
+
+		filteredEvents = append(filteredEvents, msg)
+	}
+
+	// Apply reverse if requested
+	if eventsReverse {
+		// Reverse the slice
+		for i, j := 0, len(filteredEvents)-1; i < j; i, j = i+1, j-1 {
+			filteredEvents[i], filteredEvents[j] = filteredEvents[j], filteredEvents[i]
+		}
+	}
+
+	// Limit to count
+	if len(filteredEvents) > eventsCount {
+		filteredEvents = filteredEvents[:eventsCount]
+	}
+
+	// Display events
+	if len(filteredEvents) == 0 {
+		fmt.Println(format.Dim("No events found matching criteria"))
+		return
+	}
+
+	for _, msg := range filteredEvents {
 		printEvent(msg)
 	}
 }
@@ -259,9 +337,15 @@ func parseDuration(s string) (time.Duration, error) {
 
 func init() {
 	eventsCmd.Flags().StringVar(&eventsSince, "since", "", "Show events since duration ago (1h, 24h, 7d, 1w)")
-	eventsCmd.Flags().IntVar(&eventsCount, "count", 50, "Maximum number of events to show")
-	eventsCmd.Flags().BoolVar(&eventsFollow, "follow", false, "Follow the stream (like tail -f)")
+	eventsCmd.Flags().StringVar(&eventsUntil, "until", "", "Show events until duration ago (1h, 24h, 7d, 1w)")
+	eventsCmd.Flags().IntVarP(&eventsCount, "lines", "n", 50, "Maximum number of events to show")
+	eventsCmd.Flags().BoolVarP(&eventsFollow, "follow", "f", false, "Follow the stream (like tail -f)")
+	eventsCmd.Flags().BoolVarP(&eventsReverse, "reverse", "r", false, "Show newest events first")
 	eventsCmd.Flags().StringVar(&eventsFilter, "filter", "", "Filter events by regex pattern")
+
+	// Keep --count as deprecated alias for --lines
+	eventsCmd.Flags().IntVar(&eventsCount, "count", 50, "Maximum number of events to show (deprecated: use -n/--lines)")
+	eventsCmd.Flags().MarkDeprecated("count", "use -n or --lines instead")
 
 	DiagCmd.AddCommand(eventsCmd)
 }
