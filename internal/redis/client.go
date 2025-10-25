@@ -37,6 +37,11 @@ func NewClient(addr string) *Client {
 	}
 }
 
+// SetLogger sets a custom logger (use io.Discard to disable logging)
+func (c *Client) SetLogger(l *log.Logger) {
+	c.logger = l
+}
+
 // Connect pings the Redis server to ensure connectivity
 func (c *Client) Connect() error {
 	ctx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
@@ -45,7 +50,7 @@ func (c *Client) Connect() error {
 	if err := c.client.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
-	c.logger.Println("Successfully connected to Redis")
+	// Disable verbose logging - just verify connection silently
 	return nil
 }
 

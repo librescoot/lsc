@@ -24,6 +24,9 @@ librescoot ECUs and services via Redis.
 It abstracts away the direct Redis commands, providing a user-friendly
 interface for common operations.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Suppress Redis library warnings/logs
+		os.Setenv("REDIS_OM_LOG_LEVEL", "error")
+
 		redisClient = redis.NewClient(redisAddr)
 		if err := redisClient.Connect(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)

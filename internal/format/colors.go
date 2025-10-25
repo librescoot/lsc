@@ -58,12 +58,12 @@ func Error(text string) string {
 	return colorRed + text + colorReset
 }
 
-// Info returns text in blue (for informational messages)
+// Info returns text in dim gray (for informational messages/headers)
 func Info(text string) string {
 	if !colorsEnabled {
 		return text
 	}
-	return colorBlue + text + colorReset
+	return colorGray + text + colorReset
 }
 
 // Dim returns text in gray (for less important info)
@@ -87,8 +87,8 @@ func ColorizeState(state string) string {
 	switch state {
 	case "ready-to-drive", "on", "ideal", "active", "ok", "true", "enabled", "armed":
 		return Success(state)
-	case "stand-by", "parked", "off", "disabled", "disarmed", "false":
-		return Info(state)
+	case "stand-by", "parked", "off", "disabled", "disarmed", "false", "idle":
+		return state // No color for neutral states
 	case "shutting-down", "init", "waiting", "delay-armed":
 		return Warning(state)
 	case "error", "fault", "over-temperature", "under-temperature", "critical":
