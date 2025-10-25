@@ -17,6 +17,7 @@ import (
 var (
 	redisClient *redis.Client
 	redisAddr   string
+	JSONOutput  bool // Global flag for JSON output mode
 )
 
 func init() {
@@ -24,6 +25,7 @@ func init() {
 	log.SetOutput(io.Discard)
 
 	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
+	rootCmd.PersistentFlags().BoolVar(&JSONOutput, "json", false, "Output in JSON format")
 
 	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
