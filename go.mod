@@ -3,7 +3,7 @@ module librescoot/lsc
 go 1.24.2
 
 require (
-	github.com/redis/go-redis/v9 v9.16.0
+	github.com/redis/go-redis/v9 v9.7.0
 	github.com/spf13/cobra v1.10.1
 )
 
