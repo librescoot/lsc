@@ -45,5 +45,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "127.0.0.1:6379", "Redis server address (host:port)")
+	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
 }
