@@ -391,6 +391,26 @@ var eventsCmd = &cobra.Command{
 	},
 }
 
+// get shortcut (get setting)
+var getCmd = &cobra.Command{
+	Use:   "get <key>",
+	Short: "Get a setting value (shortcut for 'settings get')",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		settingsGetCmd.Run(cmd, args)
+	},
+}
+
+// set shortcut (set setting)
+var setCmd = &cobra.Command{
+	Use:   "set <key> <value>",
+	Short: "Set a setting value (shortcut for 'settings set')",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		settingsSetCmd.Run(cmd, args)
+	},
+}
+
 func init() {
 	// Add --no-block flag to shortcuts that need it
 	lockCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
@@ -407,4 +427,6 @@ func init() {
 	rootCmd.AddCommand(verCmd)
 	rootCmd.AddCommand(faultsCmd)
 	rootCmd.AddCommand(eventsCmd)
+	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(setCmd)
 }

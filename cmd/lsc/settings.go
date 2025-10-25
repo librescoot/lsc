@@ -16,6 +16,10 @@ var settingsCmd = &cobra.Command{
 	Use:   "settings",
 	Short: "Manage scooter settings",
 	Long:  `View and modify scooter settings stored in Redis.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// When called without subcommand, show all settings
+		settingsListCmd.Run(cmd, args)
+	},
 }
 
 var settingsListCmd = &cobra.Command{
