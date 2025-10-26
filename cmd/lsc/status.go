@@ -145,8 +145,18 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data map[strin
 				"left":  vehicleData["brake:left"],
 				"right": vehicleData["brake:right"],
 			},
-			"blinker": format.SafeValueOr(vehicleData["blinker:switch"], "off"),
-			"seatbox": format.SafeValueOr(vehicleData["seatbox:lock"], "closed"),
+			"blinker": func() string {
+				if vehicleData["blinker:switch"] == "" {
+					return "off"
+				}
+				return vehicleData["blinker:switch"]
+			}(),
+			"seatbox": func() string {
+				if vehicleData["seatbox:lock"] == "" {
+					return "closed"
+				}
+				return vehicleData["seatbox:lock"]
+			}(),
 		},
 		"motor": map[string]interface{}{
 			"speed_kph":       parseFloat(ecuData["speed"]),

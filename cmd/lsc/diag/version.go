@@ -38,17 +38,17 @@ var versionCmd = &cobra.Command{
 			// Build JSON output
 			output := map[string]interface{}{
 				"system": map[string]interface{}{
-					"mdb":         format.SafeValueOr(system["mdb-version"], ""),
-					"dbc":         format.SafeValueOr(system["dbc-version"], ""),
-					"nrf":         format.SafeValueOr(system["nrf-fw-version"], ""),
-					"environment": format.SafeValueOr(system["environment"], ""),
+					"mdb":         system["mdb-version"],
+					"dbc":         system["dbc-version"],
+					"nrf":         system["nrf-fw-version"],
+					"environment": system["environment"],
 				},
 				"components": map[string]interface{}{
-					"ecu": format.SafeValueOr(ecuData["fw-version"], ""),
+					"ecu": ecuData["fw-version"],
 				},
 				"ota": map[string]interface{}{
-					"system":       format.SafeValueOr(otaData["system"], ""),
-					"status":       format.SafeValueOr(otaData["status"], ""),
+					"system":       otaData["system"],
+					"status":       otaData["status"],
 					"fresh_update": otaData["fresh-update"] == "true",
 				},
 			}
@@ -58,8 +58,8 @@ var versionCmd = &cobra.Command{
 			if battery0Data["present"] == "true" {
 				batteries["0"] = map[string]interface{}{
 					"present":       true,
-					"version":       format.SafeValueOr(battery0Data["fw-version"], ""),
-					"serial_number": format.SafeValueOr(battery0Data["serial-number"], ""),
+					"version":       battery0Data["fw-version"],
+					"serial_number": battery0Data["serial-number"],
 				}
 			} else {
 				batteries["0"] = map[string]interface{}{"present": false}
@@ -67,8 +67,8 @@ var versionCmd = &cobra.Command{
 			if battery1Data["present"] == "true" {
 				batteries["1"] = map[string]interface{}{
 					"present":       true,
-					"version":       format.SafeValueOr(battery1Data["fw-version"], ""),
-					"serial_number": format.SafeValueOr(battery1Data["serial-number"], ""),
+					"version":       battery1Data["fw-version"],
+					"serial_number": battery1Data["serial-number"],
 				}
 			} else {
 				batteries["1"] = map[string]interface{}{"present": false}

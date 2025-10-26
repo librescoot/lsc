@@ -27,7 +27,7 @@ func init() {
 	// Suppress all default log output (Redis client uses this)
 	log.SetOutput(io.Discard)
 
-	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
+	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "localhost:6379", "Redis server address (host:port)")
 	rootCmd.PersistentFlags().BoolVar(&JSONOutput, "json", false, "Output in JSON format")
 
 	// Add subcommands

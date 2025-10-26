@@ -44,11 +44,17 @@ var alarmStatusCmd = &cobra.Command{
 		duration, _ := redisClient.HGet("settings", "alarm.duration")
 
 		if JSONOutput {
+			// Parse duration or use default
+			durationVal := duration
+			if durationVal == "" {
+				durationVal = "10"
+			}
+
 			output, _ := json.Marshal(map[string]interface{}{
 				"status":   status,
 				"enabled":  enabled == "true",
 				"honk":     honk == "true",
-				"duration": format.SafeValueOr(duration, "10"),
+				"duration": durationVal,
 			})
 			fmt.Println(string(output))
 			return

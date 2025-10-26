@@ -91,9 +91,9 @@ func getBatteryData(id string) map[string]interface{} {
 			"health_percent": parseInt(data["state-of-health"]),
 		},
 		"identity": map[string]interface{}{
-			"serial_number":     format.SafeValueOr(data["serial-number"], ""),
-			"manufacturing_date": format.SafeValueOr(data["manufacturing-date"], ""),
-			"firmware_version":  format.SafeValueOr(data["fw-version"], ""),
+			"serial_number":      data["serial-number"],
+			"manufacturing_date": data["manufacturing-date"],
+			"firmware_version":   data["fw-version"],
 		},
 		"faults": faults,
 	}
