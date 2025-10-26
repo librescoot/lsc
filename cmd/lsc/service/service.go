@@ -20,12 +20,48 @@ func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
 }
 
+// serviceNameMap maps shorthand names to full service names
+var serviceNameMap = map[string]string{
+	"vehicle":     "librescoot-vehicle",
+	"battery":     "librescoot-battery",
+	"ecu":         "librescoot-ecu",
+	"modem":       "librescoot-modem",
+	"alarm":       "librescoot-alarm",
+	"settings":    "librescoot-settings",
+	"keycard":     "librescoot-keycard",
+	"boot-led":    "librescoot-boot-led",
+	"bluetooth":   "librescoot-bluetooth",
+	"ums":         "librescoot-ums",
+	"brightness":  "librescoot-brightness",
+	"onboot":      "librescoot-onboot",
+	"backlight":   "dbc-backlight",
+	"pm":          "pm-service",
+}
+
+// resolveServiceName maps shorthand names to full service names
+func resolveServiceName(name string) string {
+	// Remove .service suffix if present for mapping
+	baseName := strings.TrimSuffix(name, ".service")
+
+	// Check if there's a mapping
+	if fullName, ok := serviceNameMap[baseName]; ok {
+		return fullName
+	}
+
+	// Return original name if no mapping found
+	return baseName
+}
+
 // ensureServiceSuffix adds .service suffix if not present
 func ensureServiceSuffix(name string) string {
-	if strings.HasSuffix(name, ".service") {
-		return name
+	// First resolve the service name
+	resolved := resolveServiceName(name)
+
+	// Then add .service suffix if not present
+	if strings.HasSuffix(resolved, ".service") {
+		return resolved
 	}
-	return name + ".service"
+	return resolved + ".service"
 }
 
 // ServiceCmd represents the service command

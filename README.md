@@ -99,16 +99,21 @@ lsc ota status
   - `--follow` or `-f` - Follow logs in real-time
   - `--lines <n>` or `-n <n>` - Number of lines to show (default: 50)
 
+**Service Name Shortcuts**: Use shorthand names like `vehicle`, `battery`, `ecu`, `alarm`, `modem`, `settings`, `bluetooth`, `pm`, etc. instead of full names like `librescoot-vehicle`.
+
 **Examples:**
 ```bash
 # List all services
 lsc svc list
 
-# Restart vehicle service
+# Restart vehicle service (shorthand)
+lsc svc restart vehicle
+
+# Or use full name
 lsc svc restart librescoot-vehicle
 
-# Follow logs in real-time
-lsc svc logs librescoot-battery -f
+# Follow logs in real-time (shorthand)
+lsc svc logs battery -f
 
 # View last 100 log lines
 lsc svc logs redis -n 100

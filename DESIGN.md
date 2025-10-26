@@ -486,6 +486,22 @@ LPUSH scooter:power suspend
 
 **Note**: These commands use systemctl directly and do not interact with Redis.
 
+**Service Name Shortcuts**: The following shorthand names are supported:
+- `vehicle` → `librescoot-vehicle`
+- `battery` → `librescoot-battery`
+- `ecu` → `librescoot-ecu`
+- `modem` → `librescoot-modem`
+- `alarm` → `librescoot-alarm`
+- `settings` → `librescoot-settings`
+- `keycard` → `librescoot-keycard`
+- `boot-led` → `librescoot-boot-led`
+- `bluetooth` → `librescoot-bluetooth`
+- `ums` → `librescoot-ums`
+- `brightness` → `librescoot-brightness`
+- `onboot` → `librescoot-onboot`
+- `backlight` → `dbc-backlight`
+- `pm` → `pm-service`
+
 #### list
 ```bash
 systemctl is-active <service>
