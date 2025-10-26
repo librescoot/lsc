@@ -58,13 +58,13 @@ var redisKeys = []string{
 }
 
 var LogsCmd = &cobra.Command{
-	Use:   "logs <services...>",
+	Use:   "logs [services...]",
 	Short: "Extract service logs and system state",
 	Long: `Extract systemd service logs and Redis snapshots for debugging and analysis.
 
 Available services:
   vehicle, battery, ecu/motor, modem, pm/power, update, settings,
-  keycard, bluetooth/ble, ums, radio-gaga/uplink, all
+  keycard, bluetooth/ble, ums, radio-gaga/uplink, all (default)
 
 The command will:
   1. Extract journalctl logs for specified services
@@ -73,11 +73,11 @@ The command will:
   4. Create both unpacked directory and compressed .tar.gz archive
 
 Examples:
+  lsc logs                      # Extract all services (default)
   lsc logs vehicle --since 24h
   lsc logs all --since 1h --output /data/debug-session
   lsc logs battery ecu --since "2025-10-25 10:00" --until "2025-10-25 12:00"
   lsc logs all --since 1d --priority err`,
-	Args: cobra.MinimumNArgs(1),
 	Run:  runLogsExtract,
 }
 
@@ -96,6 +96,11 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 	outputDir := logsOutput
 	if outputDir == "" {
 		outputDir = fmt.Sprintf("/data/logs-%s", time.Now().Format("2006-01-02-15-04"))
+	}
+
+	// Default to "all" if no services specified
+	if len(args) == 0 {
+		args = []string{"all"}
 	}
 
 	// Determine which services to extract
@@ -208,10 +213,10 @@ func extractServiceLogs(service, outputDir string) error {
 	args := []string{"-u", service, "--no-pager"}
 
 	if logsSince != "" {
-		args = append(args, "--since", logsSince)
+		args = append(args, "--since", convertDurationToJournalctl(logsSince))
 	}
 	if logsUntil != "" {
-		args = append(args, "--until", logsUntil)
+		args = append(args, "--until", convertDurationToJournalctl(logsUntil))
 	}
 	if logsPriority != "" {
 		args = append(args, "--priority", logsPriority)
@@ -226,6 +231,60 @@ func extractServiceLogs(service, outputDir string) error {
 	// Save to file
 	logFile := filepath.Join(outputDir, "logs", service+".log")
 	return os.WriteFile(logFile, output, 0644)
+}
+
+// convertDurationToJournalctl converts duration strings like "1h", "24h", "1d"
+// to journalctl-compatible format like "1 hour ago", "24 hours ago", "1 day ago"
+func convertDurationToJournalctl(duration string) string {
+	// If it already looks like an absolute timestamp or journalctl format, return as-is
+	if strings.Contains(duration, " ") || strings.Contains(duration, "-") || strings.Contains(duration, ":") {
+		return duration
+	}
+
+	// Parse common duration formats
+	duration = strings.TrimSpace(duration)
+	if duration == "" {
+		return duration
+	}
+
+	// Handle hours (1h, 24h)
+	if strings.HasSuffix(duration, "h") {
+		hours := strings.TrimSuffix(duration, "h")
+		if hours == "1" {
+			return "1 hour ago"
+		}
+		return hours + " hours ago"
+	}
+
+	// Handle days (1d, 7d)
+	if strings.HasSuffix(duration, "d") {
+		days := strings.TrimSuffix(duration, "d")
+		if days == "1" {
+			return "1 day ago"
+		}
+		return days + " days ago"
+	}
+
+	// Handle weeks (1w, 2w)
+	if strings.HasSuffix(duration, "w") {
+		weeks := strings.TrimSuffix(duration, "w")
+		if weeks == "1" {
+			return "1 week ago"
+		}
+		return weeks + " weeks ago"
+	}
+
+	// Handle minutes (1m, 30m)
+	if strings.HasSuffix(duration, "m") {
+		minutes := strings.TrimSuffix(duration, "m")
+		if minutes == "1" {
+			return "1 minute ago"
+		}
+		return minutes + " minutes ago"
+	}
+
+	// If no known suffix, return as-is (might be absolute timestamp)
+	return duration
 }
 
 func captureRedisSnapshots(outputDir string) int {
