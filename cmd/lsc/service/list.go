@@ -17,12 +17,15 @@ func init() {
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List LibreScoot MDB services and their status",
-	Long:  `List all LibreScoot systemd services running on the MDB with their current status.`,
+	Short: "List LibreScoot services and their status",
+	Long:  `List all LibreScoot systemd services with their current status.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// MDB services (lsc runs on Main Driver Board only)
+		// All LibreScoot services (MDB + DBC)
+		// User knows which ones exist on their platform
 		services := []string{
+			// Core infrastructure (both MDB and DBC)
 			"redis",
+			// MDB-only services
 			"librescoot-vehicle",
 			"librescoot-battery",
 			"librescoot-ecu",
@@ -33,11 +36,17 @@ var listCmd = &cobra.Command{
 			"librescoot-boot-led",
 			"librescoot-bluetooth",
 			"librescoot-ums",
-			"librescoot-onboot",
 			"pm-service",
+			"radio-gaga",
+			// DBC-only services
+			"scootui",
+			"valhalla",
+			"dbc-backlight",
+			"librescoot-brightness",
+			// Shared services (on both MDB and DBC)
+			"librescoot-onboot",
 			"update-service",
 			"version-service",
-			"radio-gaga",
 		}
 
 		if *JSONOutput {

@@ -482,7 +482,7 @@ LPUSH scooter:power suspend
 
 ### Service Management (`lsc service` / `lsc svc`)
 
-**Purpose**: Manage systemd services on the MDB
+**Purpose**: Manage systemd services on MDB and DBC
 
 **Note**: These commands use systemctl directly and do not interact with Redis.
 
@@ -493,23 +493,11 @@ systemctl is-enabled <service>
 # Display table of all LibreScoot services with status and enabled state
 ```
 
-**Services on MDB:**
-- redis
-- librescoot-vehicle
-- librescoot-battery
-- librescoot-ecu
-- librescoot-modem
-- librescoot-alarm
-- librescoot-settings
-- librescoot-keycard
-- librescoot-boot-led
-- librescoot-bluetooth
-- librescoot-ums
-- librescoot-onboot
-- pm-service
-- update-service
-- version-service
-- radio-gaga
+**Services:**
+- **Core infrastructure (both platforms):** redis
+- **MDB-only services:** librescoot-vehicle, librescoot-battery, librescoot-ecu, librescoot-modem, librescoot-alarm, librescoot-settings, librescoot-keycard, librescoot-boot-led, librescoot-bluetooth, librescoot-ums, pm-service, radio-gaga
+- **DBC-only services:** scootui, valhalla, dbc-backlight, librescoot-brightness
+- **Shared services (both platforms):** librescoot-onboot, update-service, version-service
 
 #### start \<service\>
 ```bash
