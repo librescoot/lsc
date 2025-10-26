@@ -7,6 +7,7 @@ A command-line interface for controlling and monitoring LibreScoot electric scoo
 - **Vehicle Control**: Lock, unlock, hibernate, and force-lock vehicle states
 - **LED Control**: Trigger LED cues and fade animations
 - **Power Management**: Control power states (run, suspend, hibernate, reboot)
+- **Service Management**: Start, stop, restart, enable, disable systemd services and view logs
 - **OTA Updates**: View update status and install updates from files or URLs
 - **GPS**: Monitor GPS status and track location
 - **Battery Diagnostics**: View detailed battery information and health
@@ -84,6 +85,34 @@ lsc ota status
 - `lsc power suspend` - Set power state to suspend (low power)
 - `lsc power hibernate` - Set power state to hibernate (power off)
 - `lsc power reboot` - Reboot the system
+
+### Service Management
+
+- `lsc service list` (or `lsc svc list`) - List all services with status
+- `lsc service start <service>` - Start a service
+- `lsc service stop <service>` - Stop a service
+- `lsc service restart <service>` - Restart a service
+- `lsc service enable <service>` - Enable service to start on boot
+- `lsc service disable <service>` - Disable service from starting on boot
+- `lsc service status <service>` - Show detailed service status
+- `lsc service logs <service>` - View recent service logs
+  - `--follow` or `-f` - Follow logs in real-time
+  - `--lines <n>` or `-n <n>` - Number of lines to show (default: 50)
+
+**Examples:**
+```bash
+# List all services
+lsc svc list
+
+# Restart vehicle service
+lsc svc restart librescoot-vehicle
+
+# Follow logs in real-time
+lsc svc logs librescoot-battery -f
+
+# View last 100 log lines
+lsc svc logs redis -n 100
+```
 
 ### OTA Updates
 

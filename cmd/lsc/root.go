@@ -13,6 +13,7 @@ import (
 	"librescoot/lsc/cmd/lsc/monitor"
 	"librescoot/lsc/cmd/lsc/ota"
 	"librescoot/lsc/cmd/lsc/power"
+	"librescoot/lsc/cmd/lsc/service"
 	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
@@ -39,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(monitor.MonitorCmd)
 	rootCmd.AddCommand(ota.OTACmd)
 	rootCmd.AddCommand(power.PowerCmd)
+	rootCmd.AddCommand(service.ServiceCmd)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -52,6 +54,7 @@ It provides convenient access to:
   • Vehicle state management (lock/unlock, hibernate, force-lock)
   • LED control (cues and fade animations)
   • Power management (run/suspend/hibernate/reboot states)
+  • Service management (start/stop/restart/enable/disable services, view logs)
   • OTA updates (status and installation)
   • GPS tracking and monitoring
   • Battery diagnostics and status
@@ -87,6 +90,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		monitor.SetRedisClient(redisClient)
 		ota.SetRedisClient(redisClient)
 		power.SetRedisClient(redisClient)
+		service.SetRedisClient(redisClient)
 
 		// Make JSONOutput flag available to subcommands
 		diag.SetJSONOutput(&JSONOutput)
@@ -96,6 +100,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		monitor.SetJSONOutput(&JSONOutput)
 		ota.SetJSONOutput(&JSONOutput)
 		power.SetJSONOutput(&JSONOutput)
+		service.SetJSONOutput(&JSONOutput)
 
 		return nil
 	},

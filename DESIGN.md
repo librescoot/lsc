@@ -480,6 +480,77 @@ LPUSH scooter:power suspend
 // Request suspend
 ```
 
+### Service Management (`lsc service` / `lsc svc`)
+
+**Purpose**: Manage systemd services on the MDB
+
+**Note**: These commands use systemctl directly and do not interact with Redis.
+
+#### list
+```bash
+systemctl is-active <service>
+systemctl is-enabled <service>
+# Display table of all LibreScoot services with status and enabled state
+```
+
+**Services on MDB:**
+- redis
+- librescoot-vehicle
+- librescoot-battery
+- librescoot-ecu
+- librescoot-modem
+- librescoot-alarm
+- librescoot-settings
+- librescoot-keycard
+- librescoot-boot-led
+- librescoot-bluetooth
+- librescoot-ums
+- librescoot-onboot
+- pm-service
+- update-service
+- version-service
+- radio-gaga
+
+#### start \<service\>
+```bash
+systemctl start <service>
+```
+
+#### stop \<service\>
+```bash
+systemctl stop <service>
+```
+
+#### restart \<service\>
+```bash
+systemctl restart <service>
+```
+
+#### enable \<service\>
+```bash
+systemctl enable <service>
+# Enable service to start on boot
+```
+
+#### disable \<service\>
+```bash
+systemctl disable <service>
+# Disable service from starting on boot
+```
+
+#### status \<service\>
+```bash
+systemctl status <service>
+# Show detailed service status with recent logs
+```
+
+#### logs \<service\> [-f] [-n \<lines\>]
+```bash
+journalctl -u <service> -n <lines>
+# With -f: follow logs in real-time
+# Default: 50 lines
+```
+
 ### BMX Sensor Commands (`lsc bmx`)
 
 #### status
