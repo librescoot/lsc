@@ -125,7 +125,7 @@ func init() {
 	if eventsCmd := createDiagShortcut("events", nil); eventsCmd != nil {
 		rootCmd.AddCommand(eventsCmd)
 	}
-	if dbcCmd := createDiagShortcut("dashboard", []string{"dash"}); dbcCmd != nil {
+	if dbcCmd := createDiagShortcut("dashboard", []string{"dbc", "dash"}); dbcCmd != nil {
 		rootCmd.AddCommand(dbcCmd)
 	}
 	if engineCmd := createDiagShortcut("engine", nil); engineCmd != nil {
