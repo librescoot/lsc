@@ -212,7 +212,7 @@ func printFullUpdate(gpsData map[string]string) {
 	}
 
 	// Single line with all info
-	fmt.Printf("[%s] %s%s | %s,%s | ▲ %s | %s km/h | %s | Acc: %s | Q: %s | DOP: %s/%s/%s | GPS: %s\n",
+	fmt.Printf("[%s] %s%s | %s,%s | ▲ %s | %s km/h | %s | Acc: %s | Q: %s | DOP: %s/%s/%s | T: %s\n",
 		format.Dim(timestamp),
 		statePrefix,
 		formatFixType(fixType),
