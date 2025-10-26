@@ -1,12 +1,7 @@
 package lsc
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-
 	"librescoot/lsc/cmd/lsc/diag"
-	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
 )
@@ -35,176 +30,7 @@ var openCmd = &cobra.Command{
 	Run:   vehicleOpenCmd.Run,
 }
 
-// dbc shortcut (dashboard control)
-var dbcCmd = &cobra.Command{
-	Use:       "dbc [on|off]",
-	Aliases:   []string{"dash"},
-	Short:     "Control dashboard power (shortcut for hardware command)",
-	Args:      cobra.ExactArgs(1),
-	ValidArgs: []string{"on", "off"},
-	Run: func(cmd *cobra.Command, args []string) {
-		action := args[0]
-
-		if action != "on" && action != "off" {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "dbc",
-					"status":  "error",
-					"error":   fmt.Sprintf("invalid action: %s", action),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'on' or 'off'\n"), action)
-			}
-			return
-		}
-
-		command := fmt.Sprintf("dashboard:%s", action)
-		if err := redisClient.LPush("scooter:hardware", command); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "dbc",
-					"action":  action,
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send dashboard command: %v\n"), err)
-			}
-			return
-		}
-
-		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"command": "dbc",
-				"action":  action,
-				"status":  "success",
-			})
-			fmt.Println(string(output))
-		} else {
-			fmt.Printf("%s Dashboard power: %s\n", format.Success("✓"), action)
-		}
-	},
-}
-
-// engine shortcut (engine power control)
-var engineCmd = &cobra.Command{
-	Use:       "engine [on|off]",
-	Short:     "Control engine power (shortcut for hardware command)",
-	Args:      cobra.ExactArgs(1),
-	ValidArgs: []string{"on", "off"},
-	Run: func(cmd *cobra.Command, args []string) {
-		action := args[0]
-
-		if action != "on" && action != "off" {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "engine",
-					"status":  "error",
-					"error":   fmt.Sprintf("invalid action: %s", action),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'on' or 'off'\n"), action)
-			}
-			return
-		}
-
-		command := fmt.Sprintf("engine:%s", action)
-		if err := redisClient.LPush("scooter:hardware", command); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "engine",
-					"action":  action,
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send engine command: %v\n"), err)
-			}
-			return
-		}
-
-		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"command": "engine",
-				"action":  action,
-				"status":  "success",
-			})
-			fmt.Println(string(output))
-		} else {
-			fmt.Printf("%s Engine power: %s\n", format.Success("✓"), action)
-		}
-	},
-}
-
-// blink shortcut (blinker control)
-var blinkCmd = &cobra.Command{
-	Use:       "blink [off|left|right|both]",
-	Short:     "Control turn signals (shortcut for 'diag blinkers')",
-	Long: `Control turn signal blinkers.
-
-Examples:
-  lsc blink left    # Left turn signal
-  lsc blink right   # Right turn signal
-  lsc blink both    # Hazard lights (both blinkers)
-  lsc blink off     # Turn off blinkers`,
-	Args:      cobra.ExactArgs(1),
-	ValidArgs: []string{"off", "left", "right", "both"},
-	Run: func(cmd *cobra.Command, args []string) {
-		state := args[0]
-
-		// Validate argument
-		validStates := map[string]bool{
-			"off":   true,
-			"left":  true,
-			"right": true,
-			"both":  true,
-		}
-
-		if !validStates[state] {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "blink",
-					"status":  "error",
-					"error":   fmt.Sprintf("invalid state: %s", state),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Invalid state '%s'. Must be one of: off, left, right, both\n"), state)
-			}
-			return
-		}
-
-		// Send command
-		if err := redisClient.LPush("scooter:blinker", state); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "blink",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send blinker command: %v\n"), err)
-			}
-			return
-		}
-
-		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"command": "blink",
-				"status":  "success",
-				"state":   state,
-			})
-			fmt.Println(string(output))
-		} else {
-			fmt.Printf("%s Blinkers: %s\n", format.Success("✓"), state)
-		}
-	},
-}
+// dbc, engine, and blink shortcuts - will be created by createDiagShortcut below
 
 // createDiagShortcut creates a shortcut command that mirrors a diag subcommand
 func createDiagShortcut(name string, aliases []string) *cobra.Command {
@@ -274,13 +100,10 @@ func init() {
 	unlockCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
 	openCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
 
-	// Add vehicle/hardware shortcut commands to root
+	// Add vehicle shortcut commands to root
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
 	rootCmd.AddCommand(openCmd)
-	rootCmd.AddCommand(dbcCmd)
-	rootCmd.AddCommand(engineCmd)
-	rootCmd.AddCommand(blinkCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
 
@@ -296,5 +119,14 @@ func init() {
 	}
 	if eventsCmd := createDiagShortcut("events", nil); eventsCmd != nil {
 		rootCmd.AddCommand(eventsCmd)
+	}
+	if dbcCmd := createDiagShortcut("dashboard", []string{"dbc", "dash"}); dbcCmd != nil {
+		rootCmd.AddCommand(dbcCmd)
+	}
+	if engineCmd := createDiagShortcut("engine", nil); engineCmd != nil {
+		rootCmd.AddCommand(engineCmd)
+	}
+	if blinkCmd := createDiagShortcut("blinkers", []string{"blink"}); blinkCmd != nil {
+		rootCmd.AddCommand(blinkCmd)
 	}
 }
