@@ -10,6 +10,7 @@ import (
 	"librescoot/lsc/cmd/lsc/gps"
 	"librescoot/lsc/cmd/lsc/locations"
 	"librescoot/lsc/cmd/lsc/logs"
+	"librescoot/lsc/cmd/lsc/monitor"
 	"librescoot/lsc/cmd/lsc/ota"
 	"librescoot/lsc/cmd/lsc/power"
 	"librescoot/lsc/internal/redis"
@@ -35,6 +36,7 @@ func init() {
 	rootCmd.AddCommand(gps.GpsCmd)
 	rootCmd.AddCommand(locations.LocationsCmd)
 	rootCmd.AddCommand(logs.LogsCmd)
+	rootCmd.AddCommand(monitor.MonitorCmd)
 	rootCmd.AddCommand(ota.OTACmd)
 	rootCmd.AddCommand(power.PowerCmd)
 }
@@ -82,6 +84,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		gps.SetRedisClient(redisClient)
 		locations.SetRedisClient(redisClient)
 		logs.SetRedisClient(redisClient)
+		monitor.SetRedisClient(redisClient)
 		ota.SetRedisClient(redisClient)
 		power.SetRedisClient(redisClient)
 
@@ -90,6 +93,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		gps.SetJSONOutput(&JSONOutput)
 		locations.SetJSONOutput(&JSONOutput)
 		logs.SetJSONOutput(&JSONOutput)
+		monitor.SetJSONOutput(&JSONOutput)
 		ota.SetJSONOutput(&JSONOutput)
 		power.SetJSONOutput(&JSONOutput)
 
