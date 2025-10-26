@@ -228,10 +228,14 @@ lsc communicates with LibreScoot services via Redis:
 # Install dependencies
 go mod download
 
-# Build
-go build -o lsc .
+# Build for ARM (target platform)
+make build
 
-# Build for ARM
+# Build for your local platform
+make build-native
+
+# Or manually:
+go build -o lsc .
 GOOS=linux GOARCH=arm GOARM=7 go build -o lsc .
 
 # Run tests
