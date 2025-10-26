@@ -22,7 +22,7 @@ var (
 var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Watch GPS updates in real-time",
-	Long:  `Subscribe to GPS updates and display changes in real-time.`,
+	Long:  `Poll GPS updates and display changes in real-time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -38,26 +38,24 @@ var watchCmd = &cobra.Command{
 			cancel()
 		}()
 
-		// Subscribe to GPS updates
-		pubsub := RedisClient.Subscribe(ctx, "gps")
-		defer pubsub.Close()
-
 		if JSONOutput == nil || !*JSONOutput {
 			fmt.Println(format.Success("Watching GPS updates... (Ctrl+C to stop)"))
 			fmt.Println()
 		}
 
-		ch := pubsub.Channel()
-
 		// Print initial status
 		printGPSUpdate(ctx)
+
+		// Poll for updates every second
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ch:
-				// GPS hash was updated, fetch and display
+			case <-ticker.C:
+				// Poll GPS hash and display
 				printGPSUpdate(ctx)
 			}
 		}
@@ -110,7 +108,7 @@ func printJSONUpdate(gpsData map[string]string) {
 }
 
 func printCompactUpdate(gpsData map[string]string) {
-	// One-line format: timestamp | lat,lon | speed | course | accuracy
+	// One-line format: timestamp | lat,lon | alt | speed | course | accuracy
 	timestamp := "N/A"
 	if ts, ok := gpsData["updated"]; ok {
 		if t, err := time.Parse(time.RFC3339, ts); err == nil {
@@ -120,6 +118,13 @@ func printCompactUpdate(gpsData map[string]string) {
 
 	lat := gpsData["latitude"]
 	lon := gpsData["longitude"]
+
+	altitude := "N/A"
+	if alt, ok := gpsData["altitude"]; ok {
+		if altVal, err := strconv.ParseFloat(alt, 64); err == nil {
+			altitude = fmt.Sprintf("%.0fm", altVal)
+		}
+	}
 
 	speed := "0.0"
 	if s, ok := gpsData["speed"]; ok {
@@ -142,9 +147,10 @@ func printCompactUpdate(gpsData map[string]string) {
 		}
 	}
 
-	fmt.Printf("%s | %s,%s | %s km/h | %s | %s\n",
+	fmt.Printf("%s | %s,%s | %s | %s km/h | %s | %s\n",
 		format.Dim(timestamp),
 		lat, lon,
+		altitude,
 		speed,
 		course,
 		accuracy,
@@ -173,6 +179,13 @@ func printFullUpdate(gpsData map[string]string) {
 		}
 	}
 
+	altitude := "N/A"
+	if alt, ok := gpsData["altitude"]; ok {
+		if altVal, err := strconv.ParseFloat(alt, 64); err == nil {
+			altitude = fmt.Sprintf("%.1f m", altVal)
+		}
+	}
+
 	accuracy := "N/A"
 	if eph, ok := gpsData["eph"]; ok {
 		if ephVal, err := strconv.ParseFloat(eph, 64); err == nil {
@@ -180,14 +193,37 @@ func printFullUpdate(gpsData map[string]string) {
 		}
 	}
 
-	fmt.Printf("[%s] %s %s | %s,%s | %s km/h | %s | Acc: %s\n",
+	quality := gpsData["quality"]
+	hdop := gpsData["hdop"]
+	pdop := gpsData["pdop"]
+	vdop := gpsData["vdop"]
+
+	gpsTime := "N/A"
+	if ts, ok := gpsData["timestamp"]; ok && ts != "" {
+		if t, err := time.Parse(time.RFC3339, ts); err == nil {
+			gpsTime = t.Format("15:04:05")
+		}
+	}
+
+	// Show state if no fix or in error state
+	statePrefix := ""
+	if fixType == "" || fixType == "none" || fixType == "unknown" || state == "error" || state == "no-fix" {
+		statePrefix = format.ColorizeState(state) + " "
+	}
+
+	// Single line with all info
+	fmt.Printf("[%s] %s%s | %s,%s | ▲ %s | %s km/h | %s | Acc: %s | Q: %s | DOP: %s/%s/%s | GPS: %s\n",
 		format.Dim(timestamp),
-		format.ColorizeState(state),
+		statePrefix,
 		formatFixType(fixType),
 		lat, lon,
+		altitude,
 		speed,
 		course,
 		accuracy,
+		quality,
+		hdop, pdop, vdop,
+		format.Dim(gpsTime),
 	)
 }
 
