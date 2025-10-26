@@ -33,22 +33,22 @@ var vehicleLockCmd = &cobra.Command{
 			fmt.Println("Locking scooter...")
 		}
 
-		// Send lock command
-		if err := redisClient.LPush("scooter:state", "lock"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "lock",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send lock command: %v\n"), err)
-			}
-			return
-		}
-
 		if noBlock {
+			// Send lock command without waiting
+			if err := redisClient.LPush("scooter:state", "lock"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "lock",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send lock command: %v\n"), err)
+				}
+				return
+			}
+
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "lock",
@@ -62,10 +62,15 @@ var vehicleLockCmd = &cobra.Command{
 		}
 
 		// Wait for state to change to stand-by
+		// Subscribe first, then send command to avoid missing the notification
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second, func() error {
+			return redisClient.LPush("scooter:state", "lock")
+		})
+
+		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "lock",
@@ -101,22 +106,22 @@ var vehicleUnlockCmd = &cobra.Command{
 			fmt.Println("Unlocking scooter...")
 		}
 
-		// Send unlock command
-		if err := redisClient.LPush("scooter:state", "unlock"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "unlock",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
-			}
-			return
-		}
-
 		if noBlock {
+			// Send unlock command without waiting
+			if err := redisClient.LPush("scooter:state", "unlock"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "unlock",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
+				}
+				return
+			}
+
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "unlock",
@@ -133,11 +138,30 @@ var vehicleUnlockCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Subscribe and wait for state change
+		// Subscribe BEFORE sending command to avoid missing the notification
 		pubsub := redisClient.Subscribe(ctx, "vehicle")
 		defer pubsub.Close()
 
 		ch := pubsub.Channel()
+
+		// Give subscription a moment to establish
+		time.Sleep(100 * time.Millisecond)
+
+		// Send unlock command after subscription is established
+		if err := redisClient.LPush("scooter:state", "unlock"); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "unlock",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
+			}
+			return
+		}
+
 		timeout := time.After(10 * time.Second)
 
 		for {
@@ -185,22 +209,22 @@ var vehicleHibernateCmd = &cobra.Command{
 			fmt.Println("Requesting hibernation...")
 		}
 
-		// Send lock-hibernate command
-		if err := redisClient.LPush("scooter:state", "lock-hibernate"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "hibernate",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
-			}
-			return
-		}
-
 		if noBlock {
+			// Send hibernate command without waiting
+			if err := redisClient.LPush("scooter:state", "lock-hibernate"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "hibernate",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
+				}
+				return
+			}
+
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "hibernate",
@@ -214,10 +238,15 @@ var vehicleHibernateCmd = &cobra.Command{
 		}
 
 		// Wait for state to change to stand-by
+		// Subscribe first, then send command to avoid missing the notification
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second, func() error {
+			return redisClient.LPush("scooter:state", "lock-hibernate")
+		})
+
+		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "hibernate",
@@ -253,22 +282,22 @@ var vehicleForceLockCmd = &cobra.Command{
 			fmt.Println("Force locking scooter...")
 		}
 
-		// Send force-lock command
-		if err := redisClient.LPush("scooter:state", "force-lock"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "force-lock",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send force-lock command: %v\n"), err)
-			}
-			return
-		}
-
 		if noBlock {
+			// Send force-lock command without waiting
+			if err := redisClient.LPush("scooter:state", "force-lock"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "force-lock",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send force-lock command: %v\n"), err)
+				}
+				return
+			}
+
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "force-lock",
@@ -282,10 +311,15 @@ var vehicleForceLockCmd = &cobra.Command{
 		}
 
 		// Wait for state to change to stand-by
+		// Subscribe first, then send command to avoid missing the notification
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second, func() error {
+			return redisClient.LPush("scooter:state", "force-lock")
+		})
+
+		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "force-lock",
@@ -322,22 +356,22 @@ var vehicleOpenCmd = &cobra.Command{
 			fmt.Println("Opening seatbox...")
 		}
 
-		// Send open command
-		if err := redisClient.LPush("scooter:seatbox", "open"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "open",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send seatbox open command: %v\n"), err)
-			}
-			return
-		}
-
 		if noBlock {
+			// Send open command without waiting
+			if err := redisClient.LPush("scooter:seatbox", "open"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "open",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send seatbox open command: %v\n"), err)
+				}
+				return
+			}
+
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "open",
@@ -351,10 +385,15 @@ var vehicleOpenCmd = &cobra.Command{
 		}
 
 		// Wait briefly for lock state to change to open
+		// Subscribe first, then send command to avoid missing the notification
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "seatbox:lock", "open", 5*time.Second); err != nil {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "seatbox:lock", "open", 5*time.Second, func() error {
+			return redisClient.LPush("scooter:seatbox", "open")
+		})
+
+		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "open",

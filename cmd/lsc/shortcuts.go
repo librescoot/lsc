@@ -1,229 +1,38 @@
 package lsc
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"librescoot/lsc/cmd/lsc/diag"
-	"librescoot/lsc/internal/confirm"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
 )
 
 // Shortcut commands for common operations
+// These shortcuts simply delegate to the real vehicle commands
 
-// lock shortcut
+// lock shortcut - delegates to vehicle lock
 var lockCmd = &cobra.Command{
 	Use:   "lock",
 	Short: "Lock the scooter (shortcut for 'vehicle lock')",
-	Run: func(cmd *cobra.Command, args []string) {
-		if !JSONOutput {
-			fmt.Println("Locking scooter...")
-		}
-
-		if err := redisClient.LPush("scooter:state", "lock"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "lock",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send lock command: %v\n"), err)
-			}
-			return
-		}
-
-		if noBlock {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "lock",
-					"status":  "sent",
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Println(format.Success("Lock command sent"))
-			}
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "lock",
-					"status":  "timeout",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Lock command sent but state confirmation timed out\n"))
-			}
-			return
-		}
-
-		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"command": "lock",
-				"status":  "success",
-				"state":   "stand-by",
-			})
-			fmt.Println(string(output))
-		} else {
-			fmt.Println(format.Success("Scooter locked successfully"))
-		}
-	},
+	Run:   vehicleLockCmd.Run,
 }
 
-// unlock shortcut
+// unlock shortcut - delegates to vehicle unlock
 var unlockCmd = &cobra.Command{
 	Use:   "unlock",
 	Short: "Unlock the scooter (shortcut for 'vehicle unlock')",
-	Run: func(cmd *cobra.Command, args []string) {
-		if !JSONOutput {
-			fmt.Println("Unlocking scooter...")
-		}
-
-		if err := redisClient.LPush("scooter:state", "unlock"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "unlock",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
-			}
-			return
-		}
-
-		if noBlock {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "unlock",
-					"status":  "sent",
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Println(format.Success("Unlock command sent"))
-			}
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		pubsub := redisClient.Subscribe(ctx, "vehicle")
-		defer pubsub.Close()
-
-		ch := pubsub.Channel()
-		timeout := time.After(10 * time.Second)
-
-		for {
-			select {
-			case <-timeout:
-				if JSONOutput {
-					output, _ := json.Marshal(map[string]interface{}{
-						"command": "unlock",
-						"status":  "timeout",
-					})
-					fmt.Println(string(output))
-				} else {
-					fmt.Fprintf(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
-				}
-				return
-			case msg := <-ch:
-				if msg.Payload == "state" {
-					state, err := redisClient.HGet("vehicle", "state")
-					if err == nil && (state == "parked" || state == "ready-to-drive") {
-						if JSONOutput {
-							output, _ := json.Marshal(map[string]interface{}{
-								"command": "unlock",
-								"status":  "success",
-								"state":   state,
-							})
-							fmt.Println(string(output))
-						} else {
-							fmt.Println(format.Success(fmt.Sprintf("Scooter unlocked successfully (state: %s)", state)))
-						}
-						return
-					}
-				}
-			}
-		}
-	},
+	Run:   vehicleUnlockCmd.Run,
 }
 
-// open shortcut (seatbox)
+// open shortcut (seatbox) - delegates to vehicle open
 var openCmd = &cobra.Command{
 	Use:   "open",
 	Short: "Open the seatbox (shortcut for 'vehicle open')",
-	Run: func(cmd *cobra.Command, args []string) {
-		if !JSONOutput {
-			fmt.Println("Opening seatbox...")
-		}
-
-		if err := redisClient.LPush("scooter:seatbox", "open"); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "open",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send seatbox open command: %v\n"), err)
-			}
-			return
-		}
-
-		if noBlock {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "open",
-					"status":  "sent",
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Println(format.Success("Seatbox open command sent"))
-			}
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := confirm.WaitForFieldValue(ctx, redisClient, "vehicle", "seatbox:lock", "open", 5*time.Second); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "open",
-					"status":  "timeout",
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Seatbox command sent but lock confirmation timed out\n"))
-			}
-			return
-		}
-
-		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"command": "open",
-				"status":  "success",
-			})
-			fmt.Println(string(output))
-		} else {
-			fmt.Println(format.Success("Seatbox opened successfully"))
-		}
-	},
+	Run:   vehicleOpenCmd.Run,
 }
 
 // dbc shortcut (dashboard control)
