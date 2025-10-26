@@ -331,6 +331,72 @@ var engineCmd = &cobra.Command{
 	},
 }
 
+// blink shortcut (blinker control)
+var blinkCmd = &cobra.Command{
+	Use:       "blink [off|left|right|both]",
+	Short:     "Control turn signals (shortcut for 'diag blinkers')",
+	Long: `Control turn signal blinkers.
+
+Examples:
+  lsc blink left    # Left turn signal
+  lsc blink right   # Right turn signal
+  lsc blink both    # Hazard lights (both blinkers)
+  lsc blink off     # Turn off blinkers`,
+	Args:      cobra.ExactArgs(1),
+	ValidArgs: []string{"off", "left", "right", "both"},
+	Run: func(cmd *cobra.Command, args []string) {
+		state := args[0]
+
+		// Validate argument
+		validStates := map[string]bool{
+			"off":   true,
+			"left":  true,
+			"right": true,
+			"both":  true,
+		}
+
+		if !validStates[state] {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "blink",
+					"status":  "error",
+					"error":   fmt.Sprintf("invalid state: %s", state),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Invalid state '%s'. Must be one of: off, left, right, both\n"), state)
+			}
+			return
+		}
+
+		// Send command
+		if err := redisClient.LPush("scooter:blinker", state); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "blink",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to send blinker command: %v\n"), err)
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "blink",
+				"status":  "success",
+				"state":   state,
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Printf("%s Blinkers: %s\n", format.Success("✓"), state)
+		}
+	},
+}
+
 // createDiagShortcut creates a shortcut command that mirrors a diag subcommand
 func createDiagShortcut(name string, aliases []string) *cobra.Command {
 	// Find the real command
@@ -405,6 +471,7 @@ func init() {
 	rootCmd.AddCommand(openCmd)
 	rootCmd.AddCommand(dbcCmd)
 	rootCmd.AddCommand(engineCmd)
+	rootCmd.AddCommand(blinkCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
 
