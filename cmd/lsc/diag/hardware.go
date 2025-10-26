@@ -1,9 +1,12 @@
 package diag
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"time"
 
 	"librescoot/lsc/internal/format"
 
@@ -11,12 +14,18 @@ import (
 )
 
 var dashboardCmd = &cobra.Command{
-	Use:       "dashboard [on|off]",
-	Aliases:   []string{"dbc", "dash"},
-	Short:     "Control dashboard power",
-	Args:      cobra.ExactArgs(1),
-	ValidArgs: []string{"on", "off"},
+	Use:     "dashboard [on|off]",
+	Aliases: []string{"dbc", "dash"},
+	Short:   "Control dashboard power and connectivity",
+	Long:    `Control dashboard power (on/off) and check connectivity (ping, on-wait).`,
+	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// If no args, show help
+		if len(args) == 0 {
+			cmd.Help()
+			return
+		}
+
 		action := args[0]
 
 		if action != "on" && action != "off" {
@@ -113,7 +122,77 @@ var engineCmd = &cobra.Command{
 	},
 }
 
+var (
+	onWaitTimeout int
+)
+
+var dbcPingCmd = &cobra.Command{
+	Use:   "ping",
+	Short: "Ping the DBC to check connectivity",
+	Long:  `Ping the Dashboard Computer at 192.168.7.2 to verify network connectivity.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		pingCmd := exec.Command("ping", "192.168.7.2")
+		pingCmd.Stdout = os.Stdout
+		pingCmd.Stderr = os.Stderr
+		pingCmd.Stdin = os.Stdin
+		pingCmd.Run()
+	},
+}
+
+var dbcOnWaitCmd = &cobra.Command{
+	Use:   "on-wait",
+	Short: "Turn on DBC and wait until ready",
+	Long:  `Send dashboard:on command and wait for the dashboard to publish 'ready' state.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+
+		// Subscribe to dashboard channel before sending command
+		pubsub := RedisClient.Subscribe(ctx, "dashboard")
+		defer pubsub.Close()
+
+		ch := pubsub.Channel()
+
+		// Allow subscription to establish
+		time.Sleep(100 * time.Millisecond)
+
+		// Send dashboard:on command
+		fmt.Println("Turning on dashboard...")
+		err := RedisClient.LPush("scooter:hardware", "dashboard:on")
+		if err != nil {
+			fmt.Printf("Error sending dashboard:on command: %v\n", err)
+			return
+		}
+
+		// Wait for ready notification
+		fmt.Println("Waiting for dashboard ready notification...")
+		timeoutChan := time.After(time.Duration(onWaitTimeout) * time.Second)
+
+		for {
+			select {
+			case msg := <-ch:
+				// Check if it's a ready notification
+				if msg.Payload == "ready" {
+					// Verify ready state
+					ready, err := RedisClient.HGet("dashboard", "ready")
+					if err == nil && ready == "true" {
+						fmt.Println("Dashboard is ready!")
+						return
+					}
+				}
+			case <-timeoutChan:
+				fmt.Printf("Timeout waiting for dashboard ready after %d seconds\n", onWaitTimeout)
+				return
+			}
+		}
+	},
+}
+
 func init() {
+	dbcOnWaitCmd.Flags().IntVarP(&onWaitTimeout, "timeout", "t", 60, "Timeout in seconds to wait for DBC ready")
+
+	dashboardCmd.AddCommand(dbcPingCmd)
+	dashboardCmd.AddCommand(dbcOnWaitCmd)
+
 	DiagCmd.AddCommand(dashboardCmd)
 	DiagCmd.AddCommand(engineCmd)
 }

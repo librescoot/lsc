@@ -71,6 +71,11 @@ func createDiagShortcut(name string, aliases []string) *cobra.Command {
 	shortcut.Flags().AddFlagSet(realCmd.Flags())
 	shortcut.PersistentFlags().AddFlagSet(realCmd.PersistentFlags())
 
+	// Copy subcommands
+	for _, subcmd := range realCmd.Commands() {
+		shortcut.AddCommand(subcmd)
+	}
+
 	return shortcut
 }
 
@@ -120,7 +125,7 @@ func init() {
 	if eventsCmd := createDiagShortcut("events", nil); eventsCmd != nil {
 		rootCmd.AddCommand(eventsCmd)
 	}
-	if dbcCmd := createDiagShortcut("dashboard", []string{"dbc", "dash"}); dbcCmd != nil {
+	if dbcCmd := createDiagShortcut("dashboard", []string{"dash"}); dbcCmd != nil {
 		rootCmd.AddCommand(dbcCmd)
 	}
 	if engineCmd := createDiagShortcut("engine", nil); engineCmd != nil {
