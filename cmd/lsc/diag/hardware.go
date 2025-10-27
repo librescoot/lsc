@@ -230,20 +230,9 @@ var dbcOnWaitCmd = &cobra.Command{
 
 var dbcOffWaitCmd = &cobra.Command{
 	Use:   "off-wait",
-	Short: "Turn off DBC and wait until not ready",
-	Long:  `Send dashboard:off command and wait for the dashboard to publish 'not ready' state.`,
+	Short: "Turn off DBC and wait until unreachable",
+	Long:  `Send dashboard:off command and wait for the DBC to become unreachable via ping.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-
-		// Subscribe to dashboard channel before sending command
-		pubsub := RedisClient.Subscribe(ctx, "dashboard")
-		defer pubsub.Close()
-
-		ch := pubsub.Channel()
-
-		// Allow subscription to establish
-		time.Sleep(100 * time.Millisecond)
-
 		// Send dashboard:off command
 		fmt.Println("Turning off dashboard...")
 		err := RedisClient.LPush("scooter:hardware", "dashboard:off")
@@ -252,26 +241,33 @@ var dbcOffWaitCmd = &cobra.Command{
 			return
 		}
 
-		// Wait for not-ready notification
-		fmt.Println("Waiting for dashboard to power off...")
-		timeoutChan := time.After(time.Duration(onWaitTimeout) * time.Second)
+		// Wait for DBC to become unreachable
+		fmt.Println("Waiting for dashboard to become unreachable...")
+		startTime := time.Now()
+		timeout := time.Duration(onWaitTimeout) * time.Second
+
+		// Give it a moment to start shutting down
+		time.Sleep(2 * time.Second)
 
 		for {
-			select {
-			case msg := <-ch:
-				// Check if it's a ready notification
-				if msg.Payload == "ready" {
-					// Verify ready state is false
-					ready, err := RedisClient.HGet("dashboard", "ready")
-					if err == nil && ready == "false" {
-						fmt.Println("Dashboard is off!")
-						return
-					}
-				}
-			case <-timeoutChan:
+			// Check if timeout exceeded
+			if time.Since(startTime) > timeout {
 				fmt.Printf("Timeout waiting for dashboard off after %d seconds\n", onWaitTimeout)
 				return
 			}
+
+			// Try to ping DBC
+			pingCmd := exec.Command("ping", "-c", "1", "-W", "1", "192.168.7.2")
+			err := pingCmd.Run()
+
+			// If ping fails, DBC is unreachable (off)
+			if err != nil {
+				fmt.Println("Dashboard is off!")
+				return
+			}
+
+			// Wait a bit before trying again
+			time.Sleep(1 * time.Second)
 		}
 	},
 }
