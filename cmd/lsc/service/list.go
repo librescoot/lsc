@@ -36,7 +36,8 @@ var listCmd = &cobra.Command{
 			"librescoot-boot-led",
 			"librescoot-bluetooth",
 			"librescoot-ums",
-			"pm-service",
+			"librescoot-pm",
+			"librescoot-netconfig",
 			"radio-gaga",
 			// DBC-only services
 			"scootui",
@@ -45,8 +46,8 @@ var listCmd = &cobra.Command{
 			"librescoot-brightness",
 			// Shared services (on both MDB and DBC)
 			"librescoot-onboot",
-			"update-service",
-			"version-service",
+			"librescoot-update",
+			"librescoot-version",
 		}
 
 		if *JSONOutput {

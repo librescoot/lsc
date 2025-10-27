@@ -22,20 +22,23 @@ func SetJSONOutput(jsonOutput *bool) {
 
 // serviceNameMap maps shorthand names to full service names
 var serviceNameMap = map[string]string{
-	"vehicle":     "librescoot-vehicle",
-	"battery":     "librescoot-battery",
-	"ecu":         "librescoot-ecu",
-	"modem":       "librescoot-modem",
-	"alarm":       "librescoot-alarm",
-	"settings":    "librescoot-settings",
-	"keycard":     "librescoot-keycard",
-	"boot-led":    "librescoot-boot-led",
-	"bluetooth":   "librescoot-bluetooth",
-	"ums":         "librescoot-ums",
-	"brightness":  "librescoot-brightness",
-	"onboot":      "librescoot-onboot",
-	"backlight":   "dbc-backlight",
-	"pm":          "pm-service",
+	"vehicle":    "librescoot-vehicle",
+	"battery":    "librescoot-battery",
+	"ecu":        "librescoot-ecu",
+	"modem":      "librescoot-modem",
+	"alarm":      "librescoot-alarm",
+	"settings":   "librescoot-settings",
+	"keycard":    "librescoot-keycard",
+	"boot-led":   "librescoot-boot-led",
+	"bluetooth":  "librescoot-bluetooth",
+	"ums":        "librescoot-ums",
+	"brightness": "librescoot-brightness",
+	"onboot":     "librescoot-onboot",
+	"backlight":  "dbc-backlight",
+	"pm":         "librescoot-pm",
+	"update":     "librescoot-update",
+	"version":    "librescoot-version",
+	"netconfig":  "librescoot-netconfig",
 }
 
 // resolveServiceName maps shorthand names to full service names
