@@ -56,6 +56,15 @@ var knownSettings = []SettingInfo{
 	{Key: "dashboard.theme", Description: "UI theme (light/dark/auto)", Default: "dark", Service: "scootui"},
 	{Key: "dashboard.mode", Description: "Default screen mode (speedometer/navigation)", Default: "speedometer", Service: "scootui"},
 	{Key: "dashboard.valhalla-url", Description: "Valhalla routing service endpoint", Default: "http://localhost:8002/", Service: "scootui"},
+
+	// Saved locations (scootui)
+	// Pattern: dashboard.saved-locations.<index>.<field>
+	// Fields: created-at (ISO8601), label (string), last-used-at (ISO8601), latitude (float), longitude (float)
+	{Key: "dashboard.saved-locations.0.created-at", Description: "Creation timestamp for location 0", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.label", Description: "Label for location 0", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.last-used-at", Description: "Last used timestamp for location 0", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.latitude", Description: "Latitude for location 0", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.longitude", Description: "Longitude for location 0", Default: "", Service: "scootui"},
 }
 
 var settingsCmd = &cobra.Command{
