@@ -88,6 +88,16 @@ func (c *Client) HSetWithContext(ctx context.Context, key, field, value string) 
 	return c.client.HSet(ctx, key, field, value).Err()
 }
 
+// HDel deletes one or more fields from a Redis hash
+func (c *Client) HDel(key string, fields ...string) error {
+	return c.client.HDel(c.ctx, key, fields...).Err()
+}
+
+// HDelWithContext deletes one or more fields from a Redis hash with context
+func (c *Client) HDelWithContext(ctx context.Context, key string, fields ...string) error {
+	return c.client.HDel(ctx, key, fields...).Err()
+}
+
 // HGetAll retrieves all fields and values from a Redis hash
 func (c *Client) HGetAll(key string) (map[string]string, error) {
 	return c.client.HGetAll(c.ctx, key).Result()

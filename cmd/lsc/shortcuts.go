@@ -99,6 +99,16 @@ var setCmd = &cobra.Command{
 	},
 }
 
+// del shortcut (delete setting)
+var delCmd = &cobra.Command{
+	Use:   "del <key>",
+	Short: "Delete a setting key (shortcut for 'settings del')",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		settingsDelCmd.Run(cmd, args)
+	},
+}
+
 func init() {
 	// Add --no-block flag to shortcuts that need it
 	lockCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
@@ -111,6 +121,7 @@ func init() {
 	rootCmd.AddCommand(openCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
+	rootCmd.AddCommand(delCmd)
 
 	// Create diagnostic shortcuts that mirror the full commands
 	if batCmd := createDiagShortcut("battery", []string{"bat"}); batCmd != nil {

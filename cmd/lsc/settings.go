@@ -248,9 +248,60 @@ Use 'lsc settings list' to see all available settings and their current values.`
 	},
 }
 
+var settingsDelCmd = &cobra.Command{
+	Use:   "del <key>",
+	Short: "Delete a setting key",
+	Long:  `Delete a setting key from the settings hash and publish the change.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		key := args[0]
+
+		// Delete the key from Redis hash
+		if err := redisClient.HDel("settings", key); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"error": err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to delete setting '%s': %v\n"), key, err)
+			}
+			return
+		}
+
+		// Publish the change so services can react
+		ctx := context.Background()
+		if err := redisClient.Publish(ctx, "settings", key); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"key":     key,
+					"status":  "warning",
+					"message": "Setting deleted but publish failed",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Warning("Setting deleted but publish failed: %v\n"), err)
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"key":    key,
+				"status": "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success(fmt.Sprintf("Setting '%s' deleted", key)))
+		}
+	},
+}
+
 func init() {
 	settingsCmd.AddCommand(settingsListCmd)
 	settingsCmd.AddCommand(settingsGetCmd)
 	settingsCmd.AddCommand(settingsSetCmd)
+	settingsCmd.AddCommand(settingsDelCmd)
 	rootCmd.AddCommand(settingsCmd)
 }
