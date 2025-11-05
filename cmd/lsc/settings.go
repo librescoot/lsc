@@ -27,6 +27,9 @@ var knownSettings = []SettingInfo{
 	{Key: "alarm.honk", Description: "Enable horn during alarm trigger", Default: "false", Service: "alarm-service"},
 	{Key: "alarm.duration", Description: "Duration in seconds for alarm sound", Default: "60", Service: "alarm-service"},
 
+	// Battery settings (battery-service)
+	{Key: "battery.ignore-seatbox", Description: "Ignore seatbox open and always keep batteries active", Default: "false", Service: "battery-service"},
+
 	// Power management settings (pm-service)
 	{Key: "hibernation-timer", Description: "Hibernation timeout in seconds", Default: "900", Service: "pm-service"},
 
@@ -58,13 +61,14 @@ var knownSettings = []SettingInfo{
 	{Key: "dashboard.valhalla-url", Description: "Valhalla routing service endpoint", Default: "http://localhost:8002/", Service: "scootui"},
 
 	// Saved locations (scootui)
-	// Pattern: dashboard.saved-locations.<index>.<field>
+	// Pattern: dashboard.saved-locations.<index>.<field> (any index 0-N supported)
 	// Fields: created-at (ISO8601), label (string), last-used-at (ISO8601), latitude (float), longitude (float)
-	{Key: "dashboard.saved-locations.0.created-at", Description: "Creation timestamp for location 0", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.label", Description: "Label for location 0", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.last-used-at", Description: "Last used timestamp for location 0", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.latitude", Description: "Latitude for location 0", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.longitude", Description: "Longitude for location 0", Default: "", Service: "scootui"},
+	// Note: All indices are recognized. Use 'lsc locations' to manage saved locations.
+	{Key: "dashboard.saved-locations.0.created-at", Description: "Creation timestamp (example: index 0)", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.label", Description: "Label (example: index 0)", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.last-used-at", Description: "Last used timestamp (example: index 0)", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.latitude", Description: "Latitude (example: index 0)", Default: "", Service: "scootui"},
+	{Key: "dashboard.saved-locations.0.longitude", Description: "Longitude (example: index 0)", Default: "", Service: "scootui"},
 }
 
 var settingsCmd = &cobra.Command{
@@ -131,6 +135,10 @@ var settingsListCmd = &cobra.Command{
 					known = true
 					break
 				}
+			}
+			// Also check if it matches the saved-locations pattern (handled by locations package)
+			if !known && strings.HasPrefix(key, "dashboard.saved-locations.") {
+				known = true
 			}
 			if !known && settings[key] != "" {
 				unknownKeys = append(unknownKeys, key)
