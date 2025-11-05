@@ -51,6 +51,7 @@ var knownSettings = []SettingInfo{
 
 	// Dashboard settings (scootui)
 	{Key: "dashboard.show-raw-speed", Description: "Show raw uncorrected speed from ECU", Default: "false", Service: "scootui"},
+	{Key: "dashboard.show-clock", Description: "Clock visibility (always/never)", Default: "always", Service: "scootui"},
 	{Key: "dashboard.show-gps", Description: "GPS indicator visibility (always/active-or-error/error/never)", Default: "error", Service: "scootui"},
 	{Key: "dashboard.show-bluetooth", Description: "Bluetooth indicator visibility (always/active-or-error/error/never)", Default: "active-or-error", Service: "scootui"},
 	{Key: "dashboard.show-cloud", Description: "Cloud indicator visibility (always/active-or-error/error/never)", Default: "error", Service: "scootui"},
