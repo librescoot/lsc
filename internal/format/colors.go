@@ -3,6 +3,8 @@ package format
 import (
 	"fmt"
 	"os"
+
+	"golang.org/x/term"
 )
 
 // ANSI color codes
@@ -18,9 +20,22 @@ const (
 var colorsEnabled = true
 
 func init() {
-	// Disable colors if NO_COLOR env var is set or not a TTY
+	// Disable colors if NO_COLOR env var is set
 	if os.Getenv("NO_COLOR") != "" {
 		colorsEnabled = false
+		return
+	}
+
+	// Disable colors if TERM is dumb
+	if os.Getenv("TERM") == "dumb" {
+		colorsEnabled = false
+		return
+	}
+
+	// Disable colors if stdout is not a TTY (e.g., piped to file or another command)
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		colorsEnabled = false
+		return
 	}
 }
 
