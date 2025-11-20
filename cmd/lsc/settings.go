@@ -38,11 +38,13 @@ var knownSettings = []SettingInfo{
 	{Key: "updates.mdb.method", Description: "Update method for MDB (delta or full)", Default: "full", Service: "update-service"},
 	{Key: "updates.mdb.channel", Description: "Release channel for MDB (stable/testing/nightly)", Default: "nightly", Service: "update-service"},
 	{Key: "updates.mdb.check-interval", Description: "Time between update checks for MDB (hours, 0=never)", Default: "6", Service: "update-service"},
+	{Key: "updates.mdb.last-check-time", Description: "Last time MDB checked for updates (ISO8601 timestamp)", Default: "", Service: "update-service"},
 	{Key: "updates.mdb.github-releases-url", Description: "GitHub Releases API endpoint for MDB", Default: "https://api.github.com/repos/librescoot/librescoot/releases", Service: "update-service"},
 	{Key: "updates.mdb.dry-run", Description: "Enable dry-run mode for MDB updates (no reboot)", Default: "false", Service: "update-service"},
 	{Key: "updates.dbc.method", Description: "Update method for DBC (delta or full)", Default: "full", Service: "update-service"},
 	{Key: "updates.dbc.channel", Description: "Release channel for DBC (stable/testing/nightly)", Default: "nightly", Service: "update-service"},
 	{Key: "updates.dbc.check-interval", Description: "Time between update checks for DBC (hours, 0=never)", Default: "6", Service: "update-service"},
+	{Key: "updates.dbc.last-check-time", Description: "Last time DBC checked for updates (ISO8601 timestamp)", Default: "", Service: "update-service"},
 	{Key: "updates.dbc.github-releases-url", Description: "GitHub Releases API endpoint for DBC", Default: "https://api.github.com/repos/librescoot/librescoot/releases", Service: "update-service"},
 	{Key: "updates.dbc.dry-run", Description: "Enable dry-run mode for DBC updates (no reboot)", Default: "false", Service: "update-service"},
 
