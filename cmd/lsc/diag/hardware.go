@@ -43,7 +43,11 @@ var dashboardCmd = &cobra.Command{
 			return
 		}
 
+		// Build command with optional :force suffix
 		command := fmt.Sprintf("dashboard:%s", action)
+		if action == "off" && forceFlag {
+			command = fmt.Sprintf("dashboard:%s:force", action)
+		}
 		if err := RedisClient.LPush("scooter:hardware", command); err != nil {
 			if JSONOutput != nil && *JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
@@ -125,6 +129,7 @@ var engineCmd = &cobra.Command{
 
 var (
 	onWaitTimeout int
+	forceFlag     bool
 )
 
 var dbcStatusCmd = &cobra.Command{
@@ -183,9 +188,22 @@ var dbcPingCmd = &cobra.Command{
 var dbcOnWaitCmd = &cobra.Command{
 	Use:   "on-wait",
 	Short: "Turn on DBC and wait until ready",
-	Long:  `Send dashboard:on command and wait for the dashboard to publish 'ready' state.`,
+	Long:  `Send dashboard:on command and wait for the dashboard to publish 'ready' state, then verify with ping.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
+
+		// Check if DBC is already ready
+		ready, err := RedisClient.HGet("dashboard", "ready")
+		if err == nil && ready == "true" {
+			fmt.Println("Dashboard already marked as ready, verifying with ping...")
+			// Verify with ping
+			pingCmd := exec.Command("ping", "-c", "1", "-W", "2", "192.168.7.2")
+			if err := pingCmd.Run(); err == nil {
+				fmt.Println("Dashboard is ready and reachable!")
+				return
+			}
+			fmt.Println("Dashboard marked ready but not reachable, turning on...")
+		}
 
 		// Subscribe to dashboard channel before sending command
 		pubsub := RedisClient.Subscribe(ctx, "dashboard")
@@ -198,7 +216,7 @@ var dbcOnWaitCmd = &cobra.Command{
 
 		// Send dashboard:on command
 		fmt.Println("Turning on dashboard...")
-		err := RedisClient.LPush("scooter:hardware", "dashboard:on")
+		err = RedisClient.LPush("scooter:hardware", "dashboard:on")
 		if err != nil {
 			fmt.Printf("Error sending dashboard:on command: %v\n", err)
 			return
@@ -216,12 +234,29 @@ var dbcOnWaitCmd = &cobra.Command{
 					// Verify ready state
 					ready, err := RedisClient.HGet("dashboard", "ready")
 					if err == nil && ready == "true" {
-						fmt.Println("Dashboard is ready!")
+						// Double-check with ping
+						fmt.Println("Dashboard ready notification received, verifying with ping...")
+						pingCmd := exec.Command("ping", "-c", "1", "-W", "2", "192.168.7.2")
+						if err := pingCmd.Run(); err != nil {
+							fmt.Println("Warning: Dashboard marked ready but not reachable via ping")
+							continue // Keep waiting
+						}
+						fmt.Println("Dashboard is ready and reachable!")
 						return
 					}
 				}
 			case <-timeoutChan:
-				fmt.Printf("Timeout waiting for dashboard ready after %d seconds\n", onWaitTimeout)
+				fmt.Printf("Timeout: Dashboard did not become ready within %d seconds\n", onWaitTimeout)
+				// Try one last ping check
+				fmt.Println("Attempting final ping check...")
+				pingCmd := exec.Command("ping", "-c", "1", "-W", "2", "192.168.7.2")
+				if err := pingCmd.Run(); err == nil {
+					ready, _ := RedisClient.HGet("dashboard", "ready")
+					if ready == "true" {
+						fmt.Println("Dashboard is ready and reachable (ready notification may have been missed)")
+						return
+					}
+				}
 				return
 			}
 		}
@@ -233,9 +268,15 @@ var dbcOffWaitCmd = &cobra.Command{
 	Short: "Turn off DBC and wait until unreachable",
 	Long:  `Send dashboard:off command and wait for the DBC to become unreachable via ping.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Build command with optional :force suffix
+		command := "dashboard:off"
+		if forceFlag {
+			command = "dashboard:off:force"
+		}
+
 		// Send dashboard:off command
 		fmt.Println("Turning off dashboard...")
-		err := RedisClient.LPush("scooter:hardware", "dashboard:off")
+		err := RedisClient.LPush("scooter:hardware", command)
 		if err != nil {
 			fmt.Printf("Error sending dashboard:off command: %v\n", err)
 			return
@@ -275,6 +316,9 @@ var dbcOffWaitCmd = &cobra.Command{
 func init() {
 	dbcOnWaitCmd.Flags().IntVarP(&onWaitTimeout, "timeout", "t", 60, "Timeout in seconds to wait for DBC ready")
 	dbcOffWaitCmd.Flags().IntVarP(&onWaitTimeout, "timeout", "t", 60, "Timeout in seconds to wait for DBC off")
+
+	// Add --force flag to dashboard command and subcommands that need it
+	dashboardCmd.PersistentFlags().BoolVarP(&forceFlag, "force", "f", false, "Force dashboard off even if DBC update is in progress")
 
 	dashboardCmd.AddCommand(dbcStatusCmd)
 	dashboardCmd.AddCommand(dbcPingCmd)
