@@ -58,6 +58,7 @@ var knownSettings = []SettingInfo{
 	{Key: "dashboard.show-bluetooth", Description: "Bluetooth indicator visibility (always/active-or-error/error/never)", Default: "active-or-error", Service: "scootui"},
 	{Key: "dashboard.show-cloud", Description: "Cloud indicator visibility (always/active-or-error/error/never)", Default: "error", Service: "scootui"},
 	{Key: "dashboard.show-internet", Description: "Internet indicator visibility (always/active-or-error/error/never)", Default: "always", Service: "scootui"},
+	{Key: "dashboard.battery-display-mode", Description: "Battery display mode (percentage/range)", Default: "percentage", Service: "scootui"},
 	{Key: "dashboard.map.type", Description: "Map tile source (online/offline)", Default: "offline", Service: "scootui"},
 	{Key: "dashboard.map.render-mode", Description: "Map rendering mode (vector/raster)", Default: "raster", Service: "scootui"},
 	{Key: "dashboard.theme", Description: "UI theme (light/dark/auto)", Default: "dark", Service: "scootui"},
