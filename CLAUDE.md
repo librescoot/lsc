@@ -6,8 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `lsc` (librescoot control) is a CLI tool that abstracts Redis-based interfaces used by LibreScoot ECU firmware services. It provides user-friendly commands to control and monitor scooters without requiring direct Redis knowledge.
 
-**For comprehensive design information, implementation details, and Redis interface mappings, see [DESIGN.md](DESIGN.md).**
-
 ### LibreScoot System Context
 
 LibreScoot runs on unu Scooter Pro hardware with a distributed architecture:
@@ -23,32 +21,34 @@ LibreScoot runs on unu Scooter Pro hardware with a distributed architecture:
 ```bash
 # Build for ARM (default target - Raspberry Pi on scooter)
 make build
-# or
-GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/lsc .
 
-# Build for local development
+# Build for AMD64 (Linux development/testing)
+make build-amd64
+
+# Build for native platform
 make build-native
-go build -o lsc .
+
+# Clean build artifacts
+make clean
+
+# Run tests
+make test
+
+# Run linter
+make lint
 
 # Run locally (requires Redis connection)
-go run . status --redis-addr 127.0.0.1:6379
-./lsc status
-./lsc --help
+go run . status
+./bin/lsc-native --help
 
-# Dependencies
+# Install dependencies
+make deps
+# or
 go mod tidy
-go mod download
 
-# Testing
-go test ./...
-go test ./internal/redis
-
-# Deploy to scooter
-make build
-scp bin/lsc deep-blue:/usr/bin/lsc
-
-# Deploy and test
-make build && scp bin/lsc deep-blue:/usr/bin/lsc && ssh deep-blue "lsc status"
+# Deploy to Deep Blue and test
+make deploy
+make deploy-test
 ```
 
 ## Architecture
@@ -56,16 +56,18 @@ make build && scp bin/lsc deep-blue:/usr/bin/lsc && ssh deep-blue "lsc status"
 ### Project Structure
 ```
 main.go                      # Entry point, calls cmd/lsc.Execute()
+
 cmd/lsc/
   root.go                    # Root command with Redis connection lifecycle
   status.go                  # Status command implementation
-  vehicle.go                 # Vehicle state commands (lock, unlock, hibernate, open)
-  shortcuts.go               # Shortcut commands that delegate to main commands
+  vehicle.go                 # Vehicle state commands (lock, unlock, hibernate)
   alarm.go                   # Alarm control commands
   settings.go                # Settings management commands
   led.go                     # LED control commands
   watch.go                   # Watch Redis pub/sub channels
+  shortcuts.go               # Shortcut commands that delegate to main commands
   completion.go              # Shell completion generation
+
   diag/                      # Diagnostic commands package
     diag.go                  # Parent diagnostic command
     battery.go               # Battery diagnostics
@@ -74,18 +76,18 @@ cmd/lsc/
     events.go                # Event stream viewer
     blinkers.go, horn.go     # Hardware control
     handlebar.go             # Handlebar lock control
+    dashboard.go             # Dashboard power control
+    engine.go                # Engine power control
+
   gps/                       # GPS commands package
-    gps.go, status.go, watch.go
   power/                     # Power management commands package
-    power.go, status.go, run.go, suspend.go, hibernate.go, reboot.go
   ota/                       # OTA update commands package
-    ota.go, status.go, install.go
   locations/                 # Location management commands package
-    locations.go, list.go, add.go, edit.go, delete.go, show.go, touch.go
+  keycard/                   # Keycard authorization management
   monitor/                   # Real-time monitoring package
-    monitor.go, recorder.go, writer.go, tarball.go
   logs/                      # Log extraction package
-    logs.go
+  service/                   # systemd service management package
+
 internal/
   redis/
     client.go                # Redis client wrapper with common operations
@@ -128,36 +130,52 @@ The `internal/redis.Client` wraps `github.com/redis/go-redis/v9` with:
 - Connection lifecycle: `Connect()` (with ping), `Close()`
 - Pub/sub support: `Subscribe()`, `Publish()` for monitoring state changes
 
+### Internal Packages
+
+#### `internal/redis`
+Wrapper around `github.com/redis/go-redis/v9` with:
+- `Connect()` - Establishes connection with ping verification
+- `Close()` - Graceful connection cleanup
+- `HGet(key, field)`, `HSet(key, field, value)`, `HGetAll(key)` - Hash operations
+- `LPush(key, values...)` - List push for command queues
+- `SMembers(key)` - Get all set members (for faults)
+- `Subscribe(ctx, channels...)` - Pub/sub subscriptions
+- Automatic context management with 5-second timeouts
+
+#### `internal/format`
+Output formatting utilities:
+- `format.go` - Table/text formatting helpers
+- `colors.go` - Terminal color support
+- `units.go` - Unit conversion (km/h, voltage, amperage, temperature)
+
+#### `internal/confirm`
+State change helpers:
+- `WaitForFieldValueAfterCommand()` - Subscribe, execute function, wait for expected value
+- `WaitForFieldValue()` - Subscribe and wait (for pre-sent commands)
+- Handles race condition prevention automatically
+
 ### State Change Confirmation Pattern (CRITICAL)
 
-**Race Condition Prevention**: When sending commands that trigger state changes, you MUST subscribe to the pub/sub channel BEFORE sending the command:
+**Race Condition Prevention**: When sending commands that trigger state changes, you MUST subscribe to the pub/sub channel BEFORE sending the command. Use the helper:
 
 ```go
-// CORRECT: Subscribe BEFORE sending command
-pubsub := redisClient.Subscribe(ctx, "vehicle")
-ch := pubsub.Channel()
-time.Sleep(100 * time.Millisecond)  // Allow subscription to establish
-redisClient.LPush("scooter:state", "unlock")
+import "librescoot/lsc/internal/confirm"
 
-// Wait for notification
-for {
-    select {
-    case msg := <-ch:
-        if msg.Payload == "state" {
-            state, _ := redisClient.HGet("vehicle", "state")
-            // Check if desired state reached
-        }
-    case <-timeout:
-        // Handle timeout
-    }
-}
+err := confirm.WaitForFieldValueAfterCommand(
+    ctx,
+    redisClient,
+    "vehicle",        // channel to watch
+    "state",          // field to check
+    "parked",         // expected value
+    30 * time.Second, // timeout
+    func() error {
+        // This runs AFTER subscription is established
+        return redisClient.LPush(ctx, "scooter:state", "unlock")
+    },
+)
 ```
 
-**Helper Functions**:
-- `confirm.WaitForFieldValueAfterCommand()` - Subscribes, executes command function, then waits
-- `confirm.WaitForFieldValue()` - Assumes command already sent, subscribes and waits
-
-**Why This Matters**: Vehicle-service processes commands within milliseconds. If you send the command first, then subscribe, you'll miss the state change notification. This causes timeouts even though the command succeeded.
+**Why This Matters**: Vehicle-service processes commands within milliseconds. If you send the command first, then subscribe, you'll miss the state change notification, causing timeouts even though the command succeeded.
 
 ## Redis Integration Patterns
 
@@ -211,66 +229,158 @@ Diagnostic and detailed information:
 
 ## Adding New Commands
 
-1. Create new file in `cmd/lsc/` (e.g., `vehicle.go`)
-2. Define command with `&cobra.Command{Use: "...", Run: ...}`
-3. Access Redis via `redisClient` package variable
-4. Register in `init()`: `rootCmd.AddCommand(vehicleCmd)`
-5. For commands with subcommands, set up parent command and add children
+1. **Simple command** (e.g., `status.go`): Create file with `var <name>Cmd = &cobra.Command{...}` and register in `init()`
+2. **Command group** (e.g., `diag/`): Create package with parent command and subcommand files (e.g., `diag.go`, `battery.go`)
+3. Define command with `&cobra.Command{Use: "...", Run: ...}`
+4. Access Redis via `redisClient` package variable
+5. For state changes, use `confirm.WaitForFieldValueAfterCommand()` to avoid race conditions
+6. Always handle errors and print helpful messages
+
+### Command Registration Pattern
+
+```go
+// In cmd/lsc/<file>.go
+var exampleCmd = &cobra.Command{
+    Use:   "example",
+    Short: "Short description",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        // Implementation
+        return nil
+    },
+}
+
+func init() {
+    rootCmd.AddCommand(exampleCmd)
+}
+```
+
+For subcommands in packages (e.g., `diag/`):
+```go
+// In diag/diag.go
+var diagCmd = &cobra.Command{Use: "diag", ...}
+
+func init() {
+    rootCmd.AddCommand(diagCmd)
+    diagCmd.AddCommand(batteryCmd)
+    diagCmd.AddCommand(versionCmd)
+}
+```
 
 ## Development Workflow
 
-### Testing on Hardware
+### Testing Locally
 
-When testing on the actual scooter (Deep Blue):
+Before deploying to hardware, test with local Redis:
+
+```bash
+# Build native binary
+make build-native
+
+# Run against local Redis
+./bin/lsc-native status --redis-addr 127.0.0.1:6379
+
+# Run tests
+make test
+
+# Run linter to catch issues early
+make lint
+```
+
+### Testing on Hardware (Deep Blue)
+
+When testing on the actual scooter:
 
 ```bash
 # Build for ARM
 make build
 
-# Copy to target
-scp bin/lsc deep-blue:/data/lsc-test
+# Deploy with timestamp (helps track multiple versions)
+make deploy
 
-# Run directly
+# Test via SSH
+make deploy-test
+
+# Or manual deployment:
+scp bin/lsc deep-blue:/data/lsc-test
 ssh deep-blue "/data/lsc-test status"
 
-# Or copy to /usr/local/bin for permanent installation
+# Copy to /usr/local/bin for persistent testing
 ssh deep-blue "cp /data/lsc-test /usr/local/bin/lsc"
 ```
 
 ### Verifying Redis Commands
 
-Always cross-check lsc output with direct Redis commands (on the scooter via SSH):
+Always cross-check lsc output with direct Redis commands on the scooter:
+
 ```bash
-# SSH to scooter
 ssh deep-blue
 
-# Test lsc (Redis on localhost by default)
-./lsc-test status
+# Test lsc
+lsc status
 
-# Compare with raw Redis data
+# Compare with raw Redis
 redis-cli HGETALL vehicle
 redis-cli HGETALL engine-ecu
 redis-cli HGETALL battery:0
+redis-cli HGETALL settings
 ```
 
 ### Debugging Redis Communication
 
-Use Redis MONITOR to watch all commands:
+Monitor Redis commands in real-time using two SSH sessions:
+
 ```bash
-# SSH to scooter, run monitor in one session
+# Session 1: Monitor all Redis commands
 ssh deep-blue
 redis-cli MONITOR
 
-# In another SSH session to scooter
+# Session 2: Run commands to debug
 ssh deep-blue
-./lsc-test vehicle lock
+lsc vehicle lock
 ```
 
-**Note**: Redis listens on 192.168.7.1 (internal MDB network) and localhost only, not on the external 10.7.0.x interface.
+**Important Notes**:
+- Redis listens on 192.168.7.1 (MDB internal network) and localhost only
+- Commands are processed within milliseconds, so race conditions in state verification are common
+- Always use `confirm.WaitForFieldValueAfterCommand()` pattern for state changes
+
+## Common Patterns and Gotchas
+
+### JSON Output
+Most commands support `--json` flag for automation:
+```bash
+lsc status --json
+lsc lock --json
+lsc settings get alarm.enabled --json
+```
+
+Check `format.JSONOutput()` to see how to add JSON support to new commands.
+
+### Vehicle Command Flags
+Vehicle commands support:
+- `--no-block` - Return immediately without waiting for state confirmation
+- Useful for scripting when you want to poll state separately
+
+### Error Handling Best Practices
+- Check Redis connection in `PersistentPreRunE` (done in `root.go`)
+- Return descriptive errors from command functions
+- Don't silently ignore missing keys - inform the user
+- Validate input before sending commands to Redis
+
+### Adding Subcommand Packages
+When creating a new command group (e.g., `newfeature/`):
+1. Create directory: `cmd/lsc/newfeature/`
+2. Add parent command in `newfeature.go` with `var newfeatureCmd = &cobra.Command{...}`
+3. Add subcommands in separate files (e.g., `newfeature/list.go`, `newfeature/add.go`)
+4. Register subcommands in parent's `init()`: `newfeatureCmd.AddCommand(listCmd, addCmd)`
+5. Register parent in `cmd/lsc/root.go` or create `cmd/lsc/newfeature.go` and register there
+
+### Testing Tips
+- Use `go test ./...` to run all tests
+- Use `go test -v ./cmd/lsc` to test only command-level code
+- Integration tests on hardware are more valuable than mocked tests since Redis behavior is critical
+- Always verify output format matches README examples
 
 ## Related Documentation
 
-- **[DESIGN.md](DESIGN.md)**: Comprehensive design document with all Redis interfaces
-- **[../tech-reference/](../tech-reference/)**: Complete hardware and software documentation
-- **[../tech-reference/redis/README.md](../tech-reference/redis/README.md)**: Redis key structure reference
-- **[../tech-reference/services/README.md](../tech-reference/services/)**: Individual service documentation
+- **[README.md](README.md)**: User-facing command reference and quick start guide
