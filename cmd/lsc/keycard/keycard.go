@@ -104,6 +104,55 @@ func writeKeycardFile(path string, uids []string) error {
 	return nil
 }
 
+// writeKeycardExportFile writes authorized and master UIDs to a file in section-based format
+// Format:
+// [authorized]
+// 04 05 B5 82 D0 1E 91
+// FA F2 38 A5
+//
+// [master]
+// 04 2A 3D 6A 0D 65 80
+func writeKeycardExportFile(path string, authorizedUIDs, masterUIDs []string) error {
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+
+	var content strings.Builder
+
+	// Write authorized section
+	if len(authorizedUIDs) > 0 {
+		content.WriteString("[authorized]\n")
+		for _, uid := range authorizedUIDs {
+			if strings.TrimSpace(uid) != "" {
+				formatted := formatUIDSpaceSeparated(uid)
+				content.WriteString(formatted + "\n")
+			}
+		}
+	}
+
+	// Write master section
+	if len(masterUIDs) > 0 {
+		if content.Len() > 0 {
+			content.WriteString("\n")
+		}
+		content.WriteString("[master]\n")
+		for _, uid := range masterUIDs {
+			if strings.TrimSpace(uid) != "" {
+				formatted := formatUIDSpaceSeparated(uid)
+				content.WriteString(formatted + "\n")
+			}
+		}
+	}
+
+	if err := os.WriteFile(path, []byte(content.String()), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
 // validateUIDFormat validates that a UID is a valid hex string
 // Accepts hex strings up to 10 bytes (20 hex chars, minimum 1 byte / 2 hex chars)
 func validateUIDFormat(uid string) error {

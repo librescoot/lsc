@@ -32,14 +32,8 @@ var exportCmd = &cobra.Command{
 			return err
 		}
 
-		// Combine all UIDs: authorized + master
-		allUIDs := append(authorizedUIDs, masterUIDs...)
-
-		// Remove duplicates
-		allUIDs = removeDuplicates(allUIDs)
-
-		// Write to file
-		if err := writeKeycardFile(filePath, allUIDs); err != nil {
+		// Write to file in section-based format
+		if err := writeKeycardExportFile(filePath, authorizedUIDs, masterUIDs); err != nil {
 			if *JSONOutput {
 				printJSONResponse("error", nil, fmt.Errorf("failed to write file: %w", err))
 			} else {
@@ -48,10 +42,12 @@ var exportCmd = &cobra.Command{
 			return err
 		}
 
+		totalCount := len(authorizedUIDs) + len(masterUIDs)
+
 		if *JSONOutput {
 			response := map[string]interface{}{
 				"file":               filePath,
-				"exported":           len(allUIDs),
+				"exported":           totalCount,
 				"authorized_count":   len(authorizedUIDs),
 				"master_count":       len(masterUIDs),
 			}
@@ -59,7 +55,7 @@ var exportCmd = &cobra.Command{
 			fmt.Println(string(output))
 		} else {
 			fmt.Printf("Exported %d keycards (%d authorized, %d master) to %s\n",
-				len(allUIDs), len(authorizedUIDs), len(masterUIDs), filePath)
+				totalCount, len(authorizedUIDs), len(masterUIDs), filePath)
 		}
 
 		return nil
