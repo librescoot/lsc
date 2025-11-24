@@ -8,6 +8,7 @@ import (
 
 	"librescoot/lsc/cmd/lsc/diag"
 	"librescoot/lsc/cmd/lsc/gps"
+	"librescoot/lsc/cmd/lsc/keycard"
 	"librescoot/lsc/cmd/lsc/locations"
 	"librescoot/lsc/cmd/lsc/logs"
 	"librescoot/lsc/cmd/lsc/monitor"
@@ -35,6 +36,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
 	rootCmd.AddCommand(gps.GpsCmd)
+	rootCmd.AddCommand(keycard.KeycardCmd)
 	rootCmd.AddCommand(locations.LocationsCmd)
 	rootCmd.AddCommand(logs.LogsCmd)
 	rootCmd.AddCommand(monitor.MonitorCmd)
@@ -85,6 +87,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		// Make Redis client available to subcommands
 		diag.SetRedisClient(redisClient)
 		gps.SetRedisClient(redisClient)
+		keycard.SetRedisClient(redisClient)
 		locations.SetRedisClient(redisClient)
 		logs.SetRedisClient(redisClient)
 		monitor.SetRedisClient(redisClient)
@@ -95,6 +98,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		// Make JSONOutput flag available to subcommands
 		diag.SetJSONOutput(&JSONOutput)
 		gps.SetJSONOutput(&JSONOutput)
+		keycard.SetJSONOutput(&JSONOutput)
 		locations.SetJSONOutput(&JSONOutput)
 		logs.SetJSONOutput(&JSONOutput)
 		monitor.SetJSONOutput(&JSONOutput)
