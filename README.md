@@ -8,13 +8,17 @@ A command-line interface for controlling and monitoring LibreScoot electric scoo
 - **LED Control**: Trigger LED cues and fade animations
 - **Power Management**: Control power states (run, suspend, hibernate, reboot)
 - **Service Management**: Start, stop, restart, enable, disable systemd services and view logs
-- **OTA Updates**: View update status and install updates from files or URLs
+- **OTA Updates**: View update status and install updates
 - **GPS**: Monitor GPS status and track location
 - **Battery Diagnostics**: View detailed battery information and health
 - **Alarm System**: Arm, disarm, and trigger the vehicle alarm
+- **Keycard Management**: Authorize/revoke keycards for vehicle access
+- **Location Management**: Save and manage frequently visited locations
 - **Hardware Control**: Manage dashboard, engine, handlebar, and seatbox
 - **Settings**: Get and set vehicle configuration
 - **Diagnostics**: Monitor faults, view firmware versions, and stream events
+- **Metrics Recording**: Capture detailed system metrics over time for debugging
+- **Log Extraction**: Extract service logs and Redis snapshots for analysis
 - **JSON Output**: All commands support `--json` flag for automation
 
 ## Installation
@@ -48,10 +52,10 @@ lsc settings
 lsc get alarm.enabled
 
 # Set a setting
-lsc set scooter.mode sport
+lsc set alarm.duration 15
 
 # View battery status
-lsc bat
+lsc battery
 
 # Show active faults
 lsc faults
@@ -61,6 +65,14 @@ lsc gps watch
 
 # View OTA update status
 lsc ota status
+
+# Manage keycards
+lsc keycard list
+lsc keycard add ABC123DEF456
+
+# Manage saved locations
+lsc locations list
+lsc locations add 51.5074 -0.1278 "office"
 ```
 
 ## Command Reference
@@ -77,6 +89,25 @@ lsc ota status
 
 - `lsc led cue <index>` - Trigger LED cue by index
 - `lsc led fade <channel> <index>` - Trigger LED fade animation
+
+### Keycard Management
+
+- `lsc keycard list` - List all authorized keycards
+- `lsc keycard add <uid>` - Add a keycard UID
+- `lsc keycard remove <uid>` - Remove a keycard UID
+- `lsc keycard add-master <uid>...` - Add master keycard(s)
+- `lsc keycard remove-master <uid>...` - Remove master keycard(s)
+- `lsc keycard export <file>` - Export keycards to file
+- `lsc keycard import <file>` - Import keycards from file
+
+### Location Management
+
+- `lsc locations list` - List all saved locations
+- `lsc locations add <latitude> <longitude> <label>` - Add a saved location
+- `lsc locations show <label>` - Show location details
+- `lsc locations edit <label>` - Edit a saved location
+- `lsc locations delete <label>` - Delete a saved location
+- `lsc locations touch <label>` - Update last-used timestamp
 
 ### Power Management
 
@@ -121,17 +152,23 @@ lsc svc logs redis -n 100
 
 ### OTA Updates
 
-- `lsc ota status` - View OTA update status
+- `lsc ota status` - View OTA update status and configuration
 - `lsc ota install <file-or-url>` - Install update from local file or URL
+- `lsc ota check` - Check for available updates
 
 ### GPS
 
-- `lsc gps status` - Show GPS status
+- `lsc gps status` - Show GPS status and fix information
 - `lsc gps watch` - Monitor GPS location in real-time
+  - `--compact` - One-line format output
+
+### Monitoring
+
+- `lsc watch` - Watch Redis pub/sub channels for real-time events
 
 ### Diagnostics
 
-- `lsc diag battery [id...]` - Show battery information
+- `lsc diag battery [id...]` - Show detailed battery information
 - `lsc diag version` - Display firmware versions
 - `lsc diag faults` - Show active faults
 - `lsc diag events` - View fault event stream
@@ -141,6 +178,51 @@ lsc svc logs redis -n 100
 - `lsc diag blinkers [off|left|right|both]` - Control blinkers
 - `lsc diag horn [on|off]` - Control horn
 - `lsc diag handlebar [lock|unlock]` - Control handlebar lock
+- `lsc diag dashboard` - Control dashboard power
+  - `on` / `off` - Power on/off
+  - `status` - Show power status
+  - `ping` - Check connectivity
+  - `on-wait` - Power on and wait until ready
+  - `off-wait` - Power off and wait until unreachable
+  - `--force` - Force off even during updates
+- `lsc diag engine` - Control engine power
+
+### Metrics Recording
+
+Record detailed metrics for debugging and analysis:
+
+- `lsc monitor <subsystems...>` - Record metrics over time
+  - Available subsystems: `gps`, `battery`, `vehicle`, `motor`, `power`, `modem`, `events`, `all`
+  - `--duration <time>` - Recording duration (e.g., 1h, 5m, 24h)
+  - `--interval <time>` - Polling interval (e.g., 1s, 5s, 100ms)
+  - `--format <format>` - Output format (jsonl, csv)
+  - `--output <dir>` - Output directory
+
+**Examples:**
+```bash
+lsc monitor gps --duration 1h
+lsc monitor battery vehicle --duration 10m --interval 5s
+lsc monitor all --duration 30m --output /data/debug
+```
+
+### Log Extraction
+
+Extract service logs and Redis snapshots:
+
+- `lsc logs [services...]` - Extract logs for analysis
+  - Available services: `vehicle`, `battery`, `ecu`, `modem`, `pm`, `update`, `settings`, `keycard`, `bluetooth`, `ums`, `radio-gaga`, `all`
+  - `--since <time>` - Start time (e.g., 24h, 1d, "2025-10-25 10:00")
+  - `--until <time>` - End time
+  - `--priority <level>` - Log level (err, warning, info, debug)
+  - `--output <dir>` - Output directory
+
+**Examples:**
+```bash
+lsc logs                          # Extract all services (last 24h)
+lsc logs vehicle --since 1h
+lsc logs battery ecu --since 24h --output /data/debug
+lsc logs all --priority err       # Show only errors
+```
 
 ### Alarm
 
@@ -155,27 +237,30 @@ lsc svc logs redis -n 100
 - `lsc settings get <key>` - Get a setting value
 - `lsc settings set <key> <value>` - Set a setting value
 
-### Hardware
-
-- `lsc diag hardware <command>` - Send hardware commands
-  - `dashboard:on` / `dashboard:off` - Control dashboard power
-  - `engine:on` / `engine:off` - Control engine power
-
 ### Shortcuts
 
 Quick access to common commands:
 
+**Vehicle:**
 - `lsc lock` - Lock the scooter
 - `lsc unlock` - Unlock the scooter
 - `lsc open` - Open seatbox
-- `lsc get <key>` - Get setting
-- `lsc set <key> <value>` - Set setting
-- `lsc dbc [on|off]` - Control dashboard power
-- `lsc engine [on|off]` - Control engine power
-- `lsc bat [id...]` - Show battery info
-- `lsc ver` - Show firmware versions
+
+**Settings:**
+- `lsc get <key>` - Get setting value
+- `lsc set <key> <value>` - Set setting value
+- `lsc del <key>` - Delete setting key
+
+**Diagnostics:**
+- `lsc battery` or `lsc bat` - Show battery info
+- `lsc version` or `lsc ver` - Show firmware versions
 - `lsc faults` - Show active faults
-- `lsc events` - View fault events
+- `lsc events` - View fault event stream
+- `lsc dashboard` or `lsc dbc` or `lsc dash` - Control dashboard power
+- `lsc engine` - Control engine power
+- `lsc blinkers` or `lsc blink` - Control blinkers
+
+All shortcuts support `--json` output and vehicle commands support `--no-block` flag.
 
 ## Global Flags
 
@@ -220,14 +305,41 @@ Example JSON output:
 
 ## Common Settings
 
-Settings can be viewed with `lsc settings` and modified with `lsc set`:
+Settings can be viewed with `lsc settings list` and modified with `lsc set <key> <value>`:
 
+**Alarm:**
 - `alarm.enabled` - Enable/disable alarm (true/false)
 - `alarm.honk` - Enable horn during alarm (true/false)
 - `alarm.duration` - Alarm duration in seconds
-- `scooter.speed_limit` - Speed limit in km/h
-- `scooter.mode` - Driving mode (eco/normal/sport)
+
+**Updates:**
+- `updates.mdb.method` - MDB update method (delta/full)
+- `updates.mdb.channel` - MDB update channel (nightly/stable/etc)
+- `updates.dbc.method` - Dashboard update method
+- `updates.dbc.channel` - Dashboard update channel
+
+**Network:**
 - `cellular.apn` - Cellular APN string
+
+**Dashboard Display:**
+- `dashboard.theme` - UI theme (dark/light)
+- `dashboard.mode` - Dashboard mode (navigation/etc)
+- `dashboard.show-raw-speed` - Show raw speed (true/false)
+- `dashboard.show-clock` - Clock visibility (always/riding/never)
+- `dashboard.show-gps` - GPS indicator visibility
+- `dashboard.show-bluetooth` - Bluetooth indicator visibility
+- `dashboard.show-cloud` - Cloud indicator visibility
+- `dashboard.show-internet` - Internet indicator visibility
+- `dashboard.battery-display-mode` - Battery display mode (percentage/range)
+- `dashboard.map.type` - Map source (offline/online) - offline uses local MBTiles, online uses CartoDB tiles
+- `dashboard.map.render-mode` - Map render mode (raster)
+- `dashboard.valhalla-url` - Routing service URL
+
+**Battery:**
+- `battery.ignore-seatbox` - Ignore seatbox in battery calculations
+
+**Power:**
+- `hibernation-timer` - Hibernation timer duration
 
 ## Bash Completion
 
