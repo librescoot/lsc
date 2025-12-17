@@ -32,7 +32,11 @@ var knownSettings = []SettingInfo{
 	{Key: "battery.ignore-seatbox", Description: "Ignore seatbox open and always keep batteries active", Default: "false", Service: "battery-service"},
 
 	// Power management settings (pm-service)
-	{Key: "hibernation-timer", Description: "Hibernation timeout in seconds", Default: "900", Service: "pm-service"},
+	{Key: "hibernation-timer", Description: "Hibernation timeout in seconds", Default: "432000", Service: "pm-service"},
+
+	// Vehicle settings (vehicle-service)
+	{Key: "scooter.auto-standby-seconds", Description: "Auto-lock timeout when parked in seconds (0=disabled)", Default: "0", Service: "vehicle-service"},
+	{Key: "scooter.brake-hibernation", Description: "Enable brake lever hibernation (enabled/disabled)", Default: "enabled", Service: "vehicle-service"},
 
 	// Update service settings (update-service)
 	{Key: "updates.mdb.method", Description: "Update method for MDB (delta or full)", Default: "full", Service: "update-service"},
