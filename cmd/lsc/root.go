@@ -20,10 +20,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "dev"
+
 var (
 	redisClient *redis.Client
 	redisAddr   string
 	JSONOutput  bool // Global flag for JSON output mode
+	Verbose     bool // Global flag for verbose logging
 )
 
 func init() {
@@ -32,6 +35,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&redisAddr, "redis-addr", "192.168.7.1:6379", "Redis server address (host:port)")
 	rootCmd.PersistentFlags().BoolVar(&JSONOutput, "json", false, "Output in JSON format")
+	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Enable verbose logging")
 
 	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
@@ -47,8 +51,9 @@ func init() {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "lsc",
-	Short: "lsc - librescoot control CLI",
+	Use:     "lsc",
+	Short:   "lsc - librescoot control CLI",
+	Version: version,
 	Long: `lsc is a command-line interface for controlling and monitoring LibreScoot
 electric scooters via Redis.
 
@@ -67,6 +72,11 @@ It provides convenient access to:
 
 All commands support JSON output mode (--json) for automation and scripting.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if Verbose {
+			fmt.Fprintf(os.Stderr, "lsc version %s starting\n", version)
+			fmt.Fprintf(os.Stderr, "Connecting to Redis at %s\n", redisAddr)
+		}
+
 		// Temporarily suppress stderr to hide redis library warnings
 		oldStderr := os.Stderr
 		devNull, _ := os.Open(os.DevNull)
@@ -82,6 +92,10 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
 			return err
+		}
+
+		if Verbose {
+			fmt.Fprintf(os.Stderr, "Successfully connected to Redis\n")
 		}
 
 		// Make Redis client available to subcommands
