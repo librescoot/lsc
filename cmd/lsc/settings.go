@@ -28,8 +28,9 @@ var knownSettings = []SettingInfo{
 	{Key: "alarm.honk", Description: "Enable horn during alarm trigger", Default: "false", Service: "alarm-service"},
 	{Key: "alarm.duration", Description: "Duration in seconds for alarm sound", Default: "60", Service: "alarm-service"},
 
-	// Battery settings (battery-service)
-	{Key: "battery.ignore-seatbox", Description: "Ignore seatbox open and always keep batteries active", Default: "false", Service: "battery-service"},
+	// Scooter settings (battery-service)
+	{Key: "scooter.battery-ignores-seatbox", Description: "Ignore seatbox open and always keep batteries active", Default: "false", Service: "battery-service"},
+	{Key: "scooter.dual-battery", Description: "Enable dual battery mode (battery 1 active instead of idle)", Default: "false", Service: "battery-service"},
 
 	// Power management settings (pm-service)
 	{Key: "hibernation-timer", Description: "Hibernation timeout in seconds", Default: "432000", Service: "pm-service"},
