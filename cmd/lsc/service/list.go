@@ -103,8 +103,8 @@ func outputJSON(services []string) {
 }
 
 func outputTable(services []string) {
-	fmt.Printf("%-30s %-10s %-10s\n", "SERVICE", "STATUS", "ENABLED")
-	fmt.Println(strings.Repeat("─", 52))
+	headers := []string{"SERVICE", "STATUS", "ENABLED"}
+	var rows [][]string
 
 	for _, svc := range services {
 		status := getServiceStatus(svc)
@@ -131,6 +131,8 @@ func outputTable(services []string) {
 			enabledStr = status.Enabled
 		}
 
-		fmt.Printf("%-30s %-20s %-20s\n", status.Name, statusStr, enabledStr)
+		rows = append(rows, []string{status.Name, statusStr, enabledStr})
 	}
+
+	format.PrintTable(headers, rows)
 }

@@ -2,8 +2,16 @@ package format
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// VisibleLength returns the length of the string excluding ANSI codes
+func VisibleLength(s string) int {
+	return len(ansiRegex.ReplaceAllString(s, ""))
+}
 
 // PrintSection prints a section header
 func PrintSection(title string) {
@@ -17,12 +25,24 @@ func PrintSubsection(title string) {
 
 // PrintKV prints a key-value pair
 func PrintKV(key, value string) {
-	fmt.Printf("%-20s %s\n", Dim(key+":"), value)
+	const width = 20
+	coloredKey := Dim(key + ":")
+	pad := width - VisibleLength(coloredKey)
+	if pad < 0 {
+		pad = 0
+	}
+	fmt.Printf("%s%s %s\n", coloredKey, strings.Repeat(" ", pad), value)
 }
 
 // PrintKVColored prints a key-value pair with colored value
 func PrintKVColored(key, value string, colorFunc func(string) string) {
-	fmt.Printf("%-20s %s\n", Dim(key+":"), colorFunc(value))
+	const width = 20
+	coloredKey := Dim(key + ":")
+	pad := width - VisibleLength(coloredKey)
+	if pad < 0 {
+		pad = 0
+	}
+	fmt.Printf("%s%s %s\n", coloredKey, strings.Repeat(" ", pad), colorFunc(value))
 }
 
 // PrintKeyValue prints a simple key: value line
@@ -59,17 +79,17 @@ func FormatOnOff(state string) string {
 	return ColorizeState(state)
 }
 
-// PrintTable prints a simple table
+// PrintTable prints a simple table with correct alignment for colored text
 func PrintTable(headers []string, rows [][]string) {
 	// Calculate column widths
 	widths := make([]int, len(headers))
 	for i, header := range headers {
-		widths[i] = len(header)
+		widths[i] = VisibleLength(header)
 	}
 	for _, row := range rows {
 		for i, cell := range row {
-			if len(cell) > widths[i] {
-				widths[i] = len(cell)
+			if len := VisibleLength(cell); len > widths[i] {
+				widths[i] = len
 			}
 		}
 	}
@@ -78,19 +98,21 @@ func PrintTable(headers []string, rows [][]string) {
 	headerLine := ""
 	separator := ""
 	for i, header := range headers {
-		headerLine += fmt.Sprintf("%-*s  ", widths[i], header)
-		separator += strings.Repeat("-", widths[i]) + "  "
+		pad := widths[i] - VisibleLength(header)
+		headerLine += header + strings.Repeat(" ", pad) + "  "
+		separator += strings.Repeat("─", widths[i]) + "  "
 	}
-	fmt.Println(Info(headerLine))
-	fmt.Println(Dim(separator))
+	fmt.Println(Info(strings.TrimRight(headerLine, " ")))
+	fmt.Println(Dim(strings.TrimRight(separator, " ")))
 
 	// Print rows
 	for _, row := range rows {
 		line := ""
 		for i, cell := range row {
-			line += fmt.Sprintf("%-*s  ", widths[i], cell)
+			pad := widths[i] - VisibleLength(cell)
+			line += cell + strings.Repeat(" ", pad) + "  "
 		}
-		fmt.Println(line)
+		fmt.Println(strings.TrimRight(line, " "))
 	}
 }
 
