@@ -1,81 +1,39 @@
-.PHONY: build build-arm build-amd64 build-native build-host clean test lint run deps fmt dist deploy deploy-test
+BINARY_NAME := lsc
+BUILD_DIR := bin
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags "-w -s -X main.version=$(VERSION)"
 
-# Binary name
-BINARY_NAME=lsc
+.PHONY: build build-host build-arm dist clean lint test fmt deps deploy deploy-test run
 
-# Build directory
-BUILD_DIR=bin
+build:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 
-# Go parameters
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
-GOMOD=$(GOCMD) mod
+build-arm: build
 
-# Version handling
-VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+build-host:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 
-# Build flags
-LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
+dist: build
 
-# Default target: build for ARM
-build: build-arm
-
-# Build for ARM (target platform)
-build-arm:
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
-	@echo "Built $(BUILD_DIR)/$(BINARY_NAME) for ARM"
-
-# Build for AMD64 (development/testing)
-build-amd64:
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-amd64 .
-	@echo "Built $(BUILD_DIR)/$(BINARY_NAME)-amd64 for AMD64"
-
-# Build for native platform
-build-native:
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-native .
-	@echo "Built $(BUILD_DIR)/$(BINARY_NAME)-native for native platform"
-
-# Build for host platform (alias for build-native)
-build-host: build-native
-
-# Clean build artifacts
 clean:
-	@$(GOCLEAN)
-	@rm -rf $(BUILD_DIR)
-	@echo "Cleaned build artifacts"
+	rm -rf $(BUILD_DIR)
 
-# Run tests
-test:
-	@$(GOTEST) -v ./...
-
-# Run linter
 lint:
-	@golangci-lint run
+	golangci-lint run
 
-# Run locally (requires Redis)
-run:
-	@$(GOCMD) run . status
+test:
+	go test -v ./...
 
-# Install dependencies
-deps:
-	@$(GOMOD) download
-	@$(GOMOD) tidy
-
-# Format code
 fmt:
-	@go fmt ./...
+	go fmt ./...
 
-# Build distribution binary (stripped ARM build)
-dist:
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 $(GOBUILD) -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) .
-	@echo "Built $(BUILD_DIR)/$(BINARY_NAME) for ARM (distribution)"
+deps:
+	go mod download && go mod tidy
+
+run:
+	go run . status
 
 # Deploy to Deep Blue (requires deep-blue ssh alias)
 deploy:

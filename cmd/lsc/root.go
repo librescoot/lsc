@@ -20,9 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "dev"
-
 var (
+	version     string
 	redisClient *redis.Client
 	redisAddr   string
 	JSONOutput  bool // Global flag for JSON output mode
@@ -51,9 +50,8 @@ func init() {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "lsc",
-	Short:   "lsc - librescoot control CLI",
-	Version: version,
+	Use:   "lsc",
+	Short: "lsc - librescoot control CLI",
 	Long: `lsc is a command-line interface for controlling and monitoring LibreScoot
 electric scooters via Redis.
 
@@ -131,6 +129,8 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(v string) {
+	version = v
+	rootCmd.Version = version
 	cobra.CheckErr(rootCmd.Execute())
 }
