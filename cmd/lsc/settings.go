@@ -125,14 +125,42 @@ var settingsListCmd = &cobra.Command{
 			return
 		}
 
-		// Show LibreScoot settings
+		// Show LibreScoot settings grouped by Service
 		format.PrintSection("Settings")
+
+		// Group settings by Service
+		groupedSettings := make(map[string][]SettingInfo)
+		var services []string
+		seenServices := make(map[string]bool)
+
 		for _, info := range knownSettings {
-			value, exists := settings[info.Key]
-			if !exists || value == "" {
-				format.PrintKV(info.Key, format.Dim("(not set)"))
-			} else {
-				format.PrintKV(info.Key, value)
+			if !seenServices[info.Service] {
+				services = append(services, info.Service)
+				seenServices[info.Service] = true
+			}
+			groupedSettings[info.Service] = append(groupedSettings[info.Service], info)
+		}
+
+		headers := []string{"KEY", "VALUE", "DESCRIPTION"}
+		var rows [][]string
+
+		for _, service := range services {
+			// Prettify service name
+			prettyService := strings.ReplaceAll(service, "-", " ")
+			prettyService = strings.Title(prettyService)
+
+			// Add section header
+			rows = append(rows, []string{prettyService})
+
+			for _, info := range groupedSettings[service] {
+				value, exists := settings[info.Key]
+				var displayValue string
+				if !exists || value == "" {
+					displayValue = format.Dim("(not set)")
+				} else {
+					displayValue = value
+				}
+				rows = append(rows, []string{info.Key, displayValue, format.Dim(info.Description)})
 			}
 		}
 
@@ -157,12 +185,13 @@ var settingsListCmd = &cobra.Command{
 
 		if len(unknownKeys) > 0 {
 			sort.Strings(unknownKeys)
-			fmt.Println()
-			format.PrintSection("Unknown Settings")
+			rows = append(rows, []string{"Unknown Settings"})
 			for _, key := range unknownKeys {
-				format.PrintKV(key, settings[key])
+				rows = append(rows, []string{key, settings[key], format.Dim("-")})
 			}
 		}
+
+		format.PrintTable(headers, rows)
 
 		fmt.Println()
 	},

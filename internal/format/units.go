@@ -5,22 +5,40 @@ import (
 	"strconv"
 )
 
-// MillivoltsToVolts converts millivolts string to volts with 1 decimal
-func MillivoltsToVolts(mv string) string {
-	val, err := strconv.Atoi(mv)
-	if err != nil || val == 0 {
-		return "0.0 V"
-	}
-	return fmt.Sprintf("%.1f V", float64(val)/1000.0)
-}
-
-// MilliampsToAmps converts milliamps string to amps with 1 decimal
+// MilliampsToAmps converts milliamps string to a human-readable string (mA if < 1A, A otherwise)
 func MilliampsToAmps(ma string) string {
 	val, err := strconv.Atoi(ma)
-	if err != nil || val == 0 {
-		return "0.0 A"
+	if err != nil {
+		return "0 mA"
+	}
+
+	absVal := val
+	if absVal < 0 {
+		absVal = -absVal
+	}
+
+	if absVal < 1000 {
+		return fmt.Sprintf("%d mA", val)
 	}
 	return fmt.Sprintf("%.1f A", float64(val)/1000.0)
+}
+
+// MillivoltsToVolts converts millivolts string to a human-readable string (mV if < 1V, V otherwise)
+func MillivoltsToVolts(mv string) string {
+	val, err := strconv.Atoi(mv)
+	if err != nil {
+		return "0 mV"
+	}
+
+	absVal := val
+	if absVal < 0 {
+		absVal = -absVal
+	}
+
+	if absVal < 1000 {
+		return fmt.Sprintf("%d mV", val)
+	}
+	return fmt.Sprintf("%.1f V", float64(val)/1000.0)
 }
 
 // MetersToKilometers converts meters string to kilometers with 1 decimal

@@ -50,28 +50,28 @@ var faultsCmd = &cobra.Command{
 
 		format.PrintSection(fmt.Sprintf("Active Faults (%d)", totalFaults))
 
+		headers := []string{"SOURCE", "FAULT"}
+		var rows [][]string
+
 		if len(vehicleFaults) > 0 {
-			fmt.Println(format.Warning("\nVehicle Faults:"))
 			for _, fault := range vehicleFaults {
-				fmt.Printf("  %s %s\n", format.Error("•"), fault)
+				rows = append(rows, []string{"Vehicle", format.Error(fault)})
 			}
 		}
 
 		if len(battery0Faults) > 0 {
-			fmt.Println(format.Warning("\nBattery 0 Faults:"))
 			for _, fault := range battery0Faults {
-				fmt.Printf("  %s %s\n", format.Error("•"), fault)
+				rows = append(rows, []string{"Battery 0", format.Error(fault)})
 			}
 		}
 
 		if len(battery1Faults) > 0 {
-			fmt.Println(format.Warning("\nBattery 1 Faults:"))
 			for _, fault := range battery1Faults {
-				fmt.Printf("  %s %s\n", format.Error("•"), fault)
+				rows = append(rows, []string{"Battery 1", format.Error(fault)})
 			}
 		}
 
-		fmt.Println()
+		format.PrintTable(headers, rows)
 	},
 }
 

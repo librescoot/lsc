@@ -87,7 +87,14 @@ func PrintTable(headers []string, rows [][]string) {
 		widths[i] = VisibleLength(header)
 	}
 	for _, row := range rows {
+		// Skip section headers (single element rows) from width calculation
+		if len(row) == 1 {
+			continue
+		}
 		for i, cell := range row {
+			if i >= len(widths) {
+				break
+			}
 			if len := VisibleLength(cell); len > widths[i] {
 				widths[i] = len
 			}
@@ -107,8 +114,17 @@ func PrintTable(headers []string, rows [][]string) {
 
 	// Print rows
 	for _, row := range rows {
+		// Handle section headers
+		if len(row) == 1 {
+			fmt.Printf("\n%s\n", Warning("‣ "+row[0]))
+			continue
+		}
+
 		line := ""
 		for i, cell := range row {
+			if i >= len(widths) {
+				break
+			}
 			pad := widths[i] - VisibleLength(cell)
 			line += cell + strings.Repeat(" ", pad) + "  "
 		}

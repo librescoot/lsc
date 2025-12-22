@@ -70,20 +70,27 @@ var listCmd = &cobra.Command{
 		}
 
 		format.PrintSection("Saved Locations")
-		fmt.Println()
+		
+		headers := []string{"ID", "LABEL", "COORDS", "LAST USED", "CREATED"}
+		var rows [][]string
 
 		for _, loc := range locations {
-			fmt.Printf("[%s] %s %s\n",
+			coords := fmt.Sprintf("%.6f, %.6f", loc.Latitude, loc.Longitude)
+			created := ""
+			if !loc.CreatedAt.IsZero() {
+				created = loc.CreatedAt.Format("2006-01-02")
+			}
+
+			rows = append(rows, []string{
 				format.Info(fmt.Sprintf("%d", loc.ID)),
 				format.Success(loc.Label),
-				format.Dim(fmt.Sprintf("(%.6f, %.6f)", loc.Latitude, loc.Longitude)),
-			)
-			fmt.Printf("    Last used: %s\n", formatRelativeTime(loc.LastUsedAt))
-			if !loc.CreatedAt.IsZero() {
-				fmt.Printf("    Created: %s\n", loc.CreatedAt.Format("2006-01-02"))
-			}
-			fmt.Println()
+				format.Dim(coords),
+				formatRelativeTime(loc.LastUsedAt),
+				created,
+			})
 		}
+
+		format.PrintTable(headers, rows)
 	},
 }
 
