@@ -38,6 +38,7 @@ var knownSettings = []SettingInfo{
 	// Vehicle settings (vehicle-service)
 	{Key: "scooter.auto-standby-seconds", Description: "Auto-lock timeout when parked in seconds (0=disabled)", Default: "0", Service: "vehicle-service"},
 	{Key: "scooter.brake-hibernation", Description: "Enable brake lever hibernation (enabled/disabled)", Default: "enabled", Service: "vehicle-service"},
+	{Key: "scooter.enable-horn", Description: "Horn enable mode (true/false/in-drive)", Default: "true", Service: "vehicle-service"},
 
 	// Update service settings (update-service)
 	{Key: "updates.mdb.method", Description: "Update method for MDB (delta or full)", Default: "full", Service: "update-service"},
