@@ -97,6 +97,8 @@ internal/
     units.go                 # Unit conversion (km/h, voltage, etc.)
   confirm/
     confirm.go               # Helper for waiting on Redis state changes
+  registry/
+    settings.go              # Settings metadata registry with validation
 ```
 
 ### Cobra Command Pattern
@@ -154,6 +156,48 @@ State change helpers:
 - `WaitForFieldValue()` - Subscribe and wait (for pre-sent commands)
 - Handles race condition prevention automatically
 
+#### `internal/registry`
+Settings metadata registry:
+- Comprehensive metadata for all LibreScoot settings (42+ settings)
+- Type information: `TypeBool`, `TypeInt`, `TypeFloat`, `TypeString`, `TypeEnum`, `TypeURL`
+- Validation: `ValidateValue(key, value)` - validates against type, min/max, possible values
+- Lookup: `GetSetting(key)`, `GetSettingsByService(service)`, `GetServices()`
+- Rich metadata: service owner, description, possible values, units, examples, default values
+
+**Setting struct**:
+```go
+type Setting struct {
+    Key            string      // Redis key (dot notation)
+    Service        string      // Service that owns this setting
+    Type           SettingType // Data type
+    Description    string      // Human-readable description
+    PossibleValues []string    // For enums/documented values
+    DefaultValue   string      // Default value
+    Unit           string      // Unit of measurement (e.g., "seconds", "km/h")
+    MinValue       *float64    // For numeric types
+    MaxValue       *float64    // For numeric types
+    Example        string      // Example value
+    Pattern        string      // Special pattern (e.g., "indexed")
+}
+```
+
+**Usage example**:
+```go
+import "librescoot/lsc/internal/registry"
+
+// Validate a value
+if err := registry.ValidateValue("alarm.duration", "500"); err != nil {
+    // Error: must be <= 300
+}
+
+// Get setting metadata
+if setting, found := registry.GetSetting("alarm.enabled"); found {
+    fmt.Println(setting.Description) // "Enable or disable the alarm system"
+    fmt.Println(setting.Type)        // TypeBool
+    fmt.Println(setting.PossibleValues) // ["true", "false"]
+}
+```
+
 ### State Change Confirmation Pattern (CRITICAL)
 
 **Race Condition Prevention**: When sending commands that trigger state changes, you MUST subscribe to the pub/sub channel BEFORE sending the command. Use the helper:
@@ -206,9 +250,17 @@ The CLI is designed with a hierarchical structure using subcommands for intuitiv
 
 ### Settings Commands
 Generic access to configuration stored in Redis `settings` hash:
-- **`lsc settings list`**: Lists all global settings
-- **`lsc settings get <key>`**: Retrieves a specific setting
-- **`lsc settings set <key> <value>`**: Sets a specific setting
+- **`lsc settings list`**: Lists all global settings grouped by service
+- **`lsc settings get <key> [<key>...]`**: Retrieves one or more settings
+- **`lsc settings set <key> <value> [<key> <value>...]`**: Sets one or more settings with validation
+- **`lsc settings set <key> <value> --force`**: Skip validation (shows warning)
+- **`lsc settings del <key>`**: Deletes a setting
+
+**Validation**: The `set` command validates values against the settings registry:
+- Type checking (bool, int, float, string, enum, url)
+- Range checking (min/max for numeric values)
+- Enum validation (must be one of allowed values)
+- Use `--force` to override validation (shows warning but sets value)
 
 ### Alarm Commands
 User-friendly alarm controls:
