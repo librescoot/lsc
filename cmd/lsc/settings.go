@@ -9,78 +9,14 @@ import (
 	"strings"
 
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/registry"
 
 	"github.com/spf13/cobra"
 )
 
-// SettingInfo describes a known setting key
-type SettingInfo struct {
-	Key         string
-	Description string
-	Default     string
-	Service     string
-}
+// Note: Settings registry moved to internal/registry package
 
-// knownSettings is a registry of all LibreScoot settings (using dot notation)
-var knownSettings = []SettingInfo{
-	// Alarm settings (alarm-service)
-	{Key: "alarm.enabled", Description: "Enable/disable alarm system", Default: "false", Service: "alarm-service"},
-	{Key: "alarm.honk", Description: "Enable horn during alarm trigger", Default: "false", Service: "alarm-service"},
-	{Key: "alarm.duration", Description: "Duration in seconds for alarm sound", Default: "60", Service: "alarm-service"},
-
-	// Scooter settings (battery-service)
-	{Key: "scooter.battery-ignores-seatbox", Description: "Ignore seatbox open and always keep batteries active", Default: "false", Service: "battery-service"},
-	{Key: "scooter.dual-battery", Description: "Enable dual battery mode (battery 1 active instead of idle)", Default: "false", Service: "battery-service"},
-
-	// Power management settings (pm-service)
-	{Key: "hibernation-timer", Description: "Hibernation timeout in seconds", Default: "432000", Service: "pm-service"},
-
-	// Vehicle settings (vehicle-service)
-	{Key: "scooter.auto-standby-seconds", Description: "Auto-lock timeout when parked in seconds (0=disabled)", Default: "0", Service: "vehicle-service"},
-	{Key: "scooter.brake-hibernation", Description: "Enable brake lever hibernation (enabled/disabled)", Default: "enabled", Service: "vehicle-service"},
-	{Key: "scooter.enable-horn", Description: "Horn enable mode (true/false/in-drive)", Default: "true", Service: "vehicle-service"},
-
-	// Update service settings (update-service)
-	{Key: "updates.mdb.method", Description: "Update method for MDB (delta or full)", Default: "full", Service: "update-service"},
-	{Key: "updates.mdb.channel", Description: "Release channel for MDB (stable/testing/nightly)", Default: "nightly", Service: "update-service"},
-	{Key: "updates.mdb.check-interval", Description: "Time between update checks for MDB (hours, 0=never)", Default: "6", Service: "update-service"},
-	{Key: "updates.mdb.last-check-time", Description: "Last time MDB checked for updates (ISO8601 timestamp)", Default: "", Service: "update-service"},
-	{Key: "updates.mdb.github-releases-url", Description: "GitHub Releases API endpoint for MDB", Default: "https://api.github.com/repos/librescoot/librescoot/releases", Service: "update-service"},
-	{Key: "updates.mdb.dry-run", Description: "Enable dry-run mode for MDB updates (no reboot)", Default: "false", Service: "update-service"},
-	{Key: "updates.dbc.method", Description: "Update method for DBC (delta or full)", Default: "full", Service: "update-service"},
-	{Key: "updates.dbc.channel", Description: "Release channel for DBC (stable/testing/nightly)", Default: "nightly", Service: "update-service"},
-	{Key: "updates.dbc.check-interval", Description: "Time between update checks for DBC (hours, 0=never)", Default: "6", Service: "update-service"},
-	{Key: "updates.dbc.last-check-time", Description: "Last time DBC checked for updates (ISO8601 timestamp)", Default: "", Service: "update-service"},
-	{Key: "updates.dbc.github-releases-url", Description: "GitHub Releases API endpoint for DBC", Default: "https://api.github.com/repos/librescoot/librescoot/releases", Service: "update-service"},
-	{Key: "updates.dbc.dry-run", Description: "Enable dry-run mode for DBC updates (no reboot)", Default: "false", Service: "update-service"},
-
-	// Network settings
-	{Key: "cellular.apn", Description: "Cellular APN string", Default: "", Service: "modem-service"},
-
-	// Dashboard settings (scootui)
-	{Key: "dashboard.show-raw-speed", Description: "Show raw uncorrected speed from ECU", Default: "false", Service: "scootui"},
-	{Key: "dashboard.show-clock", Description: "Clock visibility (always/never)", Default: "always", Service: "scootui"},
-	{Key: "dashboard.show-gps", Description: "GPS indicator visibility (always/active-or-error/error/never)", Default: "error", Service: "scootui"},
-	{Key: "dashboard.show-bluetooth", Description: "Bluetooth indicator visibility (always/active-or-error/error/never)", Default: "active-or-error", Service: "scootui"},
-	{Key: "dashboard.show-cloud", Description: "Cloud indicator visibility (always/active-or-error/error/never)", Default: "error", Service: "scootui"},
-	{Key: "dashboard.show-internet", Description: "Internet indicator visibility (always/active-or-error/error/never)", Default: "always", Service: "scootui"},
-	{Key: "dashboard.battery-display-mode", Description: "Battery display mode (percentage/range)", Default: "percentage", Service: "scootui"},
-	{Key: "dashboard.map.type", Description: "Map tile source (online/offline)", Default: "offline", Service: "scootui"},
-	{Key: "dashboard.map.render-mode", Description: "Map rendering mode (vector/raster)", Default: "raster", Service: "scootui"},
-	{Key: "dashboard.theme", Description: "UI theme (light/dark/auto)", Default: "dark", Service: "scootui"},
-	{Key: "dashboard.mode", Description: "Default screen mode (speedometer/navigation)", Default: "speedometer", Service: "scootui"},
-	{Key: "dashboard.valhalla-url", Description: "Valhalla routing service endpoint", Default: "http://localhost:8002/", Service: "scootui"},
-
-	// Saved locations (scootui)
-	// Pattern: dashboard.saved-locations.<index>.<field> (any index 0-N supported)
-	// Fields: created-at (ISO8601), label (string), last-used-at (ISO8601), latitude (float), longitude (float)
-	// Note: All indices are recognized. Use 'lsc locations' to manage saved locations.
-	{Key: "dashboard.saved-locations.0.created-at", Description: "Creation timestamp (example: index 0)", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.label", Description: "Label (example: index 0)", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.last-used-at", Description: "Last used timestamp (example: index 0)", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.latitude", Description: "Latitude (example: index 0)", Default: "", Service: "scootui"},
-	{Key: "dashboard.saved-locations.0.longitude", Description: "Longitude (example: index 0)", Default: "", Service: "scootui"},
-}
+var forceSet bool
 
 var settingsCmd = &cobra.Command{
 	Use:   "settings",
@@ -113,7 +49,7 @@ var settingsListCmd = &cobra.Command{
 		if JSONOutput {
 			// For JSON output, merge known settings with current values
 			result := make(map[string]interface{})
-			for _, info := range knownSettings {
+			for _, info := range registry.Settings {
 				value, exists := settings[info.Key]
 				if !exists || value == "" {
 					result[info.Key] = nil
@@ -130,15 +66,10 @@ var settingsListCmd = &cobra.Command{
 		format.PrintSection("Settings")
 
 		// Group settings by Service
-		groupedSettings := make(map[string][]SettingInfo)
-		var services []string
-		seenServices := make(map[string]bool)
+		groupedSettings := make(map[string][]registry.Setting)
+		services := registry.GetServices()
 
-		for _, info := range knownSettings {
-			if !seenServices[info.Service] {
-				services = append(services, info.Service)
-				seenServices[info.Service] = true
-			}
+		for _, info := range registry.Settings {
 			groupedSettings[info.Service] = append(groupedSettings[info.Service], info)
 		}
 
@@ -168,18 +99,7 @@ var settingsListCmd = &cobra.Command{
 		// Show any unknown settings that exist in Redis but aren't in our known list
 		unknownKeys := make([]string, 0)
 		for key := range settings {
-			known := false
-			for _, info := range knownSettings {
-				if info.Key == key {
-					known = true
-					break
-				}
-			}
-			// Also check if it matches the saved-locations pattern (handled by locations package)
-			if !known && strings.HasPrefix(key, "dashboard.saved-locations.") {
-				known = true
-			}
-			if !known && settings[key] != "" {
+			if !registry.IsKnownSetting(key) && settings[key] != "" {
 				unknownKeys = append(unknownKeys, key)
 			}
 		}
@@ -199,48 +119,77 @@ var settingsListCmd = &cobra.Command{
 }
 
 var settingsGetCmd = &cobra.Command{
-	Use:   "get <key>",
-	Short: "Get a setting value",
-	Long:  `Retrieve the value of a specific setting.`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "get <key> [<key>...]",
+	Short: "Get one or more setting values",
+	Long:  `Retrieve the value of one or more settings.`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		key := args[0]
+		if JSONOutput {
+			result := make(map[string]interface{})
+			hasError := false
 
-		value, err := redisClient.HGet("settings", key)
-		if err != nil {
-			if JSONOutput {
+			for _, key := range args {
+				value, err := redisClient.HGet("settings", key)
+				if err != nil {
+					result[key] = map[string]interface{}{
+						"error": err.Error(),
+					}
+					hasError = true
+				} else if value == "" {
+					result[key] = nil
+				} else {
+					result[key] = value
+				}
+			}
+
+			if hasError {
 				output, _ := json.Marshal(map[string]interface{}{
-					"error": err.Error(),
+					"error":  "one or more keys failed",
+					"values": result,
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to get setting '%s': %v\n"), key, err)
+				jsonBytes, _ := json.MarshalIndent(result, "", "  ")
+				fmt.Println(string(jsonBytes))
 			}
 			return
 		}
 
-		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"key":   key,
-				"value": value,
-			})
-			fmt.Println(string(output))
-			return
-		}
+		// Non-JSON output
+		for _, key := range args {
+			value, err := redisClient.HGet("settings", key)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to get setting '%s': %v\n"), key, err)
+				continue
+			}
 
-		if value == "" {
-			fmt.Println(format.Dim("(not set)"))
-			return
+			if len(args) > 1 {
+				// Multiple keys - show key=value format
+				if value == "" {
+					fmt.Printf("%s=%s\n", key, format.Dim("(not set)"))
+				} else {
+					fmt.Printf("%s=%s\n", key, value)
+				}
+			} else {
+				// Single key - just show value
+				if value == "" {
+					fmt.Println(format.Dim("(not set)"))
+				} else {
+					fmt.Println(value)
+				}
+			}
 		}
-
-		fmt.Println(value)
 	},
 }
 
 var settingsSetCmd = &cobra.Command{
-	Use:   "set <key> <value>",
-	Short: "Set a setting value",
-	Long: `Set the value of a specific setting and publish the change.
+	Use:   "set <key> <value> [<key> <value>...]",
+	Short: "Set one or more setting values",
+	Long: `Set the value of one or more settings and publish the changes.
+
+Examples:
+  lsc settings set alarm.enabled true
+  lsc settings set alarm.enabled true alarm.honk false alarm.duration 60
 
 Common Settings:
   alarm.enabled                   - Enable/disable alarm (true/false)
@@ -256,51 +205,110 @@ Common Settings:
   cellular.apn                    - Cellular APN string
 
 Use 'lsc settings list' to see all available settings and their current values.`,
-	Args: cobra.ExactArgs(2),
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 2 {
+			return fmt.Errorf("requires at least one key-value pair")
+		}
+		if len(args)%2 != 0 {
+			return fmt.Errorf("requires even number of arguments (key-value pairs)")
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-		key := args[0]
-		value := args[1]
-
-		// Set the value in Redis hash
-		if err := redisClient.HSet("settings", key, value); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"error": err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to set setting '%s': %v\n"), key, err)
-			}
-			return
+		ctx := context.Background()
+		type setResult struct {
+			Key    string `json:"key"`
+			Value  string `json:"value"`
+			Status string `json:"status"`
+			Error  string `json:"error,omitempty"`
 		}
 
-		// Publish the change so services can react
-		ctx := context.Background()
-		if err := redisClient.Publish(ctx, "settings", key); err != nil {
-			if JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"key":     key,
-					"value":   value,
-					"status":  "warning",
-					"message": "Setting updated but publish failed",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Setting updated but publish failed: %v\n"), err)
+		var results []setResult
+		hasError := false
+
+		// Process key-value pairs
+		for i := 0; i < len(args); i += 2 {
+			key := args[i]
+			value := args[i+1]
+
+			// Validate the value
+			validationErr := registry.ValidateValue(key, value)
+			if validationErr != nil && !forceSet {
+				// Without --force, validation errors are fatal
+				hasError = true
+				if JSONOutput {
+					results = append(results, setResult{
+						Key:    key,
+						Value:  value,
+						Status: "error",
+						Error:  fmt.Sprintf("validation failed: %v", validationErr),
+					})
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Invalid value for '%s': %v\n"), key, validationErr)
+				}
+				continue
+			} else if validationErr != nil && forceSet {
+				// With --force, show warning but continue
+				if !JSONOutput {
+					fmt.Fprintf(os.Stderr, format.Warning("Validation would fail for '%s' (--force used): %v\n"), key, validationErr)
+				}
 			}
-			return
+
+			// Set the value in Redis hash
+			if err := redisClient.HSet("settings", key, value); err != nil {
+				hasError = true
+				if JSONOutput {
+					results = append(results, setResult{
+						Key:    key,
+						Value:  value,
+						Status: "error",
+						Error:  fmt.Sprintf("failed to set: %v", err),
+					})
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to set setting '%s': %v\n"), key, err)
+				}
+				continue
+			}
+
+			// Publish the change so services can react
+			if err := redisClient.Publish(ctx, "settings", key); err != nil {
+				if JSONOutput {
+					results = append(results, setResult{
+						Key:    key,
+						Value:  value,
+						Status: "warning",
+						Error:  "setting updated but publish failed",
+					})
+				} else {
+					fmt.Fprintf(os.Stderr, format.Warning("Setting '%s' updated but publish failed: %v\n"), key, err)
+				}
+			} else {
+				if JSONOutput {
+					results = append(results, setResult{
+						Key:    key,
+						Value:  value,
+						Status: "success",
+					})
+				} else {
+					fmt.Println(format.Success(fmt.Sprintf("Setting '%s' = '%s'", key, value)))
+				}
+			}
 		}
 
 		if JSONOutput {
-			output, _ := json.Marshal(map[string]interface{}{
-				"key":    key,
-				"value":  value,
-				"status": "success",
-			})
-			fmt.Println(string(output))
-		} else {
-			fmt.Println(format.Success(fmt.Sprintf("Setting '%s' = '%s'", key, value)))
+			if hasError {
+				output, _ := json.Marshal(map[string]interface{}{
+					"status":  "partial",
+					"results": results,
+				})
+				fmt.Println(string(output))
+			} else {
+				output, _ := json.Marshal(map[string]interface{}{
+					"status":  "success",
+					"results": results,
+				})
+				fmt.Println(string(output))
+			}
 		}
 	},
 }
@@ -360,5 +368,9 @@ func init() {
 	settingsCmd.AddCommand(settingsGetCmd)
 	settingsCmd.AddCommand(settingsSetCmd)
 	settingsCmd.AddCommand(settingsDelCmd)
+
+	// Add flags
+	settingsSetCmd.Flags().BoolVar(&forceSet, "force", false, "Skip validation and force set the value")
+
 	rootCmd.AddCommand(settingsCmd)
 }
