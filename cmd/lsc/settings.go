@@ -92,7 +92,16 @@ var settingsListCmd = &cobra.Command{
 				} else {
 					displayValue = value
 				}
-				rows = append(rows, []string{info.Key, displayValue, format.Dim(info.Description)})
+
+				// Build description with possible values/units
+				description := info.Description
+				if len(info.PossibleValues) > 0 {
+					description = fmt.Sprintf("%s (%s)", description, strings.Join(info.PossibleValues, ", "))
+				} else if info.Unit != "" {
+					description = fmt.Sprintf("%s [%s]", description, info.Unit)
+				}
+
+				rows = append(rows, []string{info.Key, displayValue, format.Dim(description)})
 			}
 		}
 
