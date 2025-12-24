@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// MilliampsToAmps converts milliamps string to a human-readable string (mA if < 1A, A otherwise)
+// MilliampsToAmps converts milliamps string to a human-readable string (mA if <= 1000 mA, A otherwise)
 func MilliampsToAmps(ma string) string {
 	val, err := strconv.Atoi(ma)
 	if err != nil {
@@ -17,7 +17,7 @@ func MilliampsToAmps(ma string) string {
 		absVal = -absVal
 	}
 
-	if absVal < 1000 {
+	if absVal <= 1000 {
 		return fmt.Sprintf("%d mA", val)
 	}
 	return fmt.Sprintf("%.1f A", float64(val)/1000.0)
@@ -117,4 +117,17 @@ func FormatChargeColored(charge string) string {
 func FormatTemperatureColored(temp string) string {
 	val := ParseInt(temp)
 	return ColorizeTemperature(val)
+}
+
+// FormatAmperageColored formats current (mA) with coloring: green for charge, red for discharge
+func FormatAmperageColored(ma string) string {
+	val := ParseInt(ma)
+	text := MilliampsToAmps(ma)
+
+	if val < 0 {
+		return Error(text) // Discharging (negative current) - red
+	} else if val > 0 {
+		return Success(text) // Charging (positive current) - green
+	}
+	return text // Zero current - no color
 }

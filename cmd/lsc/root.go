@@ -16,6 +16,7 @@ import (
 	"librescoot/lsc/cmd/lsc/power"
 	"librescoot/lsc/cmd/lsc/service"
 	"librescoot/lsc/internal/redis"
+	"librescoot/lsc/internal/tui"
 
 	"github.com/spf13/cobra"
 )
@@ -132,5 +133,25 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 func Execute(v string) {
 	version = v
 	rootCmd.Version = version
+
+	// Check if TUI should launch (no args + TTY + no special env vars)
+	if tui.ShouldLaunchTUI(os.Args[1:]) {
+		// Connect to Redis for TUI
+		redisClient = redis.NewClient(redisAddr)
+		if err := redisClient.Connect(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
+			os.Exit(1)
+		}
+		defer redisClient.Close()
+
+		// Launch TUI
+		if err := tui.Launch(redisAddr, redisClient); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Otherwise, run normal Cobra CLI
 	cobra.CheckErr(rootCmd.Execute())
 }

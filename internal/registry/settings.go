@@ -22,6 +22,7 @@ const (
 type Setting struct {
 	Key            string      // Redis key (dot notation)
 	Service        string      // Service that owns/uses this setting
+	Category       string      // Semantic category for grouping in UI
 	Type           SettingType // Data type
 	Description    string      // Human-readable description
 	PossibleValues []string    // For enums, or documented valid values
@@ -39,6 +40,7 @@ var Settings = []Setting{
 	{
 		Key:            "alarm.enabled",
 		Service:        "alarm-service",
+		Category:       "Alarm",
 		Type:           TypeBool,
 		Description:    "Enable or disable the alarm system",
 		PossibleValues: []string{"true", "false"},
@@ -48,6 +50,7 @@ var Settings = []Setting{
 	{
 		Key:            "alarm.honk",
 		Service:        "alarm-service",
+		Category:       "Alarm",
 		Type:           TypeBool,
 		Description:    "Enable horn during alarm trigger",
 		PossibleValues: []string{"true", "false"},
@@ -57,6 +60,7 @@ var Settings = []Setting{
 	{
 		Key:          "alarm.duration",
 		Service:      "alarm-service",
+		Category:       "Alarm",
 		Type:         TypeInt,
 		Description:  "Duration in seconds for alarm sound",
 		DefaultValue: "60",
@@ -70,6 +74,7 @@ var Settings = []Setting{
 	{
 		Key:            "scooter.battery-ignores-seatbox",
 		Service:        "battery-service",
+		Category:       "Battery",
 		Type:           TypeBool,
 		Description:    "Ignore seatbox open and always keep batteries active",
 		PossibleValues: []string{"true", "false"},
@@ -79,6 +84,7 @@ var Settings = []Setting{
 	{
 		Key:            "scooter.dual-battery",
 		Service:        "battery-service",
+		Category:       "Battery",
 		Type:           TypeBool,
 		Description:    "Enable dual battery mode (battery 1 active instead of idle)",
 		PossibleValues: []string{"true", "false"},
@@ -90,6 +96,7 @@ var Settings = []Setting{
 	{
 		Key:          "hibernation-timer",
 		Service:      "pm-service",
+		Category:       "Power & Standby",
 		Type:         TypeInt,
 		Description:  "Hibernation timeout in seconds",
 		DefaultValue: "432000",
@@ -102,6 +109,7 @@ var Settings = []Setting{
 	{
 		Key:          "scooter.auto-standby-seconds",
 		Service:      "vehicle-service",
+		Category:     "Power & Standby",
 		Type:         TypeInt,
 		Description:  "Auto-lock timeout when parked in seconds (0=disabled)",
 		DefaultValue: "0",
@@ -112,6 +120,7 @@ var Settings = []Setting{
 	{
 		Key:            "scooter.brake-hibernation",
 		Service:        "vehicle-service",
+		Category:       "Power & Standby",
 		Type:           TypeEnum,
 		Description:    "Enable brake lever hibernation",
 		PossibleValues: []string{"enabled", "disabled"},
@@ -121,6 +130,7 @@ var Settings = []Setting{
 	{
 		Key:            "scooter.enable-horn",
 		Service:        "vehicle-service",
+		Category:       "Vehicle Controls",
 		Type:           TypeEnum,
 		Description:    "Horn enable mode",
 		PossibleValues: []string{"true", "false", "in-drive"},
@@ -132,6 +142,7 @@ var Settings = []Setting{
 	{
 		Key:            "updates.mdb.method",
 		Service:        "update-service",
+		Category:       "Updates - MDB",
 		Type:           TypeEnum,
 		Description:    "Update method for MDB",
 		PossibleValues: []string{"delta", "full"},
@@ -141,6 +152,7 @@ var Settings = []Setting{
 	{
 		Key:            "updates.mdb.channel",
 		Service:        "update-service",
+		Category:       "Updates - MDB",
 		Type:           TypeEnum,
 		Description:    "Release channel for MDB",
 		PossibleValues: []string{"stable", "testing", "nightly"},
@@ -150,6 +162,7 @@ var Settings = []Setting{
 	{
 		Key:          "updates.mdb.check-interval",
 		Service:      "update-service",
+		Category:       "Updates - MDB",
 		Type:         TypeInt,
 		Description:  "Time between update checks for MDB (0=never)",
 		DefaultValue: "6",
@@ -160,6 +173,7 @@ var Settings = []Setting{
 	{
 		Key:          "updates.mdb.last-check-time",
 		Service:      "update-service",
+		Category:       "Updates - MDB",
 		Type:         TypeString,
 		Description:  "Last time MDB checked for updates (ISO8601 timestamp)",
 		DefaultValue: "",
@@ -168,6 +182,7 @@ var Settings = []Setting{
 	{
 		Key:          "updates.mdb.github-releases-url",
 		Service:      "update-service",
+		Category:       "Updates - MDB",
 		Type:         TypeURL,
 		Description:  "GitHub Releases API endpoint for MDB",
 		DefaultValue: "https://api.github.com/repos/librescoot/librescoot/releases",
@@ -176,6 +191,7 @@ var Settings = []Setting{
 	{
 		Key:            "updates.mdb.dry-run",
 		Service:        "update-service",
+		Category:       "Updates - MDB",
 		Type:           TypeBool,
 		Description:    "Enable dry-run mode for MDB updates (no reboot)",
 		PossibleValues: []string{"true", "false"},
@@ -187,6 +203,7 @@ var Settings = []Setting{
 	{
 		Key:            "updates.dbc.method",
 		Service:        "update-service",
+		Category:       "Updates - DBC",
 		Type:           TypeEnum,
 		Description:    "Update method for DBC",
 		PossibleValues: []string{"delta", "full"},
@@ -196,6 +213,7 @@ var Settings = []Setting{
 	{
 		Key:            "updates.dbc.channel",
 		Service:        "update-service",
+		Category:       "Updates - DBC",
 		Type:           TypeEnum,
 		Description:    "Release channel for DBC",
 		PossibleValues: []string{"stable", "testing", "nightly"},
@@ -205,6 +223,7 @@ var Settings = []Setting{
 	{
 		Key:          "updates.dbc.check-interval",
 		Service:      "update-service",
+		Category:       "Updates - DBC",
 		Type:         TypeInt,
 		Description:  "Time between update checks for DBC (0=never)",
 		DefaultValue: "6",
@@ -215,6 +234,7 @@ var Settings = []Setting{
 	{
 		Key:          "updates.dbc.last-check-time",
 		Service:      "update-service",
+		Category:       "Updates - DBC",
 		Type:         TypeString,
 		Description:  "Last time DBC checked for updates (ISO8601 timestamp)",
 		DefaultValue: "",
@@ -223,6 +243,7 @@ var Settings = []Setting{
 	{
 		Key:          "updates.dbc.github-releases-url",
 		Service:      "update-service",
+		Category:       "Updates - DBC",
 		Type:         TypeURL,
 		Description:  "GitHub Releases API endpoint for DBC",
 		DefaultValue: "https://api.github.com/repos/librescoot/librescoot/releases",
@@ -231,6 +252,7 @@ var Settings = []Setting{
 	{
 		Key:            "updates.dbc.dry-run",
 		Service:        "update-service",
+		Category:       "Updates - DBC",
 		Type:           TypeBool,
 		Description:    "Enable dry-run mode for DBC updates (no reboot)",
 		PossibleValues: []string{"true", "false"},
@@ -242,6 +264,7 @@ var Settings = []Setting{
 	{
 		Key:          "cellular.apn",
 		Service:      "modem-service",
+		Category:       "Network",
 		Type:         TypeString,
 		Description:  "Cellular APN string",
 		DefaultValue: "",
@@ -252,6 +275,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.show-raw-speed",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeBool,
 		Description:    "Show raw uncorrected speed from ECU",
 		PossibleValues: []string{"true", "false"},
@@ -261,6 +285,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.show-clock",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Clock visibility",
 		PossibleValues: []string{"always", "never"},
@@ -270,6 +295,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.show-gps",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "GPS indicator visibility",
 		PossibleValues: []string{"always", "active-or-error", "error", "never"},
@@ -279,6 +305,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.show-bluetooth",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Bluetooth indicator visibility",
 		PossibleValues: []string{"always", "active-or-error", "error", "never"},
@@ -288,6 +315,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.show-cloud",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Cloud indicator visibility",
 		PossibleValues: []string{"always", "active-or-error", "error", "never"},
@@ -297,6 +325,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.show-internet",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Internet indicator visibility",
 		PossibleValues: []string{"always", "active-or-error", "error", "never"},
@@ -306,6 +335,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.battery-display-mode",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Battery display mode",
 		PossibleValues: []string{"percentage", "range"},
@@ -315,6 +345,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.map.type",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Map tile source",
 		PossibleValues: []string{"online", "offline"},
@@ -324,6 +355,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.map.render-mode",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Map rendering mode",
 		PossibleValues: []string{"vector", "raster"},
@@ -333,6 +365,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.theme",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "UI theme",
 		PossibleValues: []string{"light", "dark", "auto"},
@@ -342,6 +375,7 @@ var Settings = []Setting{
 	{
 		Key:            "dashboard.mode",
 		Service:        "scootui",
+		Category:       "Dashboard Display",
 		Type:           TypeEnum,
 		Description:    "Default screen mode",
 		PossibleValues: []string{"speedometer", "navigation"},
@@ -351,6 +385,7 @@ var Settings = []Setting{
 	{
 		Key:          "dashboard.valhalla-url",
 		Service:      "scootui",
+		Category:       "Dashboard Display",
 		Type:         TypeURL,
 		Description:  "Valhalla routing service endpoint",
 		DefaultValue: "http://localhost:8002/",
@@ -362,6 +397,7 @@ var Settings = []Setting{
 	{
 		Key:          "dashboard.saved-locations.0.created-at",
 		Service:      "scootui",
+		Category:       "Saved Locations",
 		Type:         TypeString,
 		Description:  "Creation timestamp (example: index 0)",
 		DefaultValue: "",
@@ -371,6 +407,7 @@ var Settings = []Setting{
 	{
 		Key:          "dashboard.saved-locations.0.label",
 		Service:      "scootui",
+		Category:       "Saved Locations",
 		Type:         TypeString,
 		Description:  "Label (example: index 0)",
 		DefaultValue: "",
@@ -380,6 +417,7 @@ var Settings = []Setting{
 	{
 		Key:          "dashboard.saved-locations.0.last-used-at",
 		Service:      "scootui",
+		Category:       "Saved Locations",
 		Type:         TypeString,
 		Description:  "Last used timestamp (example: index 0)",
 		DefaultValue: "",
@@ -389,6 +427,7 @@ var Settings = []Setting{
 	{
 		Key:          "dashboard.saved-locations.0.latitude",
 		Service:      "scootui",
+		Category:       "Saved Locations",
 		Type:         TypeFloat,
 		Description:  "Latitude (example: index 0)",
 		DefaultValue: "",
@@ -400,6 +439,7 @@ var Settings = []Setting{
 	{
 		Key:          "dashboard.saved-locations.0.longitude",
 		Service:      "scootui",
+		Category:       "Saved Locations",
 		Type:         TypeFloat,
 		Description:  "Longitude (example: index 0)",
 		DefaultValue: "",
@@ -447,6 +487,64 @@ func GetServices() []string {
 		}
 	}
 	return services
+}
+
+// GetCategories returns a list of unique category names in display order
+func GetCategories() []string {
+	// Fixed order for consistent UI display
+	order := []string{
+		"Alarm",
+		"Battery",
+		"Power & Standby",
+		"Vehicle Controls",
+		"Network",
+		"Dashboard Display",
+		"Updates - MDB",
+		"Updates - DBC",
+		"Saved Locations",
+	}
+
+	// Only return categories that have settings
+	seen := make(map[string]bool)
+	for _, s := range Settings {
+		if s.Category != "" {
+			seen[s.Category] = true
+		}
+	}
+
+	var result []string
+	for _, cat := range order {
+		if seen[cat] {
+			result = append(result, cat)
+		}
+	}
+
+	// Add any categories not in the fixed order (for forward compatibility)
+	for cat := range seen {
+		found := false
+		for _, ordered := range order {
+			if cat == ordered {
+				found = true
+				break
+			}
+		}
+		if !found {
+			result = append(result, cat)
+		}
+	}
+
+	return result
+}
+
+// GetSettingsByCategory returns all settings in a given category
+func GetSettingsByCategory(category string) []Setting {
+	var result []Setting
+	for _, s := range Settings {
+		if s.Category == category {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 // ValidateValue validates a value against the setting's constraints
