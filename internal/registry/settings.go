@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // SettingType defines the data type of a setting value
 type SettingType string
 
 const (
-	TypeBool   SettingType = "bool"
-	TypeInt    SettingType = "int"
-	TypeFloat  SettingType = "float"
-	TypeString SettingType = "string"
-	TypeEnum   SettingType = "enum"
-	TypeURL    SettingType = "url"
+	TypeBool     SettingType = "bool"
+	TypeInt      SettingType = "int"
+	TypeFloat    SettingType = "float"
+	TypeString   SettingType = "string"
+	TypeEnum     SettingType = "enum"
+	TypeURL      SettingType = "url"
+	TypeDuration SettingType = "duration"
 )
 
 // Setting describes a LibreScoot setting with full metadata
@@ -150,12 +152,11 @@ var Settings = []Setting{
 	{
 		Key:          "updates.mdb.check-interval",
 		Service:      "update-service",
-		Type:         TypeInt,
-		Description:  "Time between update checks for MDB (0=never)",
-		DefaultValue: "6",
-		Unit:         "hours",
+		Type:         TypeDuration,
+		Description:  "Time between update checks for MDB (0 to disable)",
+		DefaultValue: "6h",
 		MinValue:     ptr(0.0),
-		Example:      "12",
+		Example:      "12h",
 	},
 	{
 		Key:          "updates.mdb.last-check-time",
@@ -205,12 +206,11 @@ var Settings = []Setting{
 	{
 		Key:          "updates.dbc.check-interval",
 		Service:      "update-service",
-		Type:         TypeInt,
-		Description:  "Time between update checks for DBC (0=never)",
-		DefaultValue: "6",
-		Unit:         "hours",
+		Type:         TypeDuration,
+		Description:  "Time between update checks for DBC (0 to disable)",
+		DefaultValue: "6h",
 		MinValue:     ptr(0.0),
-		Example:      "12",
+		Example:      "12h",
 	},
 	{
 		Key:          "updates.dbc.last-check-time",
@@ -509,6 +509,22 @@ func ValidateValue(key, value string) error {
 	case TypeURL:
 		if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
 			return fmt.Errorf("must be a valid URL (http:// or https://)")
+		}
+
+	case TypeDuration:
+		if _, err := time.ParseDuration(value); err != nil {
+			return fmt.Errorf("must be a valid duration (e.g., '1h', '30m', '1h30m')")
+		}
+		// Additional constraints can be checked here if MinValue/MaxValue are set
+		if setting.MinValue != nil || setting.MaxValue != nil {
+			d, _ := time.ParseDuration(value)
+			seconds := d.Seconds()
+			if setting.MinValue != nil && seconds < *setting.MinValue {
+				return fmt.Errorf("must be >= %v", time.Duration(*setting.MinValue*float64(time.Second)))
+			}
+			if setting.MaxValue != nil && seconds > *setting.MaxValue {
+				return fmt.Errorf("must be <= %v", time.Duration(*setting.MaxValue*float64(time.Second)))
+			}
 		}
 	}
 

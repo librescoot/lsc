@@ -115,6 +115,9 @@ func init() {
 	unlockCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
 	openCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
 
+	// Add --force flag to set shortcut
+	setCmd.Flags().BoolVar(&forceSet, "force", false, "Skip validation and force set the value")
+
 	// Add vehicle shortcut commands to root
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
