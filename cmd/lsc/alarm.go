@@ -42,6 +42,9 @@ var alarmStatusCmd = &cobra.Command{
 		enabled, _ := redisClient.HGet("settings", "alarm.enabled")
 		honk, _ := redisClient.HGet("settings", "alarm.honk")
 		duration, _ := redisClient.HGet("settings", "alarm.duration")
+		seatboxTrigger, _ := redisClient.HGet("settings", "alarm.seatbox-trigger")
+		hairTrigger, _ := redisClient.HGet("settings", "alarm.hairtrigger")
+		hairTriggerDuration, _ := redisClient.HGet("settings", "alarm.hairtrigger-duration")
 
 		if JSONOutput {
 			// Parse duration or use default
@@ -51,10 +54,13 @@ var alarmStatusCmd = &cobra.Command{
 			}
 
 			output, _ := json.Marshal(map[string]interface{}{
-				"status":   status,
-				"enabled":  enabled == "true",
-				"honk":     honk == "true",
-				"duration": durationVal,
+				"status":                status,
+				"enabled":               enabled == "true",
+				"honk":                  honk == "true",
+				"duration":              durationVal,
+				"seatbox_trigger":       seatboxTrigger != "false",
+				"hair_trigger":          hairTrigger == "true",
+				"hair_trigger_duration": format.SafeValueOr(hairTriggerDuration, "3"),
 			})
 			fmt.Println(string(output))
 			return
@@ -65,6 +71,9 @@ var alarmStatusCmd = &cobra.Command{
 		format.PrintKV("Enabled", format.ColorizeState(enabled))
 		format.PrintKV("Honk", format.SafeValueOr(honk, "false"))
 		format.PrintKV("Duration", format.SafeValueOr(duration, "10")+" seconds")
+		format.PrintKV("Seatbox Trigger", format.SafeValueOr(seatboxTrigger, "true"))
+		format.PrintKV("Hair Trigger", format.SafeValueOr(hairTrigger, "false"))
+		format.PrintKV("Hair Trigger Duration", format.SafeValueOr(hairTriggerDuration, "3")+" seconds")
 		fmt.Println()
 	},
 }

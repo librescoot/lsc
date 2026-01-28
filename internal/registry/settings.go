@@ -67,6 +67,35 @@ var Settings = []Setting{
 		MaxValue:     ptr(300.0),
 		Example:      "60",
 	},
+	{
+		Key:            "alarm.seatbox-trigger",
+		Service:        "alarm-service",
+		Type:           TypeBool,
+		Description:    "Trigger alarm on unauthorized seatbox opening",
+		PossibleValues: []string{"true", "false"},
+		DefaultValue:   "true",
+		Example:        "true",
+	},
+	{
+		Key:            "alarm.hairtrigger",
+		Service:        "alarm-service",
+		Type:           TypeBool,
+		Description:    "Enable hair trigger mode (immediate short alarm on first motion)",
+		PossibleValues: []string{"true", "false"},
+		DefaultValue:   "false",
+		Example:        "true",
+	},
+	{
+		Key:          "alarm.hairtrigger-duration",
+		Service:      "alarm-service",
+		Type:         TypeInt,
+		Description:  "Duration in seconds for hair trigger alarm",
+		DefaultValue: "3",
+		Unit:         "seconds",
+		MinValue:     ptr(1.0),
+		MaxValue:     ptr(30.0),
+		Example:      "3",
+	},
 
 	// Scooter settings (battery-service)
 	{
