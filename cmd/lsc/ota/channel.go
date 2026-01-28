@@ -40,16 +40,15 @@ Examples:
   lsc ota channel stable    # Set both to stable
   lsc ota channel nightly   # Set both to nightly`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			showChannels()
-		} else {
-			setChannels(args[0])
+			return showChannels()
 		}
+		return setChannels(args[0])
 	},
 }
 
-func showChannels() {
+func showChannels() error {
 	settings, err := RedisClient.HGetAll("settings")
 	if err != nil {
 		if JSONOutput != nil && *JSONOutput {
@@ -62,7 +61,7 @@ func showChannels() {
 		} else {
 			fmt.Fprintf(os.Stderr, format.Error("Failed to get settings: %v\n"), err)
 		}
-		return
+		return err
 	}
 
 	mdbChannel := settings["updates.mdb.channel"]
@@ -89,9 +88,10 @@ func showChannels() {
 			format.PrintKV("DBC", dbcChannel)
 		}
 	}
+	return nil
 }
 
-func setChannels(channel string) {
+func setChannels(channel string) error {
 	if !isValidChannel(channel) {
 		if JSONOutput != nil && *JSONOutput {
 			output, _ := json.Marshal(map[string]interface{}{
@@ -103,8 +103,7 @@ func setChannels(channel string) {
 		} else {
 			fmt.Fprintf(os.Stderr, format.Error("Invalid channel '%s'. Must be one of: stable, testing, nightly\n"), channel)
 		}
-		os.Exit(1)
-		return
+		return fmt.Errorf("invalid channel '%s'", channel)
 	}
 
 	// Set MDB channel
@@ -119,8 +118,7 @@ func setChannels(channel string) {
 		} else {
 			fmt.Fprintf(os.Stderr, format.Error("Failed to set MDB channel: %v\n"), err)
 		}
-		os.Exit(1)
-		return
+		return err
 	}
 
 	// Set DBC channel
@@ -135,14 +133,17 @@ func setChannels(channel string) {
 		} else {
 			fmt.Fprintf(os.Stderr, format.Error("Failed to set DBC channel: %v\n"), err)
 		}
-		os.Exit(1)
-		return
+		return err
 	}
 
 	// Publish settings change
 	ctx := context.Background()
-	RedisClient.Publish(ctx, "settings", "updates.mdb.channel")
-	RedisClient.Publish(ctx, "settings", "updates.dbc.channel")
+	if err := RedisClient.Publish(ctx, "settings", "updates.mdb.channel"); err != nil {
+		fmt.Fprintf(os.Stderr, format.Warning("Channel set but failed to notify services for MDB: %v\n"), err)
+	}
+	if err := RedisClient.Publish(ctx, "settings", "updates.dbc.channel"); err != nil {
+		fmt.Fprintf(os.Stderr, format.Warning("Channel set but failed to notify services for DBC: %v\n"), err)
+	}
 
 	if JSONOutput != nil && *JSONOutput {
 		output, _ := json.Marshal(map[string]interface{}{
@@ -155,6 +156,7 @@ func setChannels(channel string) {
 	} else {
 		fmt.Println(format.Success(fmt.Sprintf("Update channel set to '%s' for MDB and DBC", channel)))
 	}
+	return nil
 }
 
 func init() {

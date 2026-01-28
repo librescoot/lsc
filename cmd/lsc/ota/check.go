@@ -21,13 +21,12 @@ Examples:
   lsc ota check mdb   # Check MDB only
   lsc ota check dbc   # Check DBC only`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var targets []string
 		var successMsg string
 
 		// Determine which components to trigger
 		if len(args) == 0 {
-			// No args = trigger both
 			targets = []string{"mdb", "dbc"}
 			successMsg = "Update check triggered for MDB and DBC"
 		} else {
@@ -43,8 +42,7 @@ Examples:
 				} else {
 					fmt.Fprintf(os.Stderr, format.Error("Invalid component '%s'. Must be 'mdb' or 'dbc'\n"), component)
 				}
-				os.Exit(1)
-				return
+				return fmt.Errorf("invalid component '%s'", component)
 			}
 			targets = []string{component}
 			successMsg = fmt.Sprintf("Update check triggered for %s", strings.ToUpper(component))
@@ -66,8 +64,7 @@ Examples:
 				} else {
 					fmt.Fprintf(os.Stderr, format.Error("Failed to trigger update check for %s: %v\n"), strings.ToUpper(target), err)
 				}
-				os.Exit(1)
-				return
+				return err
 			}
 		}
 
@@ -84,6 +81,7 @@ Examples:
 			fmt.Println(format.Info("The update service will check for available updates immediately"))
 			fmt.Println(format.Dim("Use 'lsc ota status' to monitor update progress"))
 		}
+		return nil
 	},
 }
 
