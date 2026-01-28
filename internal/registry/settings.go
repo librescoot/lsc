@@ -96,6 +96,17 @@ var Settings = []Setting{
 		MaxValue:     ptr(30.0),
 		Example:      "3",
 	},
+	{
+		Key:          "alarm.l1-cooldown",
+		Service:      "alarm-service",
+		Type:         TypeInt,
+		Description:  "Level 1 cooldown duration in seconds",
+		DefaultValue: "15",
+		Unit:         "seconds",
+		MinValue:     ptr(1.0),
+		MaxValue:     ptr(60.0),
+		Example:      "15",
+	},
 
 	// Scooter settings (battery-service)
 	{
