@@ -138,64 +138,33 @@ var vehicleUnlockCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Subscribe BEFORE sending command to avoid missing the notification
-		pubsub := redisClient.Subscribe(ctx, "vehicle")
-		defer pubsub.Close()
+		state, err := confirm.WaitForFieldAnyValueAfterCommand(ctx, redisClient, "vehicle", "state", []string{"parked", "ready-to-drive"}, 10*time.Second, func() error {
+			return redisClient.LPush("scooter:state", "unlock")
+		})
 
-		ch := pubsub.Channel()
-
-		// Give subscription a moment to establish
-		time.Sleep(100 * time.Millisecond)
-
-		// Send unlock command after subscription is established
-		if err := redisClient.LPush("scooter:state", "unlock"); err != nil {
+		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "unlock",
-					"status":  "error",
+					"status":  "timeout",
 					"error":   err.Error(),
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to send unlock command: %v\n"), err)
+				fmt.Fprintf(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
 			}
 			return
 		}
 
-		timeout := time.After(10 * time.Second)
-
-		for {
-			select {
-			case <-timeout:
-				if JSONOutput {
-					output, _ := json.Marshal(map[string]interface{}{
-						"command": "unlock",
-						"status":  "timeout",
-					})
-					fmt.Println(string(output))
-				} else {
-					fmt.Fprintf(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
-				}
-				return
-			case msg := <-ch:
-				if msg.Payload == "state" {
-					// Check current state
-					state, err := redisClient.HGet("vehicle", "state")
-					if err == nil && (state == "parked" || state == "ready-to-drive") {
-						if JSONOutput {
-							output, _ := json.Marshal(map[string]interface{}{
-								"command": "unlock",
-								"status":  "success",
-								"state":   state,
-							})
-							fmt.Println(string(output))
-						} else {
-							fmt.Println(format.Success(fmt.Sprintf("Scooter unlocked successfully (state: %s)", state)))
-						}
-						return
-					}
-				}
-			}
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "unlock",
+				"status":  "success",
+				"state":   state,
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success(fmt.Sprintf("Scooter unlocked successfully (state: %s)", state)))
 		}
 	},
 }

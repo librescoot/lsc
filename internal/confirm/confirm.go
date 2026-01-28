@@ -95,6 +95,53 @@ func WaitForFieldValueAfterCommand(ctx context.Context, client *redis.Client, ha
 	}
 }
 
+// WaitForFieldAnyValueAfterCommand is like WaitForFieldValueAfterCommand but accepts multiple expected values.
+// It returns the matched value and an error.
+func WaitForFieldAnyValueAfterCommand(ctx context.Context, client *redis.Client, hashKey, field string, expectedValues []string, timeout time.Duration, commandFunc func() error) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	match := func(v string) bool {
+		for _, ev := range expectedValues {
+			if v == ev {
+				return true
+			}
+		}
+		return false
+	}
+
+	pubsub := client.Subscribe(ctx, hashKey)
+	defer pubsub.Close()
+
+	ch := pubsub.Channel()
+
+	if err := commandFunc(); err != nil {
+		return "", err
+	}
+
+	currentValue, err := client.HGetWithContext(ctx, hashKey, field)
+	if err == nil && match(currentValue) {
+		return currentValue, nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("timeout waiting for %s:%s to become one of %v", hashKey, field, expectedValues)
+		case msg := <-ch:
+			if msg.Payload == field || msg.Payload == "" {
+				currentValue, err := client.HGetWithContext(ctx, hashKey, field)
+				if err != nil {
+					continue
+				}
+				if match(currentValue) {
+					return currentValue, nil
+				}
+			}
+		}
+	}
+}
+
 // WaitForStateChange waits for vehicle state to change to expected value
 func WaitForStateChange(ctx context.Context, client *redis.Client, expectedState string, timeout time.Duration) error {
 	return WaitForFieldValue(ctx, client, "vehicle", "state", expectedState, timeout)
