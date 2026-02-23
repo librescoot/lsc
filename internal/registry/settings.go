@@ -288,6 +288,17 @@ var Settings = []Setting{
 		Example:      "internet",
 	},
 
+	// Dashboard settings (dbc-dispatcher)
+	{
+		Key:            "dashboard.app",
+		Service:        "dbc-dispatcher",
+		Type:           TypeEnum,
+		Description:    "Display application to launch on DBC boot",
+		PossibleValues: []string{"scootui"},
+		DefaultValue:   "scootui",
+		Example:        "scootui",
+	},
+
 	// Dashboard settings (scootui)
 	{
 		Key:            "dashboard.show-raw-speed",
