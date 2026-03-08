@@ -33,6 +33,7 @@ type Setting struct {
 	MaxValue       *float64    // For numeric types, maximum allowed value
 	Example        string      // Example value for documentation
 	Pattern        string      // Special pattern indicator (e.g., "indexed" for saved-locations)
+	ReadOnly       bool        // If true, setting is managed by the system and should not be set manually
 }
 
 // Settings is the registry of all known LibreScoot settings
@@ -407,6 +408,79 @@ var Settings = []Setting{
 		DefaultValue: "http://localhost:8002/",
 		Example:      "http://localhost:8002/",
 	},
+	{
+		Key:            "dashboard.power-display-mode",
+		Service:        "scootui",
+		Type:           TypeEnum,
+		Description:    "Power display unit",
+		PossibleValues: []string{"kw", "amps"},
+		DefaultValue:   "kw",
+		Example:        "amps",
+	},
+	{
+		Key:          "dashboard.language",
+		Service:      "scootui",
+		Type:         TypeString,
+		Description:  "Dashboard UI language",
+		DefaultValue: "en",
+		Example:      "en",
+	},
+	{
+		Key:            "dashboard.blinker-style",
+		Service:        "scootui",
+		Type:           TypeEnum,
+		Description:    "Blinker indicator style",
+		PossibleValues: []string{"icon", "overlay"},
+		DefaultValue:   "icon",
+		Example:        "overlay",
+	},
+	{
+		Key:          "dashboard.maps-available",
+		Service:      "scootui",
+		Type:         TypeBool,
+		Description:  "Whether offline map tiles are available (system-managed)",
+		DefaultValue: "false",
+		ReadOnly:     true,
+	},
+	{
+		Key:          "dashboard.navigation-available",
+		Service:      "scootui",
+		Type:         TypeBool,
+		Description:  "Whether full navigation is available (maps + routing engine, system-managed)",
+		DefaultValue: "false",
+		ReadOnly:     true,
+	},
+
+	// ECU settings (ecu-service)
+	{
+		Key:            "engine-ecu.boost",
+		Service:        "ecu-service",
+		Type:           TypeBool,
+		Description:    "Enable motor boost mode",
+		PossibleValues: []string{"true", "false"},
+		DefaultValue:   "false",
+		Example:        "true",
+	},
+	{
+		Key:            "engine-ecu.kers",
+		Service:        "ecu-service",
+		Type:           TypeEnum,
+		Description:    "Kinetic energy recovery system (KERS)",
+		PossibleValues: []string{"enabled", "disabled"},
+		DefaultValue:   "enabled",
+		Example:        "disabled",
+	},
+	{
+		Key:          "engine-ecu.kers-power",
+		Service:      "ecu-service",
+		Type:         TypeInt,
+		Description:  "KERS regeneration current",
+		DefaultValue: "",
+		Unit:         "mA",
+		MinValue:     ptr(0.0),
+		MaxValue:     ptr(65535.0),
+		Example:      "5000",
+	},
 
 	// Saved locations (scootui) - Pattern-based settings
 	// Note: These are examples. Actual indices 0-N are dynamically recognized.
@@ -500,12 +574,25 @@ func GetServices() []string {
 	return services
 }
 
+// IsReadOnly checks if a setting is read-only (system-managed)
+func IsReadOnly(key string) bool {
+	setting, found := GetSetting(key)
+	if !found {
+		return false
+	}
+	return setting.ReadOnly
+}
+
 // ValidateValue validates a value against the setting's constraints
 func ValidateValue(key, value string) error {
 	setting, found := GetSetting(key)
 	if !found {
 		// Unknown settings are allowed (forward compatibility)
 		return nil
+	}
+
+	if setting.ReadOnly {
+		return fmt.Errorf("setting is read-only (system-managed)")
 	}
 
 	if value == "" {

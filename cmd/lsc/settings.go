@@ -95,6 +95,9 @@ var settingsListCmd = &cobra.Command{
 
 				// Build description with possible values/units
 				description := info.Description
+				if info.ReadOnly {
+					description = fmt.Sprintf("%s [read-only]", description)
+				}
 				if len(info.PossibleValues) > 0 {
 					description = fmt.Sprintf("%s (%s)", description, strings.Join(info.PossibleValues, ", "))
 				} else if info.Unit != "" {
