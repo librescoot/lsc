@@ -128,6 +128,16 @@ var Settings = []Setting{
 		DefaultValue:   "false",
 		Example:        "true",
 	},
+	{
+		Key:          "scooter.max-voltage-delta",
+		Service:      "battery-service",
+		Type:         TypeInt,
+		Description:  "Maximum voltage delta between batteries for dual battery activation (0 to disable)",
+		DefaultValue: "1000",
+		Unit:         "mV",
+		MinValue:     ptr(0.0),
+		Example:      "1000",
+	},
 
 	// Power management settings (pm-service)
 	{
