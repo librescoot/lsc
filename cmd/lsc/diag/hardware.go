@@ -132,6 +132,30 @@ var (
 	forceFlag     bool
 )
 
+// startTimer starts a background goroutine that prints elapsed time every second.
+// Call the returned stop function to clear the timer line and stop updates.
+func startTimer(label string) func() {
+	start := time.Now()
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				elapsed := time.Since(start).Truncate(time.Second)
+				fmt.Printf("\r%s [%s]", label, elapsed)
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		fmt.Print("\r\033[2K") // clear the timer line
+	}
+}
+
 var dbcStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show DBC status (ready state and power)",
@@ -223,8 +247,9 @@ var dbcOnWaitCmd = &cobra.Command{
 		}
 
 		// Wait for ready notification
-		fmt.Println("Waiting for dashboard ready notification...")
+		stopTimer := startTimer("Waiting for dashboard")
 		timeoutChan := time.After(time.Duration(onWaitTimeout) * time.Second)
+		startTime := time.Now()
 
 		for {
 			select {
@@ -234,18 +259,22 @@ var dbcOnWaitCmd = &cobra.Command{
 					// Verify ready state
 					ready, err := RedisClient.HGet("dashboard", "ready")
 					if err == nil && ready == "true" {
+						stopTimer()
+						elapsed := time.Since(startTime).Truncate(time.Millisecond)
 						// Double-check with ping
 						fmt.Println("Dashboard ready notification received, verifying with ping...")
 						pingCmd := exec.Command("ping", "-c", "1", "-W", "2", "192.168.7.2")
 						if err := pingCmd.Run(); err != nil {
 							fmt.Println("Warning: Dashboard marked ready but not reachable via ping")
+							stopTimer = startTimer("Waiting for dashboard")
 							continue // Keep waiting
 						}
-						fmt.Println("Dashboard is ready and reachable!")
+						fmt.Printf("Dashboard is ready and reachable! (took %s)\n", elapsed)
 						return
 					}
 				}
 			case <-timeoutChan:
+				stopTimer()
 				fmt.Printf("Timeout: Dashboard did not become ready within %d seconds\n", onWaitTimeout)
 				// Try one last ping check
 				fmt.Println("Attempting final ping check...")
@@ -253,7 +282,8 @@ var dbcOnWaitCmd = &cobra.Command{
 				if err := pingCmd.Run(); err == nil {
 					ready, _ := RedisClient.HGet("dashboard", "ready")
 					if ready == "true" {
-						fmt.Println("Dashboard is ready and reachable (ready notification may have been missed)")
+						elapsed := time.Since(startTime).Truncate(time.Millisecond)
+						fmt.Printf("Dashboard is ready and reachable (took %s, ready notification may have been missed)\n", elapsed)
 						return
 					}
 				}
@@ -283,9 +313,9 @@ var dbcOffWaitCmd = &cobra.Command{
 		}
 
 		// Wait for DBC to become unreachable
-		fmt.Println("Waiting for dashboard to become unreachable...")
 		startTime := time.Now()
 		timeout := time.Duration(onWaitTimeout) * time.Second
+		stopTimer := startTimer("Waiting for dashboard off")
 
 		// Give it a moment to start shutting down
 		time.Sleep(2 * time.Second)
@@ -293,6 +323,7 @@ var dbcOffWaitCmd = &cobra.Command{
 		for {
 			// Check if timeout exceeded
 			if time.Since(startTime) > timeout {
+				stopTimer()
 				fmt.Printf("Timeout waiting for dashboard off after %d seconds\n", onWaitTimeout)
 				return
 			}
@@ -303,7 +334,9 @@ var dbcOffWaitCmd = &cobra.Command{
 
 			// If ping fails, DBC is unreachable (off)
 			if err != nil {
-				fmt.Println("Dashboard is off!")
+				stopTimer()
+				elapsed := time.Since(startTime).Truncate(time.Millisecond)
+				fmt.Printf("Dashboard is off! (took %s)\n", elapsed)
 				return
 			}
 
