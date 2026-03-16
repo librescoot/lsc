@@ -305,9 +305,9 @@ var Settings = []Setting{
 		Service:        "dbc-dispatcher",
 		Type:           TypeEnum,
 		Description:    "Display application to launch on DBC boot",
-		PossibleValues: []string{"scootui", "scootui-qt"},
+		PossibleValues: []string{"scootui", "scootui-qt", "scootui-tui"},
 		DefaultValue:   "scootui",
-		Example:        "scootui",
+		Example:        "scootui-tui",
 	},
 
 	// Dashboard settings (scootui)
