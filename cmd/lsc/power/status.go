@@ -39,8 +39,11 @@ var statusCmd = &cobra.Command{
 		// Fetch cb battery data
 		cbBattery, _ := RedisClient.HGetAll("cb-battery")
 
-		// Fetch inhibitors
+		// Fetch inhibitors from both sources
 		inhibitors, _ := RedisClient.SMembers("power-manager:busy-services")
+
+		// Fetch external inhibitors (e.g. from update-service)
+		externalInhibits, _ := RedisClient.HGetAll("power:inhibits")
 
 		// JSON output
 		if JSONOutput != nil && *JSONOutput {
@@ -55,9 +58,10 @@ var statusCmd = &cobra.Command{
 
 			output := map[string]interface{}{
 				"power_manager": map[string]interface{}{
-					"state":        pmData["state"],
-					"power_source": pmuxData["selected-input"],
-					"inhibitors":   inhibitors,
+					"state":              pmData["state"],
+					"power_source":       pmuxData["selected-input"],
+					"inhibitors":         inhibitors,
+					"external_inhibitors": externalInhibits,
 				},
 			}
 
@@ -106,10 +110,14 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Inhibitors
-		if len(inhibitors) > 0 {
+		hasInhibitors := len(inhibitors) > 0 || len(externalInhibits) > 0
+		if hasInhibitors {
 			format.PrintSubsection("Active Inhibitors")
 			for _, inh := range inhibitors {
 				fmt.Printf("  %s %s\n", format.Warning("•"), inh)
+			}
+			for name, val := range externalInhibits {
+				fmt.Printf("  %s %s %s\n", format.Warning("•"), name, format.Dim("("+val+")"))
 			}
 		} else {
 			format.PrintKV("Inhibitors", format.Success("None"))

@@ -58,7 +58,7 @@ var statusCmd = &cobra.Command{
 			}
 
 			// Add position if available
-			if gpsData["state"] == "fix-established" || gpsData["state"] == "tracking" {
+			if gpsData["state"] == "fix-established" {
 				output["position"] = map[string]interface{}{
 					"latitude":  parseFloat(gpsData["latitude"]),
 					"longitude": parseFloat(gpsData["longitude"]),

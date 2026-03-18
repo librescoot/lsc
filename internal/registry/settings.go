@@ -188,8 +188,8 @@ var Settings = []Setting{
 		Type:           TypeEnum,
 		Description:    "Update method for MDB",
 		PossibleValues: []string{"delta", "full"},
-		DefaultValue:   "full",
-		Example:        "delta",
+		DefaultValue:   "delta",
+		Example:        "full",
 	},
 	{
 		Key:            "updates.mdb.channel",
@@ -242,8 +242,8 @@ var Settings = []Setting{
 		Type:           TypeEnum,
 		Description:    "Update method for DBC",
 		PossibleValues: []string{"delta", "full"},
-		DefaultValue:   "full",
-		Example:        "delta",
+		DefaultValue:   "delta",
+		Example:        "full",
 	},
 	{
 		Key:            "updates.dbc.channel",

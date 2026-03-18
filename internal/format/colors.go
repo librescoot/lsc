@@ -100,11 +100,11 @@ func ColorizeValue(value, expectedGood string) string {
 // ColorizeState colors vehicle/battery states appropriately
 func ColorizeState(state string) string {
 	switch state {
-	case "ready-to-drive", "on", "ideal", "active", "ok", "true", "enabled", "armed":
+	case "ready-to-drive", "on", "ideal", "active", "ok", "true", "enabled", "armed", "fix-established":
 		return Success(state)
 	case "stand-by", "parked", "off", "disabled", "disarmed", "false", "idle":
 		return state // No color for neutral states
-	case "shutting-down", "init", "waiting", "delay-armed":
+	case "shutting-down", "init", "waiting", "delay-armed", "searching":
 		return Warning(state)
 	case "error", "fault", "over-temperature", "under-temperature", "critical":
 		return Error(state)

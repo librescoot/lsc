@@ -328,12 +328,50 @@ var alarmTriggerCmd = &cobra.Command{
 	},
 }
 
+var alarmSilenceCmd = &cobra.Command{
+	Use:   "silence",
+	Short: "Temporarily silence the alarm",
+	Long: `Temporarily disarm the alarm without changing the alarm.enabled setting.
+The alarm will re-arm automatically when the vehicle next enters stand-by.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if !JSONOutput {
+			fmt.Println("Silencing alarm...")
+		}
+
+		if err := redisClient.LPush("scooter:alarm", "disarm"); err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "silence",
+					"status":  "error",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprintf(os.Stderr, format.Error("Failed to silence alarm: %v\n"), err)
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "silence",
+				"status":  "success",
+				"message": "Alarm silenced (will re-arm on next stand-by)",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Alarm silenced (will re-arm on next stand-by)"))
+		}
+	},
+}
+
 func init() {
 	alarmCmd.PersistentFlags().BoolVar(&noBlock, "no-block", false, "Don't wait for status confirmation")
 
 	alarmCmd.AddCommand(alarmStatusCmd)
 	alarmCmd.AddCommand(alarmArmCmd)
 	alarmCmd.AddCommand(alarmDisarmCmd)
+	alarmCmd.AddCommand(alarmSilenceCmd)
 	alarmCmd.AddCommand(alarmTriggerCmd)
 	rootCmd.AddCommand(alarmCmd)
 }
