@@ -63,10 +63,10 @@ var vehicleLockCmd = &cobra.Command{
 
 		// Wait for state to change to stand-by
 		// Subscribe first, then send command to avoid missing the notification
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second, func() error {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 15*time.Second, func() error {
 			return redisClient.LPush("scooter:state", "lock")
 		})
 
@@ -208,10 +208,10 @@ var vehicleHibernateCmd = &cobra.Command{
 
 		// Wait for state to change to stand-by
 		// Subscribe first, then send command to avoid missing the notification
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second, func() error {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 15*time.Second, func() error {
 			return redisClient.LPush("scooter:state", "lock-hibernate")
 		})
 
@@ -281,10 +281,10 @@ var vehicleForceLockCmd = &cobra.Command{
 
 		// Wait for state to change to stand-by
 		// Subscribe first, then send command to avoid missing the notification
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 10*time.Second, func() error {
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "state", "stand-by", 15*time.Second, func() error {
 			return redisClient.LPush("scooter:state", "force-lock")
 		})
 
