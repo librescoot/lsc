@@ -491,6 +491,17 @@ var Settings = []Setting{
 		MaxValue:     ptr(65535.0),
 		Example:      "5000",
 	},
+	{
+		Key:          "engine-ecu.kers-power-dual",
+		Service:      "ecu-service",
+		Type:         TypeInt,
+		Description:  "KERS regeneration current when both batteries are active",
+		DefaultValue: "",
+		Unit:         "mA",
+		MinValue:     ptr(0.0),
+		MaxValue:     ptr(65535.0),
+		Example:      "15000",
+	},
 
 	// Saved locations (scootui) - Pattern-based settings
 	// Note: These are examples. Actual indices 0-N are dynamically recognized.
