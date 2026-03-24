@@ -76,6 +76,9 @@ var settingsListCmd = &cobra.Command{
 		headers := []string{"KEY", "VALUE", "DESCRIPTION"}
 		var rows [][]string
 
+		// Collect indexed template keys so we only expand them once per service
+		expandedIndexed := make(map[string]bool)
+
 		for _, service := range services {
 			// Prettify service name
 			prettyService := strings.ReplaceAll(service, "-", " ")
@@ -85,6 +88,33 @@ var settingsListCmd = &cobra.Command{
 			rows = append(rows, []string{prettyService})
 
 			for _, info := range groupedSettings[service] {
+				if info.Pattern == "indexed" {
+					// Extract the prefix (e.g. "dashboard.saved-locations." from "dashboard.saved-locations.0.latitude")
+					// by stripping the ".0.<field>" suffix
+					parts := strings.SplitN(info.Key, ".0.", 2)
+					if len(parts) != 2 {
+						continue
+					}
+					prefix := parts[0] + "."
+					if expandedIndexed[prefix] {
+						continue
+					}
+					expandedIndexed[prefix] = true
+
+					// Find all Redis keys matching this prefix and show them
+					var matchingKeys []string
+					for k := range settings {
+						if strings.HasPrefix(k, prefix) && settings[k] != "" {
+							matchingKeys = append(matchingKeys, k)
+						}
+					}
+					sort.Strings(matchingKeys)
+					for _, k := range matchingKeys {
+						rows = append(rows, []string{k, settings[k], format.Dim("-")})
+					}
+					continue
+				}
+
 				value, exists := settings[info.Key]
 				var displayValue string
 				if !exists || value == "" {
