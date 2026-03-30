@@ -124,13 +124,13 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 			if svc, ok := serviceMap[arg]; ok {
 				services = append(services, svc)
 			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Unknown service '%s', skipping\n"), arg)
+				fmt.Fprintf(os.Stderr, "Unknown service '%s', skipping\n", arg)
 			}
 		}
 	}
 
 	if len(services) == 0 {
-		fmt.Fprintf(os.Stderr, format.Error("No valid services specified\n"))
+		fmt.Fprint(os.Stderr, format.Error("No valid services specified\n"))
 		return
 	}
 

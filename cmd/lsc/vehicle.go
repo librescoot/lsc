@@ -79,7 +79,7 @@ var vehicleLockCmd = &cobra.Command{
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Lock command sent but state confirmation timed out\n"))
+				fmt.Fprint(os.Stderr, format.Warning("Lock command sent but state confirmation timed out\n"))
 			}
 			return
 		}
@@ -151,7 +151,7 @@ var vehicleUnlockCmd = &cobra.Command{
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
+				fmt.Fprint(os.Stderr, format.Warning("Unlock command sent but state confirmation timed out\n"))
 			}
 			return
 		}
@@ -224,7 +224,7 @@ var vehicleHibernateCmd = &cobra.Command{
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Hibernate command sent but state confirmation timed out\n"))
+				fmt.Fprint(os.Stderr, format.Warning("Hibernate command sent but state confirmation timed out\n"))
 			}
 			return
 		}
@@ -297,7 +297,7 @@ var vehicleForceLockCmd = &cobra.Command{
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Force-lock command sent but state confirmation timed out\n"))
+				fmt.Fprint(os.Stderr, format.Warning("Force-lock command sent but state confirmation timed out\n"))
 			}
 			return
 		}
@@ -371,7 +371,7 @@ var vehicleOpenCmd = &cobra.Command{
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Warning("Seatbox command sent but lock confirmation timed out\n"))
+				fmt.Fprint(os.Stderr, format.Warning("Seatbox command sent but lock confirmation timed out\n"))
 			}
 			return
 		}

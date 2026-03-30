@@ -108,7 +108,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	// Determine which subsystems to monitor
 	selectedSubsystems := expandSubsystems(args)
 	if len(selectedSubsystems) == 0 {
-		fmt.Fprintf(os.Stderr, format.Error("No valid subsystems specified\n"))
+		fmt.Fprint(os.Stderr, format.Error("No valid subsystems specified\n"))
 		return
 	}
 

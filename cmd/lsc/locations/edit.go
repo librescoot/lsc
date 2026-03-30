@@ -126,7 +126,7 @@ Examples:
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Fprintf(os.Stderr, format.Error("No valid fields to update\n"))
+				fmt.Fprint(os.Stderr, format.Error("No valid fields to update\n"))
 			}
 			return
 		}
