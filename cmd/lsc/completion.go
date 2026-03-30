@@ -1,7 +1,10 @@
 package lsc
 
 import (
+	"bytes"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -54,7 +57,16 @@ PowerShell:
 	Run: func(cmd *cobra.Command, args []string) {
 		switch args[0] {
 		case "bash":
-			cmd.Root().GenBashCompletionV2(os.Stdout, false)
+			var buf bytes.Buffer
+			cmd.Root().GenBashCompletionV2(&buf, false)
+			// Replace the fallback init_completion helper that depends on the
+			// bash-completion package (_get_comp_words_by_ref) with an
+			// equivalent implementation using bash built-ins.
+			script := strings.Replace(buf.String(),
+				"__lsc_init_completion()\n{\n    COMPREPLY=()\n    _get_comp_words_by_ref \"$@\" cur prev words cword\n}",
+				"__lsc_init_completion()\n{\n    COMPREPLY=()\n    words=(\"${COMP_WORDS[@]}\")\n    cword=$COMP_CWORD\n    cur=\"${words[$cword]}\"\n    prev=\"${words[$((cword > 0 ? cword - 1 : 0))]}\"\n}",
+				1)
+			fmt.Fprint(os.Stdout, script)
 		case "zsh":
 			cmd.Root().GenZshCompletion(os.Stdout)
 		case "fish":
