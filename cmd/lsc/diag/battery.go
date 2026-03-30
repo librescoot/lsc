@@ -107,12 +107,13 @@ func showBattery(id string) {
 	}
 
 	if data["present"] != "true" {
-		format.PrintSection(fmt.Sprintf("Battery %s: not present", id))
-		fmt.Println()
+		fmt.Printf("\n%s\n\n", format.LightGray(fmt.Sprintf("=== Battery %s: not present ===", id)))
 		return
 	}
 
-	format.PrintSection(fmt.Sprintf("Battery %s: %s, %s", id, format.ColorizeBatteryState("present"), format.ColorizeBatteryState(data["state"])))
+	prefix := format.LightGray(fmt.Sprintf("=== Battery %s: ", id))
+	suffix := format.LightGray(" ===")
+	fmt.Printf("\n%s%s, %s%s\n", prefix, format.ColorizeBatteryState("present"), format.ColorizeBatteryState(data["state"]), suffix)
 
 	// Charge
 	format.PrintKV("Charge", fmt.Sprintf("%s, %s, %s",

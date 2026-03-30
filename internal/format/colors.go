@@ -82,6 +82,14 @@ func Info(text string) string {
 	return colorGray + text + colorReset
 }
 
+// LightGray returns text in light gray
+func LightGray(text string) string {
+	if !colorsEnabled {
+		return text
+	}
+	return colorLightGray + text + colorReset
+}
+
 // Dim returns text in gray (for less important info)
 func Dim(text string) string {
 	if !colorsEnabled {
