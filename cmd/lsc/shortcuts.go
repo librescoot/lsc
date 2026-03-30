@@ -11,23 +11,26 @@ import (
 
 // lock shortcut - delegates to vehicle lock
 var lockCmd = &cobra.Command{
-	Use:   "lock",
-	Short: "Lock the scooter (shortcut for 'vehicle lock')",
-	Run:   vehicleLockCmd.Run,
+	Use:     "lock",
+	Short:   "Lock the scooter (shortcut for 'vehicle lock')",
+	GroupID: "shortcuts",
+	Run:     vehicleLockCmd.Run,
 }
 
 // unlock shortcut - delegates to vehicle unlock
 var unlockCmd = &cobra.Command{
-	Use:   "unlock",
-	Short: "Unlock the scooter (shortcut for 'vehicle unlock')",
-	Run:   vehicleUnlockCmd.Run,
+	Use:     "unlock",
+	Short:   "Unlock the scooter (shortcut for 'vehicle unlock')",
+	GroupID: "shortcuts",
+	Run:     vehicleUnlockCmd.Run,
 }
 
 // open shortcut (seatbox) - delegates to vehicle open
 var openCmd = &cobra.Command{
-	Use:   "open",
-	Short: "Open the seatbox (shortcut for 'vehicle open')",
-	Run:   vehicleOpenCmd.Run,
+	Use:     "open",
+	Short:   "Open the seatbox (shortcut for 'vehicle open')",
+	GroupID: "shortcuts",
+	Run:     vehicleOpenCmd.Run,
 }
 
 // dbc, engine, and blink shortcuts - will be created by createDiagShortcut below
@@ -52,6 +55,7 @@ func createDiagShortcut(name string, aliases []string) *cobra.Command {
 		Aliases:            aliases,
 		Short:              realCmd.Short,
 		Long:               realCmd.Long,
+		GroupID:            "shortcuts",
 		Args:               realCmd.Args,
 		ValidArgs:          realCmd.ValidArgs,
 		ValidArgsFunction:  realCmd.ValidArgsFunction,
@@ -81,9 +85,10 @@ func createDiagShortcut(name string, aliases []string) *cobra.Command {
 
 // get shortcut (get setting)
 var getCmd = &cobra.Command{
-	Use:   "get <key>",
-	Short: "Get a setting value (shortcut for 'settings get')",
-	Args:  cobra.ExactArgs(1),
+	Use:     "get <key>",
+	Short:   "Get a setting value (shortcut for 'settings get')",
+	GroupID: "shortcuts",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		settingsGetCmd.Run(cmd, args)
 	},
@@ -91,9 +96,10 @@ var getCmd = &cobra.Command{
 
 // set shortcut (set setting)
 var setCmd = &cobra.Command{
-	Use:   "set <key> <value>",
-	Short: "Set a setting value (shortcut for 'settings set')",
-	Args:  cobra.ExactArgs(2),
+	Use:     "set <key> <value>",
+	Short:   "Set a setting value (shortcut for 'settings set')",
+	GroupID: "shortcuts",
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		settingsSetCmd.Run(cmd, args)
 	},
@@ -101,9 +107,10 @@ var setCmd = &cobra.Command{
 
 // del shortcut (delete setting)
 var delCmd = &cobra.Command{
-	Use:   "del <key>",
-	Short: "Delete a setting key (shortcut for 'settings del')",
-	Args:  cobra.ExactArgs(1),
+	Use:     "del <key>",
+	Short:   "Delete a setting key (shortcut for 'settings del')",
+	GroupID: "shortcuts",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		settingsDelCmd.Run(cmd, args)
 	},

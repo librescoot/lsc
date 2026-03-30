@@ -415,4 +415,5 @@ func init() {
 	settingsSetCmd.Flags().BoolVar(&forceSet, "force", false, "Skip validation and force set the value")
 
 	rootCmd.AddCommand(settingsCmd)
+	settingsCmd.GroupID = "main"
 }

@@ -162,4 +162,5 @@ func init() {
 	usbCmd.AddCommand(usbUmsCmd)
 	usbCmd.AddCommand(usbNormalCmd)
 	rootCmd.AddCommand(usbCmd)
+	usbCmd.GroupID = "main"
 }

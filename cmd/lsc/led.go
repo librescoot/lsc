@@ -297,4 +297,5 @@ func init() {
 	ledCmd.AddCommand(ledCueCmd)
 	ledCmd.AddCommand(ledFadeCmd)
 	rootCmd.AddCommand(ledCmd)
+	ledCmd.GroupID = "main"
 }

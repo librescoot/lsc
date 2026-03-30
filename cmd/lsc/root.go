@@ -36,6 +36,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&JSONOutput, "json", false, "Output in JSON format")
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Enable verbose logging")
 
+	// Define command groups for help output
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "main", Title: "Commands:"},
+		&cobra.Group{ID: "shortcuts", Title: "Shortcuts:"},
+	)
+
 	// Add subcommands
 	rootCmd.AddCommand(diag.DiagCmd)
 	rootCmd.AddCommand(gps.GpsCmd)
@@ -46,6 +52,16 @@ func init() {
 	rootCmd.AddCommand(ota.OTACmd)
 	rootCmd.AddCommand(power.PowerCmd)
 	rootCmd.AddCommand(service.ServiceCmd)
+
+	diag.DiagCmd.GroupID = "main"
+	gps.GpsCmd.GroupID = "main"
+	keycard.KeycardCmd.GroupID = "main"
+	locations.LocationsCmd.GroupID = "main"
+	logs.LogsCmd.GroupID = "main"
+	monitor.MonitorCmd.GroupID = "main"
+	ota.OTACmd.GroupID = "main"
+	power.PowerCmd.GroupID = "main"
+	service.ServiceCmd.GroupID = "main"
 }
 
 // rootCmd represents the base command when called without any subcommands

@@ -400,4 +400,5 @@ func init() {
 	vehicleCmd.AddCommand(vehicleOpenCmd)
 
 	rootCmd.AddCommand(vehicleCmd)
+	vehicleCmd.GroupID = "main"
 }

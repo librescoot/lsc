@@ -147,4 +147,5 @@ func init() {
 	watchCmd.Flags().StringVar(&watchFormat, "format", "pretty", "Output format: pretty, json, raw")
 	watchCmd.Flags().StringVar(&watchFilter, "filter", "", "Filter messages by regex")
 	rootCmd.AddCommand(watchCmd)
+	watchCmd.GroupID = "main"
 }

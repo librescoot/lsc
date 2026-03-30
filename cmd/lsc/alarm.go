@@ -374,4 +374,5 @@ func init() {
 	alarmCmd.AddCommand(alarmSilenceCmd)
 	alarmCmd.AddCommand(alarmTriggerCmd)
 	rootCmd.AddCommand(alarmCmd)
+	alarmCmd.GroupID = "main"
 }

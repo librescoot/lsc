@@ -214,4 +214,5 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data map[strin
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+	statusCmd.GroupID = "main"
 }
