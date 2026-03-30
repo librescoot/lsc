@@ -106,52 +106,49 @@ func showBattery(id string) {
 		return
 	}
 
-	format.PrintSection(fmt.Sprintf("Battery %s", id))
-
-	// Check if battery is present
 	if data["present"] != "true" {
-		fmt.Println(format.Dim("  Not Present\n"))
+		format.PrintSection(fmt.Sprintf("Battery %s: not present", id))
+		fmt.Println()
 		return
 	}
 
-	// Basic status
-	format.PrintKV("State", format.ColorizeState(data["state"]))
-	format.PrintKV("Present", format.FormatPresence(data["present"]))
+	format.PrintSection(fmt.Sprintf("Battery %s: present, %s", id, data["state"]))
 
-	// Charge information
-	format.PrintSubsection("Charge")
-	format.PrintKV("Level", format.FormatChargeColored(data["charge"]))
-	format.PrintKV("Voltage", format.FormatVoltageColored(data["voltage"]))
-	format.PrintKV("Current", format.MilliampsToAmps(data["current"]))
+	// Charge
+	format.PrintKV("Charge", fmt.Sprintf("%s, %s, %s",
+		format.FormatChargeColored(data["charge"]),
+		format.FormatVoltageColored(data["voltage"]),
+		format.MilliampsToAmps(data["current"]),
+	))
 
-	// Temperature information
-	format.PrintSubsection("Temperature")
-	format.PrintKV("Sensor 0", format.FormatTemperatureColored(data["temperature:0"]))
-	format.PrintKV("Sensor 1", format.FormatTemperatureColored(data["temperature:1"]))
-	format.PrintKV("Sensor 2", format.FormatTemperatureColored(data["temperature:2"]))
-	format.PrintKV("Sensor 3", format.FormatTemperatureColored(data["temperature:3"]))
-	format.PrintKV("State", format.ColorizeState(data["temperature-state"]))
+	// Temperature
+	format.PrintKV("Temperature", fmt.Sprintf("%s (%s, %s, %s, %s)",
+		format.ColorizeState(data["temperature-state"]),
+		format.FormatTemperatureColored(data["temperature:0"]),
+		format.FormatTemperatureColored(data["temperature:1"]),
+		format.FormatTemperatureColored(data["temperature:2"]),
+		format.FormatTemperatureColored(data["temperature:3"]),
+	))
 
-	// Health information
-	format.PrintSubsection("Health")
-	format.PrintKV("Cycle Count", format.SafeValueOr(data["cycle-count"], "0"))
+	// Health
 	soh, _ := strconv.Atoi(data["state-of-health"])
+	cycles := format.SafeValueOr(data["cycle-count"], "0")
+	sohStr := format.Dim("N/A")
 	if soh > 0 {
-		format.PrintKV("State of Health", format.ColorizePercentage(soh))
-	} else {
-		format.PrintKV("State of Health", format.Dim("N/A"))
+		sohStr = format.ColorizePercentage(soh)
 	}
+	format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, cycles))
 
 	// Identity
-	format.PrintSubsection("Identity")
-	format.PrintKV("Serial Number", format.SafeValueOr(data["serial-number"], "N/A"))
-	format.PrintKV("Mfg Date", format.SafeValueOr(data["manufacturing-date"], "N/A"))
-	format.PrintKV("Firmware", format.SafeValueOr(data["fw-version"], "N/A"))
+	format.PrintKV("Identity", fmt.Sprintf("%s, manufactured %s, firmware %s",
+		format.SafeValueOr(data["serial-number"], "N/A"),
+		format.SafeValueOr(data["manufacturing-date"], "N/A"),
+		format.SafeValueOr(data["fw-version"], "N/A"),
+	))
 
 	// Faults
 	faults, err := RedisClient.SMembers(fmt.Sprintf("battery:%s:faults", id))
 	if err == nil && len(faults) > 0 {
-		format.PrintSubsection("Active Faults")
 		for _, fault := range faults {
 			fmt.Printf("  %s %s\n", format.Error("•"), fault)
 		}
