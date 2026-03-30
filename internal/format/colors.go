@@ -9,12 +9,13 @@ import (
 
 // ANSI color codes
 const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorBlue   = "\033[34m"
-	colorGray   = "\033[90m"
+	colorReset     = "\033[0m"
+	colorRed       = "\033[31m"
+	colorGreen     = "\033[32m"
+	colorYellow    = "\033[33m"
+	colorBlue      = "\033[34m"
+	colorLightGray = "\033[37m"
+	colorGray      = "\033[90m"
 )
 
 var colorsEnabled = true
@@ -110,6 +111,25 @@ func ColorizeState(state string) string {
 		return Error(state)
 	default:
 		return state
+	}
+}
+
+// ColorizeBatteryState colors battery presence/state for header display
+func ColorizeBatteryState(state string) string {
+	if !colorsEnabled {
+		return state
+	}
+	switch state {
+	case "active":
+		return colorGreen + state + colorReset
+	case "idle":
+		return colorLightGray + state + colorReset
+	case "asleep":
+		return colorGray + state + colorReset
+	case "present":
+		return colorGreen + state + colorReset
+	default:
+		return colorYellow + state + colorReset
 	}
 }
 

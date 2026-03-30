@@ -112,7 +112,7 @@ func showBattery(id string) {
 		return
 	}
 
-	format.PrintSection(fmt.Sprintf("Battery %s: present, %s", id, data["state"]))
+	format.PrintSection(fmt.Sprintf("Battery %s: %s, %s", id, format.ColorizeBatteryState("present"), format.ColorizeBatteryState(data["state"])))
 
 	// Charge
 	format.PrintKV("Charge", fmt.Sprintf("%s, %s, %s",
