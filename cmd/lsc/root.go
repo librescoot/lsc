@@ -86,6 +86,10 @@ It provides convenient access to:
 
 All commands support JSON output mode (--json) for automation and scripting.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Skip Redis connection for commands that don't need it
+		if cmd.Name() == "completion" || cmd.Name() == "help" || cmd.Name() == "__completeNoDesc" || cmd.Name() == "__complete" {
+			return nil
+		}
 		if Verbose {
 			fmt.Fprintf(os.Stderr, "lsc version %s starting\n", version)
 			fmt.Fprintf(os.Stderr, "Connecting to Redis at %s\n", redisAddr)
@@ -139,6 +143,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
 		if redisClient != nil {
 			redisClient.Close()
+			redisClient = nil
 		}
 	},
 }
