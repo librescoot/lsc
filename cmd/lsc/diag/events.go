@@ -115,8 +115,9 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 	streams, err := RedisClient.XRead(ctx, &redis.XReadArgs{
 		Streams: []string{"events:faults", startID},
 		Count:   readCount,
+		Block:   -1, // non-blocking
 	})
-	if err != nil {
+	if err != nil && err.Error() != "redis: nil" {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to read events: %v\n"), err)
 		return
 	}
