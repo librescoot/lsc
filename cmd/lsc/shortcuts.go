@@ -155,4 +155,7 @@ func init() {
 	if blinkCmd := createDiagShortcut("blinkers", []string{"blink"}); blinkCmd != nil {
 		rootCmd.AddCommand(blinkCmd)
 	}
+	if blCmd := createDiagShortcut("backlight", nil); blCmd != nil {
+		rootCmd.AddCommand(blCmd)
+	}
 }
