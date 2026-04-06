@@ -18,10 +18,7 @@ var noBlock bool
 var vehicleCmd = &cobra.Command{
 	Use:   "vehicle",
 	Short: "Control vehicle state and hardware",
-	Long: `Control vehicle lock/unlock state, hibernation, and seatbox.
-
-Note: Handlebar lock/unlock is automatic and controlled by the vehicle state machine.
-It unlocks when the vehicle is unlocked and locks when locked.`,
+	Long: `Control vehicle lock/unlock state, hibernation, handlebar lock, and seatbox.`,
 }
 
 var vehicleLockCmd = &cobra.Command{
@@ -388,6 +385,144 @@ var vehicleOpenCmd = &cobra.Command{
 	},
 }
 
+var vehicleHandlebarLockCmd = &cobra.Command{
+	Use:   "handlebar-lock",
+	Short: "Lock the handlebar",
+	Long:  `Engage the handlebar lock mechanism. Normally handled automatically when locking the vehicle.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if !JSONOutput {
+			fmt.Println("Locking handlebar...")
+		}
+
+		if noBlock {
+			if err := redisClient.LPush("scooter:hardware", "handlebar:lock"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "handlebar-lock",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send handlebar lock command: %v\n"), err)
+				}
+				return
+			}
+
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "handlebar-lock",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Handlebar lock command sent"))
+			}
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "handlebar:lock-sensor", "locked", 5*time.Second, func() error {
+			return redisClient.LPush("scooter:hardware", "handlebar:lock")
+		})
+
+		if err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "handlebar-lock",
+					"status":  "timeout",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprint(os.Stderr, format.Warning("Handlebar lock command sent but sensor confirmation timed out\n"))
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "handlebar-lock",
+				"status":  "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Handlebar locked successfully"))
+		}
+	},
+}
+
+var vehicleHandlebarUnlockCmd = &cobra.Command{
+	Use:   "handlebar-unlock",
+	Short: "Unlock the handlebar",
+	Long:  `Disengage the handlebar lock mechanism. Normally handled automatically when unlocking the vehicle.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if !JSONOutput {
+			fmt.Println("Unlocking handlebar...")
+		}
+
+		if noBlock {
+			if err := redisClient.LPush("scooter:hardware", "handlebar:unlock"); err != nil {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "handlebar-unlock",
+						"status":  "error",
+						"error":   err.Error(),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Failed to send handlebar unlock command: %v\n"), err)
+				}
+				return
+			}
+
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "handlebar-unlock",
+					"status":  "sent",
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Println(format.Success("Handlebar unlock command sent"))
+			}
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := confirm.WaitForFieldValueAfterCommand(ctx, redisClient, "vehicle", "handlebar:lock-sensor", "unlocked", 5*time.Second, func() error {
+			return redisClient.LPush("scooter:hardware", "handlebar:unlock")
+		})
+
+		if err != nil {
+			if JSONOutput {
+				output, _ := json.Marshal(map[string]interface{}{
+					"command": "handlebar-unlock",
+					"status":  "timeout",
+					"error":   err.Error(),
+				})
+				fmt.Println(string(output))
+			} else {
+				fmt.Fprint(os.Stderr, format.Warning("Handlebar unlock command sent but sensor confirmation timed out\n"))
+			}
+			return
+		}
+
+		if JSONOutput {
+			output, _ := json.Marshal(map[string]interface{}{
+				"command": "handlebar-unlock",
+				"status":  "success",
+			})
+			fmt.Println(string(output))
+		} else {
+			fmt.Println(format.Success("Handlebar unlocked successfully"))
+		}
+	},
+}
+
 func init() {
 	// Add --no-block flag to all vehicle commands
 	vehicleCmd.PersistentFlags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
@@ -398,6 +533,8 @@ func init() {
 	vehicleCmd.AddCommand(vehicleForceLockCmd)
 	vehicleCmd.AddCommand(vehicleHibernateCmd)
 	vehicleCmd.AddCommand(vehicleOpenCmd)
+	vehicleCmd.AddCommand(vehicleHandlebarLockCmd)
+	vehicleCmd.AddCommand(vehicleHandlebarUnlockCmd)
 
 	rootCmd.AddCommand(vehicleCmd)
 	vehicleCmd.GroupID = "main"
