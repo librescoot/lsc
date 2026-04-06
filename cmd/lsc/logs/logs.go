@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,9 +69,10 @@ Available services:
 
 The command will:
   1. Extract journalctl logs for specified services
-  2. Capture current Redis state snapshots
-  3. Generate metadata file
-  4. Create both unpacked directory and compressed .tar.gz archive
+  2. Collect kernel ring buffer (dmesg)
+  3. Capture current Redis state snapshots
+  4. Generate metadata file
+  5. Create both unpacked directory and compressed .tar.gz archive
 
 Examples:
   lsc logs                      # Extract all services (default)
@@ -144,12 +146,26 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// Compute boot timestamp from /proc/uptime for monotonic→wallclock conversion
+	now := time.Now()
+	var bootTimestamp string
+	if uptimeBytes, err := os.ReadFile("/proc/uptime"); err == nil {
+		fields := strings.Fields(string(uptimeBytes))
+		if len(fields) >= 1 {
+			if uptimeSecs, err := strconv.ParseFloat(fields[0], 64); err == nil {
+				bootTime := now.Add(-time.Duration(uptimeSecs * float64(time.Second)))
+				bootTimestamp = bootTime.Format(time.RFC3339Nano)
+			}
+		}
+	}
+
 	metadata := map[string]interface{}{
-		"timestamp": time.Now().Format(time.RFC3339),
-		"services":  services,
-		"since":     logsSince,
-		"until":     logsUntil,
-		"priority":  logsPriority,
+		"timestamp":      now.Format(time.RFC3339),
+		"boot_timestamp": bootTimestamp,
+		"services":       services,
+		"since":          logsSince,
+		"until":          logsUntil,
+		"priority":       logsPriority,
 	}
 
 	if !*JSONOutput {
@@ -163,6 +179,20 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 		} else if !*JSONOutput {
 			fmt.Printf("  %s %s\n", format.Success("✓"), svc)
 		}
+	}
+
+	// Collect dmesg
+	if !*JSONOutput {
+		fmt.Printf("%s Collecting dmesg\n", format.Info("→"))
+	}
+	if err := captureDmesg(outputDir); err != nil {
+		fmt.Fprintf(os.Stderr, format.Warning("Failed to collect dmesg: %v\n"), err)
+		metadata["dmesg"] = false
+	} else {
+		if !*JSONOutput {
+			fmt.Printf("  %s dmesg.log\n", format.Success("✓"))
+		}
+		metadata["dmesg"] = true
 	}
 
 	// Capture Redis snapshots
@@ -210,7 +240,7 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 }
 
 func extractServiceLogs(service, outputDir string) error {
-	args := []string{"-u", service, "--no-pager"}
+	args := []string{"-u", service, "--no-pager", "-o", "short-monotonic"}
 
 	if logsSince != "" {
 		args = append(args, "--since", convertDurationToJournalctl(logsSince))
@@ -230,6 +260,23 @@ func extractServiceLogs(service, outputDir string) error {
 
 	// Save to file
 	logFile := filepath.Join(outputDir, "logs", service+".log")
+	return os.WriteFile(logFile, output, 0644)
+}
+
+func captureDmesg(outputDir string) error {
+	args := []string{"--time-format=iso"}
+
+	if logsSince != "" {
+		args = append(args, "--since", convertDurationToJournalctl(logsSince))
+	}
+
+	cmd := exec.Command("dmesg", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+
+	logFile := filepath.Join(outputDir, "logs", "dmesg.log")
 	return os.WriteFile(logFile, output, 0644)
 }
 
