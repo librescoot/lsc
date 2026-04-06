@@ -264,7 +264,7 @@ func extractServiceLogs(service, outputDir string) error {
 }
 
 func captureDmesg(outputDir string) error {
-	args := []string{"--time-format=iso"}
+	var args []string
 
 	if logsSince != "" {
 		args = append(args, "--since", convertDurationToJournalctl(logsSince))
