@@ -9,14 +9,25 @@ import (
 	"strings"
 
 	"librescoot/lsc/internal/format"
-	"librescoot/lsc/internal/registry"
+	"librescoot/lsc/internal/schema"
 
 	"github.com/spf13/cobra"
 )
 
-// Note: Settings registry moved to internal/registry package
-
 var forceSet bool
+
+func fetchSchema() *schema.Schema {
+	raw, err := redisClient.Get("settings:schema")
+	if err != nil {
+		return nil
+	}
+	s, err := schema.Parse([]byte(raw))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, format.Warning("Failed to parse settings schema: %v\n"), err)
+		return nil
+	}
+	return s
+}
 
 var settingsCmd = &cobra.Command{
 	Use:   "settings",
@@ -46,15 +57,24 @@ var settingsListCmd = &cobra.Command{
 			return
 		}
 
+		s := fetchSchema()
+
 		if JSONOutput {
-			// For JSON output, merge known settings with current values
 			result := make(map[string]interface{})
-			for _, info := range registry.Settings {
-				value, exists := settings[info.Key]
-				if !exists || value == "" {
-					result[info.Key] = nil
-				} else {
-					result[info.Key] = value
+			if s != nil {
+				for key := range s.Settings {
+					value, exists := settings[key]
+					if !exists || value == "" {
+						result[key] = nil
+					} else {
+						result[key] = value
+					}
+				}
+			}
+			// Include any Redis keys not in schema
+			for key, value := range settings {
+				if _, ok := result[key]; !ok && value != "" {
+					result[key] = value
 				}
 			}
 			jsonBytes, _ := json.MarshalIndent(result, "", "  ")
@@ -62,36 +82,63 @@ var settingsListCmd = &cobra.Command{
 			return
 		}
 
-		// Show LibreScoot settings grouped by Service
 		format.PrintSection("Settings")
-
-		// Group settings by Service
-		groupedSettings := make(map[string][]registry.Setting)
-		services := registry.GetServices()
-
-		for _, info := range registry.Settings {
-			groupedSettings[info.Service] = append(groupedSettings[info.Service], info)
-		}
-
 		headers := []string{"KEY", "VALUE", "DESCRIPTION"}
 		var rows [][]string
 
-		// Collect indexed template keys so we only expand them once per service
+		if s == nil {
+			// No schema available -- fall back to raw key-value listing
+			keys := make([]string, 0, len(settings))
+			for k := range settings {
+				if settings[k] != "" {
+					keys = append(keys, k)
+				}
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				rows = append(rows, []string{k, settings[k], format.Dim("-")})
+			}
+			format.PrintTable(headers, rows)
+			fmt.Println()
+			return
+		}
+
+		// Group schema settings by service
+		type schemaEntry struct {
+			key     string
+			setting schema.Setting
+		}
+		grouped := make(map[string][]schemaEntry)
+		for key, setting := range s.Settings {
+			svc := setting.Service
+			if svc == "" {
+				svc = "(unknown)"
+			}
+			grouped[svc] = append(grouped[svc], schemaEntry{key, setting})
+		}
+		// Sort keys within each service group
+		for svc := range grouped {
+			entries := grouped[svc]
+			sort.Slice(entries, func(i, j int) bool {
+				return entries[i].key < entries[j].key
+			})
+			grouped[svc] = entries
+		}
+
+		services := s.Services()
 		expandedIndexed := make(map[string]bool)
 
 		for _, service := range services {
-			// Prettify service name
 			prettyService := strings.ReplaceAll(service, "-", " ")
 			prettyService = strings.Title(prettyService)
-
-			// Add section header
 			rows = append(rows, []string{prettyService})
 
-			for _, info := range groupedSettings[service] {
+			for _, entry := range grouped[service] {
+				info := entry.setting
+				key := entry.key
+
 				if info.Pattern == "indexed" {
-					// Extract the prefix (e.g. "dashboard.saved-locations." from "dashboard.saved-locations.0.latitude")
-					// by stripping the ".0.<field>" suffix
-					parts := strings.SplitN(info.Key, ".0.", 2)
+					parts := strings.SplitN(key, ".0.", 2)
 					if len(parts) != 2 {
 						continue
 					}
@@ -101,7 +148,6 @@ var settingsListCmd = &cobra.Command{
 					}
 					expandedIndexed[prefix] = true
 
-					// Find all Redis keys matching this prefix and show them
 					var matchingKeys []string
 					for k := range settings {
 						if strings.HasPrefix(k, prefix) && settings[k] != "" {
@@ -115,7 +161,7 @@ var settingsListCmd = &cobra.Command{
 					continue
 				}
 
-				value, exists := settings[info.Key]
+				value, exists := settings[key]
 				var displayValue string
 				if !exists || value == "" {
 					displayValue = format.Dim("(not set)")
@@ -123,25 +169,25 @@ var settingsListCmd = &cobra.Command{
 					displayValue = value
 				}
 
-				// Build description with possible values/units
 				description := info.Description
 				if info.ReadOnly {
 					description = fmt.Sprintf("%s [read-only]", description)
 				}
-				if len(info.PossibleValues) > 0 {
-					description = fmt.Sprintf("%s (%s)", description, strings.Join(info.PossibleValues, ", "))
+				possibleValues := info.PossibleValues()
+				if len(possibleValues) > 0 {
+					description = fmt.Sprintf("%s (%s)", description, strings.Join(possibleValues, ", "))
 				} else if info.Unit != "" {
 					description = fmt.Sprintf("%s [%s]", description, info.Unit)
 				}
 
-				rows = append(rows, []string{info.Key, displayValue, format.Dim(description)})
+				rows = append(rows, []string{key, displayValue, format.Dim(description)})
 			}
 		}
 
-		// Show any unknown settings that exist in Redis but aren't in our known list
+		// Show unknown settings (in Redis but not in schema)
 		unknownKeys := make([]string, 0)
 		for key := range settings {
-			if !registry.IsKnownSetting(key) && settings[key] != "" {
+			if !s.IsKnown(key) && settings[key] != "" {
 				unknownKeys = append(unknownKeys, key)
 			}
 		}
@@ -155,7 +201,6 @@ var settingsListCmd = &cobra.Command{
 		}
 
 		format.PrintTable(headers, rows)
-
 		fmt.Println()
 	},
 }
@@ -274,7 +319,10 @@ Use 'lsc settings list' to see all available settings and their current values.`
 			value := args[i+1]
 
 			// Validate the value
-			validationErr := registry.ValidateValue(key, value)
+			var validationErr error
+			if s := fetchSchema(); s != nil {
+				validationErr = s.ValidateValue(key, value)
+			}
 			if validationErr != nil && !forceSet {
 				// Without --force, validation errors are fatal
 				hasError = true

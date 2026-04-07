@@ -156,3 +156,8 @@ func (c *Client) XReadStreams(ctx context.Context, streams ...string) ([]XStream
 func (c *Client) Pipeline() rdb.Pipeliner {
 	return c.client.Pipeline()
 }
+
+// Get retrieves a plain string key from Redis.
+func (c *Client) Get(key string) (string, error) {
+	return c.client.Get(c.ctx, key).Result()
+}
