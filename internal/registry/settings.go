@@ -389,8 +389,8 @@ var Settings = []Setting{
 		Type:           TypeEnum,
 		Description:    "Map rendering mode",
 		PossibleValues: []string{"vector", "raster"},
-		DefaultValue:   "raster",
-		Example:        "vector",
+		DefaultValue:   "vector",
+		Example:        "raster",
 	},
 	{
 		Key:            "dashboard.theme",
