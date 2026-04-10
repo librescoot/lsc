@@ -62,9 +62,12 @@ var statusCmd = &cobra.Command{
 			battery1Data = make(map[string]string)
 		}
 
+		auxBatteryData, _ := redisClient.HGetAll("aux-battery")
+		cbBatteryData, _ := redisClient.HGetAll("cb-battery")
+
 		// If JSON output is requested, output structured JSON
 		if JSONOutput {
-			outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data)
+			outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData)
 			return
 		}
 
@@ -119,11 +122,41 @@ var statusCmd = &cobra.Command{
 			fmt.Println(format.Dim("  Not Present"))
 		}
 
+		// Display Auxiliary Battery
+		if len(auxBatteryData) > 0 {
+			format.PrintSection("Aux Battery")
+			if v := auxBatteryData["voltage"]; v != "" {
+				format.PrintKV("Voltage", format.FormatVoltageColored(v))
+			}
+			if c := auxBatteryData["charge"]; c != "" {
+				chargeVal, _ := strconv.Atoi(c)
+				format.PrintKV("Charge", format.ColorizePercentage(chargeVal))
+			}
+			if s := auxBatteryData["charge-status"]; s != "" {
+				format.PrintKV("Status", format.ColorizeState(s))
+			}
+		}
+
+		// Display Control Board Battery
+		if cbBatteryData["present"] == "true" {
+			format.PrintSection("CB Battery")
+			if c := cbBatteryData["charge"]; c != "" {
+				chargeVal, _ := strconv.Atoi(c)
+				format.PrintKV("Charge", format.ColorizePercentage(chargeVal))
+			}
+			if s := cbBatteryData["charge-status"]; s != "" {
+				format.PrintKV("Status", format.ColorizeState(s))
+			}
+			if temp := cbBatteryData["temperature"]; temp != "" {
+				format.PrintKV("Temperature", format.FormatTemperatureColored(temp))
+			}
+		}
+
 		fmt.Println() // Trailing newline
 	},
 }
 
-func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data map[string]string) {
+func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData map[string]string) {
 	// Helper function to parse int
 	parseInt := func(s string) int {
 		v, _ := strconv.Atoi(s)
@@ -204,6 +237,29 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data map[strin
 		}
 	} else {
 		output["battery_1"] = map[string]interface{}{
+			"present": false,
+		}
+	}
+
+	// Add aux battery
+	if len(auxBatteryData) > 0 {
+		output["aux_battery"] = map[string]interface{}{
+			"voltage_v":      parseFloat(auxBatteryData["voltage"]) / 1000.0,
+			"charge_percent": parseInt(auxBatteryData["charge"]),
+			"charge_status":  auxBatteryData["charge-status"],
+		}
+	}
+
+	// Add cb battery
+	if cbBatteryData["present"] == "true" {
+		output["cb_battery"] = map[string]interface{}{
+			"present":        true,
+			"charge_percent": parseInt(cbBatteryData["charge"]),
+			"charge_status":  cbBatteryData["charge-status"],
+			"temperature_c":  parseInt(cbBatteryData["temperature"]),
+		}
+	} else if len(cbBatteryData) > 0 {
+		output["cb_battery"] = map[string]interface{}{
 			"present": false,
 		}
 	}
