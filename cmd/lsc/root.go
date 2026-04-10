@@ -153,5 +153,6 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 func Execute(v string) {
 	version = v
 	rootCmd.Version = version
+	logs.SetVersion(version)
 	cobra.CheckErr(rootCmd.Execute())
 }

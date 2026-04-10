@@ -22,6 +22,7 @@ import (
 var (
 	RedisClient *redis.Client
 	JSONOutput  *bool
+	ToolVersion = "dev"
 
 	// Flags
 	logsSince    string
@@ -93,6 +94,13 @@ func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
 }
 
+// SetVersion sets the tool version string embedded in bundle metadata.
+func SetVersion(v string) {
+	if v != "" {
+		ToolVersion = v
+	}
+}
+
 func runLogsExtract(cmd *cobra.Command, args []string) {
 	// Determine output directory
 	outputDir := logsOutput
@@ -136,76 +144,122 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Create output directory structure
-	if err := os.MkdirAll(filepath.Join(outputDir, "logs"), 0755); err != nil {
+	// Create v2 bundle directory structure: {outputDir}/mdb/redis/
+	mdbDir := filepath.Join(outputDir, "mdb")
+	redisDir := filepath.Join(mdbDir, "redis")
+	if err := os.MkdirAll(redisDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to create output directory: %v\n"), err)
 		return
 	}
-	if err := os.MkdirAll(filepath.Join(outputDir, "snapshots"), 0755); err != nil {
-		fmt.Fprintf(os.Stderr, format.Error("Failed to create snapshots directory: %v\n"), err)
-		return
-	}
 
-	// Compute boot timestamp from /proc/uptime for monotonic→wallclock conversion
-	now := time.Now()
-	var bootTimestamp string
+	// Compute boot timestamp from /proc/uptime for monotonic→wallclock conversion,
+	// plus the rest of the per-host metadata fields.
+	now := time.Now().UTC()
+	var (
+		bootTimestamp string
+		uptimeSeconds float64
+	)
 	if uptimeBytes, err := os.ReadFile("/proc/uptime"); err == nil {
 		fields := strings.Fields(string(uptimeBytes))
 		if len(fields) >= 1 {
-			if uptimeSecs, err := strconv.ParseFloat(fields[0], 64); err == nil {
-				bootTime := now.Add(-time.Duration(uptimeSecs * float64(time.Second)))
-				bootTimestamp = bootTime.Format(time.RFC3339Nano)
+			if secs, err := strconv.ParseFloat(fields[0], 64); err == nil {
+				uptimeSeconds = secs
+				bootTime := now.Add(-time.Duration(secs * float64(time.Second))).UTC()
+				bootTimestamp = bootTime.Format(time.RFC3339)
 			}
 		}
 	}
 
-	metadata := map[string]interface{}{
-		"timestamp":      now.Format(time.RFC3339),
-		"boot_timestamp": bootTimestamp,
-		"services":       services,
-		"since":          logsSince,
-		"until":          logsUntil,
-		"priority":       logsPriority,
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		if hn, err := os.ReadFile("/etc/hostname"); err == nil {
+			hostname = strings.TrimSpace(string(hn))
+		}
 	}
+
+	var kernelRelease string
+	if kr, err := os.ReadFile("/proc/sys/kernel/osrelease"); err == nil {
+		kernelRelease = strings.TrimSpace(string(kr))
+	}
+
+	osReleaseID, osReleaseVersion := readOSRelease("/etc/os-release")
 
 	if !*JSONOutput {
 		fmt.Printf("%s Extracting logs to %s\n", format.Info("→"), outputDir)
 	}
 
-	// Extract service logs
+	// Extract service logs into mdb/
+	var journalBytes int64
 	for _, svc := range services {
-		if err := extractServiceLogs(svc, outputDir); err != nil {
+		n, err := extractServiceLogs(svc, mdbDir)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, format.Warning("Failed to extract %s: %v\n"), svc, err)
-		} else if !*JSONOutput {
+			continue
+		}
+		journalBytes += n
+		if !*JSONOutput {
 			fmt.Printf("  %s %s\n", format.Success("✓"), svc)
 		}
 	}
 
-	// Collect dmesg
+	// Collect dmesg into mdb/
 	if !*JSONOutput {
 		fmt.Printf("%s Collecting dmesg\n", format.Info("→"))
 	}
-	if err := captureDmesg(outputDir); err != nil {
+	var dmesgBytes int64
+	if n, err := captureDmesg(mdbDir); err != nil {
 		fmt.Fprintf(os.Stderr, format.Warning("Failed to collect dmesg: %v\n"), err)
-		metadata["dmesg"] = false
 	} else {
+		dmesgBytes = n
 		if !*JSONOutput {
 			fmt.Printf("  %s dmesg.log\n", format.Success("✓"))
 		}
-		metadata["dmesg"] = true
 	}
 
-	// Capture Redis snapshots
+	// Capture Redis snapshots into mdb/redis/
 	if !*JSONOutput {
 		fmt.Printf("%s Capturing Redis snapshots\n", format.Info("→"))
 	}
-	capturedCount := captureRedisSnapshots(outputDir)
+	capturedCount := captureRedisSnapshots(redisDir)
 	if !*JSONOutput {
 		fmt.Printf("  %s %d keys captured\n", format.Success("✓"), capturedCount)
 	}
-	metadata["redis_snapshots"] = capturedCount
 
-	// Write metadata
+	// Per-host metadata (mdb/metadata.json)
+	hostMetadata := map[string]interface{}{
+		"host":               "mdb",
+		"hostname":           hostname,
+		"boot_timestamp":     bootTimestamp,
+		"uptime_seconds":     uptimeSeconds,
+		"kernel_release":     kernelRelease,
+		"os_release_id":      osReleaseID,
+		"os_release_version": osReleaseVersion,
+		"journal_bytes":      journalBytes,
+		"dmesg_bytes":        dmesgBytes,
+		"collector":          "local",
+	}
+	if data, err := json.MarshalIndent(hostMetadata, "", "  "); err == nil {
+		if werr := os.WriteFile(filepath.Join(mdbDir, "metadata.json"), data, 0644); werr != nil {
+			fmt.Fprintf(os.Stderr, format.Warning("Failed to write host metadata: %v\n"), werr)
+		}
+	}
+
+	// Top-level bundle metadata (format v2)
+	metadata := map[string]interface{}{
+		"version":      2,
+		"collected_at": now.Format(time.RFC3339),
+		"since":        logsSince,
+		"until":        logsUntil,
+		"request_id":   "",
+		"hosts":        []string{"mdb"},
+		"tool": map[string]string{
+			"name":    "lsc",
+			"version": ToolVersion,
+		},
+		"services": services,
+		"priority": logsPriority,
+	}
+
 	metadataPath := filepath.Join(outputDir, "metadata.json")
 	if data, err := json.MarshalIndent(metadata, "", "  "); err == nil {
 		os.WriteFile(metadataPath, data, 0644)
@@ -224,12 +278,16 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 
 	if *JSONOutput {
 		output, _ := json.Marshal(map[string]interface{}{
-			"command":        "logs-extract",
-			"status":         "success",
-			"output_dir":     outputDir,
-			"tarball":        tarballPath,
-			"services_count": len(services),
+			"command":         "logs-extract",
+			"status":          "success",
+			"bundle_version":  2,
+			"output_dir":      outputDir,
+			"host_dir":        mdbDir,
+			"tarball":         tarballPath,
+			"services_count":  len(services),
 			"redis_snapshots": capturedCount,
+			"journal_bytes":   journalBytes,
+			"dmesg_bytes":     dmesgBytes,
 		})
 		fmt.Println(string(output))
 	} else {
@@ -239,7 +297,9 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 	}
 }
 
-func extractServiceLogs(service, outputDir string) error {
+// extractServiceLogs writes journalctl output for `service` to {hostDir}/{service}.log
+// and returns the number of bytes written.
+func extractServiceLogs(service, hostDir string) (int64, error) {
 	args := []string{"-u", service, "--no-pager", "-o", "short-monotonic"}
 
 	if logsSince != "" {
@@ -255,15 +315,18 @@ func extractServiceLogs(service, outputDir string) error {
 	cmd := exec.Command("journalctl", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	// Save to file
-	logFile := filepath.Join(outputDir, "logs", service+".log")
-	return os.WriteFile(logFile, output, 0644)
+	logFile := filepath.Join(hostDir, service+".log")
+	if err := os.WriteFile(logFile, output, 0644); err != nil {
+		return 0, err
+	}
+	return int64(len(output)), nil
 }
 
-func captureDmesg(outputDir string) error {
+// captureDmesg writes dmesg output to {hostDir}/dmesg.log and returns bytes written.
+func captureDmesg(hostDir string) (int64, error) {
 	var args []string
 
 	if logsSince != "" {
@@ -273,11 +336,14 @@ func captureDmesg(outputDir string) error {
 	cmd := exec.Command("dmesg", args...)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	logFile := filepath.Join(outputDir, "logs", "dmesg.log")
-	return os.WriteFile(logFile, output, 0644)
+	logFile := filepath.Join(hostDir, "dmesg.log")
+	if err := os.WriteFile(logFile, output, 0644); err != nil {
+		return 0, err
+	}
+	return int64(len(output)), nil
 }
 
 // convertDurationToJournalctl converts duration strings like "1h", "24h", "1d"
@@ -334,7 +400,9 @@ func convertDurationToJournalctl(duration string) string {
 	return duration
 }
 
-func captureRedisSnapshots(outputDir string) int {
+// captureRedisSnapshots writes HGETALL dumps for `redisKeys` into the given
+// redis directory. Filename is the key with ':' replaced by '-', no prefix.
+func captureRedisSnapshots(redisDir string) int {
 	count := 0
 
 	for _, key := range redisKeys {
@@ -343,15 +411,13 @@ func captureRedisSnapshots(outputDir string) int {
 			continue
 		}
 
-		// Save as JSON
 		jsonData, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			continue
 		}
 
-		// Sanitize key name for filename
 		filename := strings.ReplaceAll(key, ":", "-") + ".json"
-		snapshotFile := filepath.Join(outputDir, "snapshots", "redis-"+filename)
+		snapshotFile := filepath.Join(redisDir, filename)
 
 		if err := os.WriteFile(snapshotFile, jsonData, 0644); err == nil {
 			count++
@@ -359,6 +425,36 @@ func captureRedisSnapshots(outputDir string) int {
 	}
 
 	return count
+}
+
+// readOSRelease parses /etc/os-release and returns (ID, VERSION_ID), stripping
+// surrounding single/double quotes. Missing fields return empty strings.
+func readOSRelease(path string) (string, string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", ""
+	}
+
+	var id, versionID string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		eq := strings.IndexByte(line, '=')
+		if eq < 0 {
+			continue
+		}
+		key := line[:eq]
+		val := strings.Trim(line[eq+1:], `"'`)
+		switch key {
+		case "ID":
+			id = val
+		case "VERSION_ID":
+			versionID = val
+		}
+	}
+	return id, versionID
 }
 
 func createTarball(sourceDir, tarballPath string) error {
