@@ -85,8 +85,8 @@ func printJSONUpdate(gpsData map[string]string) {
 
 	output := map[string]interface{}{
 		"timestamp":  time.Now().Unix(),
-		"connected":  gpsData["connected"] == "1",
-		"active":     gpsData["active"] == "1",
+		"connected":  gpsData["connected"] == "1" || gpsData["connected"] == "true",
+		"active":     gpsData["active"] == "1" || gpsData["active"] == "true",
 		"state":      gpsData["state"],
 		"fix_type":   gpsData["fix"],
 		"latitude":   parseFloat(gpsData["latitude"]),

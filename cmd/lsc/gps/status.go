@@ -51,8 +51,8 @@ var statusCmd = &cobra.Command{
 			}
 
 			output := map[string]interface{}{
-				"connected": gpsData["connected"] == "1",
-				"active":    gpsData["active"] == "1",
+				"connected": gpsData["connected"] == "1" || gpsData["connected"] == "true",
+				"active":    gpsData["active"] == "1" || gpsData["active"] == "true",
 				"state":     gpsData["state"],
 				"fix_type":  gpsData["fix"],
 			}
@@ -90,8 +90,8 @@ var statusCmd = &cobra.Command{
 		format.PrintSection("GPS Status")
 
 		// Connection and fix status
-		connected := gpsData["connected"] == "1"
-		active := gpsData["active"] == "1"
+		connected := gpsData["connected"] == "1" || gpsData["connected"] == "true"
+		active := gpsData["active"] == "1" || gpsData["active"] == "true"
 		state := gpsData["state"]
 		fixType := gpsData["fix"]
 
