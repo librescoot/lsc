@@ -14,15 +14,17 @@ import (
 )
 
 type componentStatus struct {
-	Status           string
-	UpdateVersion    string
-	UpdateMethod     string
-	DownloadProgress string
-	DownloadBytes    string
-	DownloadTotal    string
-	InstallProgress  string
-	Error            string
-	ErrorMessage     string
+	Status               string
+	UpdateVersion        string
+	UpdateMethod         string
+	DownloadProgress     string
+	DownloadBytes        string
+	DownloadTotal        string
+	InstallProgress      string
+	Error                string
+	ErrorMessage         string
+	VehicleState         string
+	VehicleStateTimestamp string
 }
 
 func readComponentStatus(otaData map[string]string, component string) componentStatus {
@@ -43,6 +45,10 @@ func readComponentStatus(otaData map[string]string, component string) componentS
 }
 
 func (s componentStatus) equals(other componentStatus) bool {
+	s.VehicleState = ""
+	s.VehicleStateTimestamp = ""
+	other.VehicleState = ""
+	other.VehicleStateTimestamp = ""
 	return s == other
 }
 
@@ -85,6 +91,9 @@ func (s componentStatus) summary() string {
 		if s.UpdateVersion != "" {
 			text += " " + s.UpdateVersion
 		}
+		if info := standbyTimerSummary(s.VehicleState, s.VehicleStateTimestamp); info != "" {
+			text += fmt.Sprintf(" (%s)", info)
+		}
 		return text
 	case "error":
 		text := colorizeOTAStatus("error")
@@ -121,14 +130,35 @@ Press Ctrl+C to stop.`,
 			fmt.Println()
 		}
 
+		readStatuses := func() map[string]componentStatus {
+			result := make(map[string]componentStatus)
+			otaData, err := RedisClient.HGetAll("ota")
+			if err != nil {
+				return result
+			}
+			for _, c := range components {
+				s := readComponentStatus(otaData, c)
+				result[c] = s
+			}
+			// Enrich MDB with vehicle state when pending-reboot
+			if mdb, ok := result["mdb"]; ok && mdb.Status == "pending-reboot" {
+				if vehicleData, err := RedisClient.HGetAll("vehicle"); err == nil {
+					mdb.VehicleState = vehicleData["state"]
+					mdb.VehicleStateTimestamp = vehicleData["state:timestamp"]
+					result["mdb"] = mdb
+				}
+			}
+			return result
+		}
+
 		// Print initial status
-		otaData, err := RedisClient.HGetAll("ota")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to read OTA status: %v\n"), err)
+		initial := readStatuses()
+		if len(initial) == 0 {
+			fmt.Fprintf(os.Stderr, format.Error("Failed to read OTA status\n"))
 			return
 		}
 		for _, c := range components {
-			s := readComponentStatus(otaData, c)
+			s := initial[c]
 			prev[c] = s
 			printWatchLine(c, s)
 		}
@@ -142,13 +172,12 @@ Press Ctrl+C to stop.`,
 				fmt.Println()
 				return
 			case <-ticker.C:
-				otaData, err := RedisClient.HGetAll("ota")
-				if err != nil {
-					continue
-				}
+				statuses := readStatuses()
 				for _, c := range components {
-					s := readComponentStatus(otaData, c)
-					if !s.equals(prev[c]) {
+					s := statuses[c]
+					changed := !s.equals(prev[c])
+					inPendingReboot := s.Status == "pending-reboot"
+					if changed || inPendingReboot {
 						prev[c] = s
 						printWatchLine(c, s)
 					}
@@ -188,6 +217,10 @@ func printWatchLine(component string, s componentStatus) {
 		}
 		if s.ErrorMessage != "" {
 			output["error-message"] = s.ErrorMessage
+		}
+		if s.VehicleState != "" {
+			output["vehicle-state"] = s.VehicleState
+			output["vehicle-state-timestamp"] = s.VehicleStateTimestamp
 		}
 		jsonBytes, _ := json.Marshal(output)
 		fmt.Println(string(jsonBytes))

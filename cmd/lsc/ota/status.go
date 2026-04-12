@@ -100,6 +100,9 @@ var statusCmd = &cobra.Command{
 			}
 		}
 
+		// Fetch vehicle state for standby timer (used when mdb is pending-reboot)
+		vehicleData, _ := RedisClient.HGetAll("vehicle")
+
 		if JSONOutput != nil && *JSONOutput {
 			result := make(map[string]map[string]any)
 
@@ -135,6 +138,12 @@ var statusCmd = &cobra.Command{
 					} else {
 						c[key] = nil
 					}
+				}
+
+				// Standby timer for MDB pending-reboot
+				if component == "mdb" && otaData["status:mdb"] == "pending-reboot" && vehicleData != nil {
+					c["vehicle-state"] = vehicleData["state"]
+					c["vehicle-state-timestamp"] = vehicleData["state:timestamp"]
 				}
 
 				result[component] = c
@@ -190,6 +199,14 @@ var statusCmd = &cobra.Command{
 				if status == "preparing" || status == "installing" {
 					if progress := otaData[fmt.Sprintf("install-progress:%s", component)]; progress != "" {
 						format.PrintKV("  install", fmt.Sprintf("%s%%", progress))
+					}
+				}
+
+				// Standby timer (only for mdb pending-reboot)
+				if status == "pending-reboot" && component == "mdb" && vehicleData != nil {
+					info := standbyTimerSummary(vehicleData["state"], vehicleData["state:timestamp"])
+					if info != "" {
+						format.PrintKV("  standby", info)
 					}
 				}
 
