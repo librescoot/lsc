@@ -67,11 +67,15 @@ var statusCmd = &cobra.Command{
 					"course":    parseFloat(gpsData["course"]),
 				}
 				output["accuracy"] = map[string]interface{}{
-					"eph":     parseFloat(gpsData["eph"]),
-					"quality": parseFloat(gpsData["quality"]),
-					"hdop":    parseFloat(gpsData["hdop"]),
-					"pdop":    parseFloat(gpsData["pdop"]),
-					"vdop":    parseFloat(gpsData["vdop"]),
+					"eph":                parseFloat(gpsData["eph"]),
+					"eps":                parseFloat(gpsData["eps"]),
+					"ept":                parseFloat(gpsData["ept"]),
+					"hdop":               parseFloat(gpsData["hdop"]),
+					"pdop":               parseFloat(gpsData["pdop"]),
+					"vdop":               parseFloat(gpsData["vdop"]),
+					"snr":                parseFloat(gpsData["snr"]),
+					"satellites_used":    parseFloat(gpsData["satellites-used"]),
+					"satellites_visible": parseFloat(gpsData["satellites-visible"]),
 				}
 				output["timestamp"] = gpsData["timestamp"]
 				output["updated"] = gpsData["updated"]
@@ -131,9 +135,14 @@ var statusCmd = &cobra.Command{
 				format.PrintKV("Horizontal Error", formatAccuracy(ephVal))
 			}
 
-			if quality, ok := gpsData["quality"]; ok {
-				qualityVal, _ := strconv.ParseFloat(quality, 64)
-				format.PrintKV("Quality", formatQuality(qualityVal))
+			if snr, ok := gpsData["snr"]; ok {
+				snrVal, _ := strconv.ParseFloat(snr, 64)
+				format.PrintKV("Avg SNR", formatSNR(snrVal))
+			}
+
+			if sUsed, ok := gpsData["satellites-used"]; ok {
+				sVisible := gpsData["satellites-visible"]
+				format.PrintKV("Satellites", fmt.Sprintf("%s/%s", sUsed, sVisible))
 			}
 
 			if _, ok := gpsData["hdop"]; ok {
@@ -144,6 +153,15 @@ var statusCmd = &cobra.Command{
 			}
 			if _, ok := gpsData["vdop"]; ok {
 				format.PrintKV("VDOP", gpsData["vdop"])
+			}
+
+			if eps, ok := gpsData["eps"]; ok {
+				epsVal, _ := strconv.ParseFloat(eps, 64)
+				format.PrintKV("Speed Error", fmt.Sprintf("%.1f m/s", epsVal))
+			}
+			if ept, ok := gpsData["ept"]; ok {
+				eptVal, _ := strconv.ParseFloat(ept, 64)
+				format.PrintKV("Time Precision", fmt.Sprintf("%.3f s", eptVal))
 			}
 
 			// Timestamp
@@ -192,12 +210,11 @@ func formatAccuracy(meters float64) string {
 	}
 }
 
-func formatQuality(quality float64) string {
-	// Lower quality values are better
-	s := fmt.Sprintf("%.3f", quality)
-	if quality < 0.01 {
+func formatSNR(snr float64) string {
+	s := fmt.Sprintf("%.1f dBHz", snr)
+	if snr >= 35 {
 		return format.Success(s)
-	} else if quality < 0.1 {
+	} else if snr >= 20 {
 		return format.Warning(s)
 	} else {
 		return format.Error(s)

@@ -94,11 +94,15 @@ func printJSONUpdate(gpsData map[string]string) {
 		"altitude":   parseFloat(gpsData["altitude"]),
 		"speed":      parseFloat(gpsData["speed"]),
 		"course":     parseFloat(gpsData["course"]),
-		"eph":        parseFloat(gpsData["eph"]),
-		"quality":    parseFloat(gpsData["quality"]),
-		"hdop":       parseFloat(gpsData["hdop"]),
-		"pdop":       parseFloat(gpsData["pdop"]),
-		"vdop":       parseFloat(gpsData["vdop"]),
+		"eph":                parseFloat(gpsData["eph"]),
+		"eps":                parseFloat(gpsData["eps"]),
+		"ept":                parseFloat(gpsData["ept"]),
+		"hdop":               parseFloat(gpsData["hdop"]),
+		"pdop":               parseFloat(gpsData["pdop"]),
+		"vdop":               parseFloat(gpsData["vdop"]),
+		"snr":                parseFloat(gpsData["snr"]),
+		"satellites_used":    parseFloat(gpsData["satellites-used"]),
+		"satellites_visible": parseFloat(gpsData["satellites-visible"]),
 		"gps_time":   gpsData["timestamp"],
 		"updated":    gpsData["updated"],
 	}
@@ -193,7 +197,12 @@ func printFullUpdate(gpsData map[string]string) {
 		}
 	}
 
-	quality := gpsData["quality"]
+	snr := gpsData["snr"]
+	if snrVal, err := strconv.ParseFloat(snr, 64); err == nil {
+		snr = fmt.Sprintf("%.1f", snrVal)
+	}
+	satsUsed := gpsData["satellites-used"]
+	satsVisible := gpsData["satellites-visible"]
 	hdop := gpsData["hdop"]
 	pdop := gpsData["pdop"]
 	vdop := gpsData["vdop"]
@@ -212,7 +221,7 @@ func printFullUpdate(gpsData map[string]string) {
 	}
 
 	// Single line with all info
-	fmt.Printf("[%s] %s%s | %s,%s | ▲ %s | %s km/h | %s | Acc: %s | Q: %s | DOP: %s/%s/%s | T: %s\n",
+	fmt.Printf("[%s] %s%s | %s,%s | ▲ %s | %s km/h | %s | Acc: %s | SNR: %s | Sats: %s/%s | DOP: %s/%s/%s | T: %s\n",
 		format.Dim(timestamp),
 		statePrefix,
 		formatFixType(fixType),
@@ -221,7 +230,8 @@ func printFullUpdate(gpsData map[string]string) {
 		speed,
 		course,
 		accuracy,
-		quality,
+		snr,
+		satsUsed, satsVisible,
 		hdop, pdop, vdop,
 		format.Dim(gpsTime),
 	)
