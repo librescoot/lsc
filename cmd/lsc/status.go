@@ -194,12 +194,12 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatte
 		"motor": map[string]interface{}{
 			"speed_kph":       parseFloat(ecuData["speed"]),
 			"rpm":             parseInt(ecuData["rpm"]),
-			"throttle":        ecuData["throttle"] == "true",
+			"throttle":        ecuData["throttle"] == "on",
 			"odometer_km":     parseFloat(ecuData["odometer"]) / 1000.0,
 			"voltage_v":       parseFloat(ecuData["motor:voltage"]) / 1000.0,
 			"current_a":       parseFloat(ecuData["motor:current"]) / 1000.0,
 			"temperature_c":   parseInt(ecuData["temperature"]),
-			"kers":            ecuData["kers"] == "true",
+			"kers":            ecuData["kers"] == "on",
 		},
 	}
 
