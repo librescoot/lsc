@@ -206,6 +206,10 @@ func getCBBatteryData() map[string]interface{} {
 		v, _ := strconv.Atoi(s)
 		return v
 	}
+	parseFloat := func(s string) float64 {
+		v, _ := strconv.ParseFloat(s, 64)
+		return v
+	}
 	present := data["present"] == "true"
 	result := map[string]interface{}{
 		"id":      "cb",
@@ -217,6 +221,8 @@ func getCBBatteryData() map[string]interface{} {
 		result["health_percent"] = parseInt(data["state-of-health"])
 		result["cycles"] = parseInt(data["cycle-count"])
 		result["temperature_c"] = parseInt(data["temperature"])
+		result["voltage_v"] = parseFloat(data["cell-voltage"]) / 1000000.0
+		result["current_a"] = parseFloat(data["current"]) / 1000000.0
 	}
 	return result
 }
@@ -234,7 +240,7 @@ func showAuxBattery() {
 
 	fmt.Printf("\n%s\n", format.LightGray("=== Aux Battery ==="))
 	if v := data["voltage"]; v != "" {
-		format.PrintKV("Voltage", format.FormatVoltageColored(v))
+		format.PrintKV("Voltage", format.FormatAuxVoltageColored(v))
 	}
 	if c := data["charge"]; c != "" {
 		chargeVal, _ := strconv.Atoi(c)
@@ -258,13 +264,19 @@ func showCBBattery() {
 	}
 
 	fmt.Printf("\n%s\n", format.LightGray("=== CB Battery ==="))
-	if c := data["charge"]; c != "" {
-		chargeVal, _ := strconv.Atoi(c)
-		format.PrintKV("Charge", format.ColorizePercentage(chargeVal))
+
+	// Charge, voltage, current on one line
+	chargeVal, _ := strconv.Atoi(data["charge"])
+	chargeParts := format.ColorizePercentage(chargeVal)
+	if v := data["cell-voltage"]; v != "" {
+		chargeParts += ", " + format.FormatCBVoltageColored(v)
 	}
-	if s := data["charge-status"]; s != "" {
-		format.PrintKV("Status", format.ColorizeState(s))
+	if c := data["current"]; c != "" {
+		chargeParts += ", " + format.MicroampsToAmps(c)
 	}
+	format.PrintKV("Charge", chargeParts)
+
+	// Health
 	soh, _ := strconv.Atoi(data["state-of-health"])
 	cycles := format.SafeValueOr(data["cycle-count"], "0")
 	sohStr := format.Dim("N/A")
@@ -272,8 +284,12 @@ func showCBBattery() {
 		sohStr = format.ColorizePercentage(soh)
 	}
 	format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, cycles))
+
 	if temp := data["temperature"]; temp != "" {
 		format.PrintKV("Temperature", format.FormatTemperatureColored(temp))
+	}
+	if s := data["charge-status"]; s != "" {
+		format.PrintKV("Status", format.ColorizeState(s))
 	}
 	fmt.Println()
 }
