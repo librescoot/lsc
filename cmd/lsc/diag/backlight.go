@@ -34,12 +34,12 @@ var backlightCmd = &cobra.Command{
 			return
 		}
 
-		value := "0"
+		value := "true"
 		if action == "off" {
-			value = "1"
+			value = "false"
 		}
 
-		if err := RedisClient.HSet("dashboard", "backlight-off", value); err != nil {
+		if err := RedisClient.HSet("dashboard", "backlight-enabled", value); err != nil {
 			if JSONOutput != nil && *JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "backlight",
@@ -54,7 +54,7 @@ var backlightCmd = &cobra.Command{
 			return
 		}
 
-		if err := RedisClient.Publish(context.Background(), "dashboard", "backlight-off"); err != nil {
+		if err := RedisClient.Publish(context.Background(), "dashboard", "backlight-enabled"); err != nil {
 			if JSONOutput != nil && *JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "backlight",
