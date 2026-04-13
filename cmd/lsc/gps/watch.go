@@ -84,16 +84,16 @@ func printJSONUpdate(gpsData map[string]string) {
 	}
 
 	output := map[string]interface{}{
-		"timestamp":  time.Now().Unix(),
-		"connected":  gpsData["connected"] == "1" || gpsData["connected"] == "true",
-		"active":     gpsData["active"] == "1" || gpsData["active"] == "true",
-		"state":      gpsData["state"],
-		"fix_type":   gpsData["fix"],
-		"latitude":   parseFloat(gpsData["latitude"]),
-		"longitude":  parseFloat(gpsData["longitude"]),
-		"altitude":   parseFloat(gpsData["altitude"]),
-		"speed":      parseFloat(gpsData["speed"]),
-		"course":     parseFloat(gpsData["course"]),
+		"timestamp":          time.Now().Unix(),
+		"connected":          gpsData["connected"] == "1" || gpsData["connected"] == "true",
+		"active":             gpsData["active"] == "1" || gpsData["active"] == "true",
+		"state":              gpsData["state"],
+		"fix_type":           gpsData["fix"],
+		"latitude":           parseFloat(gpsData["latitude"]),
+		"longitude":          parseFloat(gpsData["longitude"]),
+		"altitude":           parseFloat(gpsData["altitude"]),
+		"speed":              parseFloat(gpsData["speed"]),
+		"course":             parseFloat(gpsData["course"]),
 		"eph":                parseFloat(gpsData["eph"]),
 		"eps":                parseFloat(gpsData["eps"]),
 		"ept":                parseFloat(gpsData["ept"]),
@@ -103,8 +103,8 @@ func printJSONUpdate(gpsData map[string]string) {
 		"snr":                parseFloat(gpsData["snr"]),
 		"satellites_used":    parseFloat(gpsData["satellites-used"]),
 		"satellites_visible": parseFloat(gpsData["satellites-visible"]),
-		"gps_time":   gpsData["timestamp"],
-		"updated":    gpsData["updated"],
+		"gps_time":           gpsData["timestamp"],
+		"updated":            gpsData["updated"],
 	}
 
 	jsonBytes, _ := json.Marshal(output)

@@ -58,9 +58,9 @@ var statusCmd = &cobra.Command{
 
 			output := map[string]interface{}{
 				"power_manager": map[string]interface{}{
-					"state":              pmData["state"],
-					"power_source":       pmuxData["selected-input"],
-					"inhibitors":         inhibitors,
+					"state":               pmData["state"],
+					"power_source":        pmuxData["selected-input"],
+					"inhibitors":          inhibitors,
 					"external_inhibitors": externalInhibits,
 				},
 			}

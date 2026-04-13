@@ -31,20 +31,20 @@ var cueAliases = map[string]int{
 
 // LED channel name to index mapping
 var channelAliases = map[string]int{
-	"headlight":         0,
-	"front-ring":        1,
-	"brake":             2,
-	"brake-light":       2,
+	"headlight":           0,
+	"front-ring":          1,
+	"brake":               2,
+	"brake-light":         2,
 	"blinker-front-left":  3,
 	"blinker-left-front":  3,
 	"blinker-front-right": 4,
 	"blinker-right-front": 4,
-	"number-plates":     5,
-	"plates":            5,
-	"blinker-rear-left": 6,
-	"blinker-left-rear": 6,
-	"blinker-rear-right": 7,
-	"blinker-right-rear": 7,
+	"number-plates":       5,
+	"plates":              5,
+	"blinker-rear-left":   6,
+	"blinker-left-rear":   6,
+	"blinker-rear-right":  7,
+	"blinker-right-rear":  7,
 }
 
 // LED fade name to index mapping
@@ -148,7 +148,7 @@ Examples:
   lsc led cue 10              # Activate left blinker
   lsc led cue blink-left      # Same using alias
   lsc led cue blink_both      # Hazard lights (underscores work too)`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		indexStr := args[0]
 		index, err := parseCueIndex(indexStr)
@@ -229,7 +229,7 @@ Examples:
   lsc led fade 2 2                          # Fade on brake light
   lsc led fade brake brake-linear-on        # Same using aliases
   lsc led fade front-ring smooth-off        # Smooth off front ring`,
-	Args:  cobra.ExactArgs(2),
+	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		channelStr := args[0]
 		indexStr := args[1]

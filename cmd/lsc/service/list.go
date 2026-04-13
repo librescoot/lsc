@@ -59,11 +59,11 @@ var listCmd = &cobra.Command{
 }
 
 type serviceStatus struct {
-	Name       string `json:"name"`
-	Active     string `json:"active"`
-	Enabled    string `json:"enabled"`
-	Running    bool   `json:"running"`
-	Status     string `json:"status"`
+	Name    string `json:"name"`
+	Active  string `json:"active"`
+	Enabled string `json:"enabled"`
+	Running bool   `json:"running"`
+	Status  string `json:"status"`
 }
 
 func getServiceStatus(service string) serviceStatus {

@@ -69,8 +69,8 @@ func ensureServiceSuffix(name string) string {
 
 // ServiceCmd represents the service command
 var ServiceCmd = &cobra.Command{
-	Use:   "service",
-	Short: "Manage systemd services",
-	Long:  `Start, stop, restart, enable, disable, and view logs of LibreScoot systemd services.`,
+	Use:     "service",
+	Short:   "Manage systemd services",
+	Long:    `Start, stop, restart, enable, disable, and view logs of LibreScoot systemd services.`,
 	Aliases: []string{"svc"},
 }

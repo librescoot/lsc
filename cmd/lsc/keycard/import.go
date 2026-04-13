@@ -142,13 +142,13 @@ Lines starting with # are treated as comments. Empty lines are ignored.`,
 
 		if *JSONOutput {
 			response := map[string]interface{}{
-				"imported":            totalImported,
-				"authorized_imported": len(newAuthorizedUIDs),
-				"master_imported":     len(newMasterUIDs),
-				"conflicts":           totalConflicts,
+				"imported":             totalImported,
+				"authorized_imported":  len(newAuthorizedUIDs),
+				"master_imported":      len(newMasterUIDs),
+				"conflicts":            totalConflicts,
 				"authorized_conflicts": authorizedConflictCount,
-				"master_conflicts":    masterConflictCount,
-				"invalid":             len(invalidUIDs),
+				"master_conflicts":     masterConflictCount,
+				"invalid":              len(invalidUIDs),
 			}
 			if len(invalidUIDs) > 0 {
 				response["invalid_lines"] = invalidUIDs

@@ -14,16 +14,16 @@ import (
 )
 
 type componentStatus struct {
-	Status               string
-	UpdateVersion        string
-	UpdateMethod         string
-	DownloadProgress     string
-	DownloadBytes        string
-	DownloadTotal        string
-	InstallProgress      string
-	Error                string
-	ErrorMessage         string
-	VehicleState         string
+	Status                string
+	UpdateVersion         string
+	UpdateMethod          string
+	DownloadProgress      string
+	DownloadBytes         string
+	DownloadTotal         string
+	InstallProgress       string
+	Error                 string
+	ErrorMessage          string
+	VehicleState          string
 	VehicleStateTimestamp string
 }
 

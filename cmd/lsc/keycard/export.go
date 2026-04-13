@@ -46,10 +46,10 @@ var exportCmd = &cobra.Command{
 
 		if *JSONOutput {
 			response := map[string]interface{}{
-				"file":               filePath,
-				"exported":           totalCount,
-				"authorized_count":   len(authorizedUIDs),
-				"master_count":       len(masterUIDs),
+				"file":             filePath,
+				"exported":         totalCount,
+				"authorized_count": len(authorizedUIDs),
+				"master_count":     len(masterUIDs),
 			}
 			output, _ := json.MarshalIndent(response, "", "  ")
 			fmt.Println(string(output))

@@ -33,21 +33,21 @@ var (
 
 // Service name mappings
 var serviceMap = map[string]string{
-	"vehicle":   "librescoot-vehicle.service",
-	"battery":   "librescoot-battery.service",
-	"ecu":       "librescoot-ecu.service",
-	"motor":     "librescoot-ecu.service", // alias
-	"modem":     "librescoot-modem.service",
-	"pm":        "librescoot-pm.service",
-	"power":     "librescoot-pm.service", // alias
-	"update":    "librescoot-update.service",
-	"settings":  "librescoot-settings.service",
-	"keycard":   "librescoot-keycard.service",
-	"bluetooth": "librescoot-bluetooth.service",
-	"ble":       "librescoot-bluetooth.service", // alias
-	"ums":       "librescoot-ums.service",
+	"vehicle":    "librescoot-vehicle.service",
+	"battery":    "librescoot-battery.service",
+	"ecu":        "librescoot-ecu.service",
+	"motor":      "librescoot-ecu.service", // alias
+	"modem":      "librescoot-modem.service",
+	"pm":         "librescoot-pm.service",
+	"power":      "librescoot-pm.service", // alias
+	"update":     "librescoot-update.service",
+	"settings":   "librescoot-settings.service",
+	"keycard":    "librescoot-keycard.service",
+	"bluetooth":  "librescoot-bluetooth.service",
+	"ble":        "librescoot-bluetooth.service", // alias
+	"ums":        "librescoot-ums.service",
 	"radio-gaga": "radio-gaga.service",
-	"uplink":    "radio-gaga.service", // alias
+	"uplink":     "radio-gaga.service", // alias
 }
 
 // Redis keys to snapshot
@@ -81,7 +81,7 @@ Examples:
   lsc logs all --since 1h --output /data/debug-session
   lsc logs battery ecu --since "2025-10-25 10:00" --until "2025-10-25 12:00"
   lsc logs all --since 1d --priority err`,
-	Run:  runLogsExtract,
+	Run: runLogsExtract,
 }
 
 // SetRedisClient sets the Redis client for logs commands

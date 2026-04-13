@@ -70,7 +70,7 @@ var listCmd = &cobra.Command{
 		}
 
 		format.PrintSection("Saved Locations")
-		
+
 		headers := []string{"ID", "LABEL", "COORDS", "LAST USED", "CREATED"}
 		var rows [][]string
 

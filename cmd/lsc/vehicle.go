@@ -18,7 +18,7 @@ var noBlock bool
 var vehicleCmd = &cobra.Command{
 	Use:   "vehicle",
 	Short: "Control vehicle state and hardware",
-	Long: `Control vehicle lock/unlock state, hibernation, handlebar lock, and seatbox.`,
+	Long:  `Control vehicle lock/unlock state, hibernation, handlebar lock, and seatbox.`,
 }
 
 var vehicleLockCmd = &cobra.Command{

@@ -52,13 +52,13 @@ var showCmd = &cobra.Command{
 
 		if JSONOutput != nil && *JSONOutput {
 			output := map[string]interface{}{
-				"command":   "locations-show",
-				"status":    "success",
-				"id":        location.ID,
-				"latitude":  location.Latitude,
-				"longitude": location.Longitude,
-				"label":     location.Label,
-				"created_at":  location.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+				"command":      "locations-show",
+				"status":       "success",
+				"id":           location.ID,
+				"latitude":     location.Latitude,
+				"longitude":    location.Longitude,
+				"label":        location.Label,
+				"created_at":   location.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 				"last_used_at": location.LastUsedAt.Format("2006-01-02T15:04:05Z07:00"),
 			}
 			jsonBytes, _ := json.MarshalIndent(output, "", "  ")

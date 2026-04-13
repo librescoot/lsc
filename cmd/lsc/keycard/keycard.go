@@ -21,9 +21,9 @@ var (
 )
 
 var KeycardCmd = &cobra.Command{
-	Use:     "keycard",
-	Short:   "Manage keycard authentication",
-	Long:    `Manage authorized keycards for the scooter.`,
+	Use:   "keycard",
+	Short: "Manage keycard authentication",
+	Long:  `Manage authorized keycards for the scooter.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Default to list when called without subcommand
 		return listCmd.RunE(cmd, args)

@@ -32,8 +32,8 @@ type XReadArgs = rdb.XReadArgs
 func NewClient(addr string) *Client {
 	return &Client{
 		client: rdb.NewClient(&rdb.Options{
-			Addr:            addr,
-			DB:              0, // use default DB
+			Addr:             addr,
+			DB:               0,    // use default DB
 			DisableIndentity: true, // Disable client identity features for older Redis versions
 		}),
 		ctx:    context.Background(),

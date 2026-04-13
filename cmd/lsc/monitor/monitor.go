@@ -35,17 +35,17 @@ var subsystems = []string{
 
 // Session metadata
 type SessionMetadata struct {
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	Duration    string    `json:"duration"`
-	Interval    string    `json:"interval"`
-	Subsystems  []string  `json:"subsystems"`
+	StartTime   time.Time      `json:"start_time"`
+	EndTime     time.Time      `json:"end_time"`
+	Duration    string         `json:"duration"`
+	Interval    string         `json:"interval"`
+	Subsystems  []string       `json:"subsystems"`
 	RecordCount map[string]int `json:"record_count"`
 }
 
 var MonitorCmd = &cobra.Command{
-	Use:       "monitor <subsystems...>",
-	Short:     "Record real-time metrics over time",
+	Use:   "monitor <subsystems...>",
+	Short: "Record real-time metrics over time",
 	Long: `Record scooter metrics to timestamped files for analysis.
 
 Available subsystems:
@@ -235,13 +235,13 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	// Print summary
 	if *JSONOutput {
 		output, _ := json.Marshal(map[string]interface{}{
-			"command":        "monitor",
-			"status":         "success",
-			"output_dir":     outputDir,
-			"tarball":        tarballPath,
-			"duration":       endTime.Sub(startTime).Seconds(),
-			"record_counts":  metadata.RecordCount,
-			"total_records":  sumRecords(metadata.RecordCount),
+			"command":       "monitor",
+			"status":        "success",
+			"output_dir":    outputDir,
+			"tarball":       tarballPath,
+			"duration":      endTime.Sub(startTime).Seconds(),
+			"record_counts": metadata.RecordCount,
+			"total_records": sumRecords(metadata.RecordCount),
 		})
 		fmt.Println(string(output))
 	} else {

@@ -98,8 +98,8 @@ func recordBattery(ctx context.Context, wg *sync.WaitGroup, outputDir string, in
 				}
 
 				record := map[string]interface{}{
-					"timestamp":   time.Now().UnixMilli(),
-					"battery_id":  id,
+					"timestamp":  time.Now().UnixMilli(),
+					"battery_id": id,
 				}
 
 				// Add battery fields with type conversion
