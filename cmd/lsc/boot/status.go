@@ -63,9 +63,12 @@ var statusCmd = &cobra.Command{
 		}
 		format.PrintKV("next boot", nextStr)
 
-		if pending {
+		switch {
+		case pending && st.NextNum == st.CurrentNum:
+			format.PrintKV("mode", format.Warning("armor (tentative current-slot boot, rolls back to other on reboot-loop)"))
+		case pending:
 			format.PrintKV("mode", format.Warning("one-shot (auto-rollback on next reboot unless committed)"))
-		} else {
+		default:
 			format.PrintKV("mode", "persistent")
 		}
 		format.PrintKV("upgrade_available", format.SafeValue(st.UpgradeAvailable, "?"))
