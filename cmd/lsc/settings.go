@@ -282,7 +282,7 @@ Common Settings:
   alarm.enabled                   - Enable/disable alarm (true/false)
   alarm.honk                      - Enable horn during alarm (true/false)
   alarm.duration                  - Alarm duration in seconds
-  hibernation-timer               - Hibernation timeout in seconds
+  pm.hibernation-timer            - Hibernation timeout in seconds
   updates.mdb.method              - Update method for MDB (delta/full)
   updates.mdb.channel             - Release channel for MDB (stable/testing/nightly)
   updates.mdb.check-interval      - Update check interval for MDB (hours, 0=never)
