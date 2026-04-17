@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
+	"strconv"
 	"time"
 
 	"librescoot/lsc/internal/format"
@@ -130,6 +130,7 @@ var engineCmd = &cobra.Command{
 var (
 	onWaitTimeout int
 	forceFlag     bool
+	pingFlag      bool
 )
 
 // startTimer starts a background goroutine that prints elapsed time every second.
@@ -158,42 +159,135 @@ func startTimer(label string) func() {
 
 var dbcStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show DBC status (ready state and power)",
-	Long:  `Display dashboard ready state and power output status.`,
+	Short: "Show DBC status (power, ready, display, features)",
+	Long:  `Display dashboard power, ready state, serial, backlight, ambient brightness, and feature availability. Use --ping to also verify network reachability.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get dashboard ready state
-		ready, err := RedisClient.HGet("dashboard", "ready")
-		if err != nil {
-			if JSONOutput != nil && *JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"status": "error",
-					"error":  err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to get dashboard state: %v\n"), err)
+		dash, dashErr := RedisClient.HGetAll("dashboard")
+		if dashErr != nil {
+			dash = map[string]string{}
+		}
+		vehicle, vehErr := RedisClient.HGetAll("vehicle")
+		if vehErr != nil {
+			vehicle = map[string]string{}
+		}
+
+		power := vehicle["dashboard:power"]
+		if power == "" {
+			power = "unknown"
+		}
+		ready := dash["ready"] == "true"
+		serial := dash["serial-number"]
+		backlightEnabled := dash["backlight-enabled"] == "true"
+		backlightRaw := dash["backlight"]
+		brightnessLux, hasBrightness := parseFloat(dash["brightness"])
+		mapsAvail := dash["maps-available"] == "true"
+		navAvail := dash["navigation-available"] == "true"
+
+		var pingOK bool
+		var pingLatency time.Duration
+		var pingChecked bool
+		if pingFlag {
+			pingChecked = true
+			pingStart := time.Now()
+			if err := exec.Command("ping", "-c", "1", "-W", "1", "192.168.7.2").Run(); err == nil {
+				pingOK = true
+				pingLatency = time.Since(pingStart)
 			}
-			return
 		}
 
 		if JSONOutput != nil && *JSONOutput {
 			output := map[string]interface{}{
-				"ready": ready == "true",
+				"power":                power,
+				"ready":                ready,
+				"serial_number":        serial,
+				"backlight_enabled":    backlightEnabled,
+				"backlight_pwm":        parseIntOrNil(backlightRaw),
+				"maps_available":       mapsAvail,
+				"navigation_available": navAvail,
 			}
-			data, _ := json.Marshal(output)
-			fmt.Println(string(data))
-		} else {
-			fmt.Println("Dashboard Status:")
-			fmt.Println(strings.Repeat("─", 40))
-
-			// Ready state
-			if ready == "true" {
-				fmt.Printf("Ready: %s\n", format.Success("yes"))
+			if hasBrightness {
+				output["ambient_lux"] = brightnessLux
 			} else {
-				fmt.Printf("Ready: %s\n", format.Warning("no"))
+				output["ambient_lux"] = nil
+			}
+			if pingChecked {
+				output["reachable"] = pingOK
+				if pingOK {
+					output["ping_ms"] = float64(pingLatency.Microseconds()) / 1000.0
+				}
+			}
+			data, _ := json.MarshalIndent(output, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		format.PrintSection("Dashboard Status")
+		format.PrintKV("Power", format.ColorizeState(power))
+		if ready {
+			format.PrintKV("Ready", format.Success("yes"))
+		} else {
+			format.PrintKV("Ready", format.Dim("no"))
+		}
+		if pingChecked {
+			if pingOK {
+				format.PrintKV("Reachable", fmt.Sprintf("%s (%s)", format.Success("yes"), pingLatency.Round(time.Millisecond)))
+			} else {
+				format.PrintKV("Reachable", format.Error("no"))
 			}
 		}
+		format.PrintKV("Serial", format.SafeValueOr(serial, "unknown"))
+
+		format.PrintSection("Display")
+		if backlightEnabled {
+			if backlightRaw != "" {
+				format.PrintKV("Backlight", fmt.Sprintf("%s (PWM %s)", format.Success("enabled"), backlightRaw))
+			} else {
+				format.PrintKV("Backlight", format.Success("enabled"))
+			}
+		} else {
+			format.PrintKV("Backlight", format.Dim("disabled"))
+		}
+		if hasBrightness {
+			format.PrintKV("Ambient", fmt.Sprintf("%.1f lux", brightnessLux))
+		} else {
+			format.PrintKV("Ambient", format.Dim("unknown"))
+		}
+
+		format.PrintSection("Features")
+		if mapsAvail {
+			format.PrintKV("Maps", format.Success("available"))
+		} else {
+			format.PrintKV("Maps", format.Dim("unavailable"))
+		}
+		if navAvail {
+			format.PrintKV("Navigation", format.Success("available"))
+		} else {
+			format.PrintKV("Navigation", format.Dim("unavailable"))
+		}
+		fmt.Println()
 	},
+}
+
+func parseFloat(s string) (float64, bool) {
+	if s == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+func parseIntOrNil(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return nil
+	}
+	return v
 }
 
 var dbcPingCmd = &cobra.Command{
@@ -349,6 +443,7 @@ var dbcOffWaitCmd = &cobra.Command{
 func init() {
 	dbcOnWaitCmd.Flags().IntVarP(&onWaitTimeout, "timeout", "t", 60, "Timeout in seconds to wait for DBC ready")
 	dbcOffWaitCmd.Flags().IntVarP(&onWaitTimeout, "timeout", "t", 60, "Timeout in seconds to wait for DBC off")
+	dbcStatusCmd.Flags().BoolVarP(&pingFlag, "ping", "p", false, "Also check network reachability via ping")
 
 	// Add --force flag to dashboard command and subcommands that need it
 	dashboardCmd.PersistentFlags().BoolVarP(&forceFlag, "force", "f", false, "Force dashboard off even if DBC update is in progress")
