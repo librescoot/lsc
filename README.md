@@ -262,6 +262,44 @@ Quick access to common commands:
 
 All shortcuts support `--json` output and vehicle commands support `--no-block` flag.
 
+### Development
+
+**Dev only — hidden from `lsc --help`.** `lsc boot` pokes U-Boot env and raw block devices to swap the Mender A/B rootfs selection, bypassing `mender-update` and OTA. Worst case you end up in a boot-loop and have to stop at U-Boot over UART to fix `mender_boot_part` by hand — annoying, not destructive.
+
+Same binary on MDB and DBC; it operates on the local slot.
+
+- **pending** = `upgrade_available=1`. U-Boot increments `bootcount` each boot and rolls back to the other slot once `bootcount > bootlimit` (default `bootlimit=1` — one tentative boot, next reboot falls back).
+- **committed** = `upgrade_available=0`. Boot is permanent.
+
+Commands:
+
+- `lsc boot status` - current slot, next-boot target, pending/committed state.
+- `lsc boot set <a|b|other|current|N>` - persistently switch the next-boot slot.
+- `lsc boot try-other [-y]` - one-shot boot into the *other* slot; any reboot without commit rolls back.
+- `lsc boot armor [-y]` - tentative boot of the *current* slot with fallback to the other. Use before a risky change; reboot-loops auto-fall-back.
+- `lsc boot commit [-y]` - clear a pending one-shot, making the current slot permanent.
+- `lsc boot clone [--arm] [-y]` - `dd` the running rootfs onto the other slot (live/fuzzy snapshot; fsck cleans up on first mount). `--arm` also sets next-boot to the clone.
+
+Recipes:
+
+```bash
+# Safety net: clean copy of A on B, keep hacking in A. Any reboot lands on B.
+lsc boot clone --arm -y
+
+# Risky kernel / initramfs change: armor, reboot, commit if it works.
+lsc boot armor -y
+reboot
+# ... if A comes up clean:
+lsc boot commit -y
+# ... if A reboot-loops, U-Boot falls back to B automatically.
+
+# Just poke at the other slot once; reboot restores sanity.
+lsc boot try-other -y
+reboot
+```
+
+`armor` only fires on *counted* reboots — a kernel that hangs early without a watchdog reboot won't fall back on its own.
+
 ## Global Flags
 
 - `--json` - Output in JSON format for automation
