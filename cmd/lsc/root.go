@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"librescoot/lsc/cmd/lsc/boot"
 	"librescoot/lsc/cmd/lsc/diag"
 	"librescoot/lsc/cmd/lsc/gps"
 	"librescoot/lsc/cmd/lsc/keycard"
@@ -43,6 +44,7 @@ func init() {
 	)
 
 	// Add subcommands
+	rootCmd.AddCommand(boot.BootCmd)
 	rootCmd.AddCommand(diag.DiagCmd)
 	rootCmd.AddCommand(gps.GpsCmd)
 	rootCmd.AddCommand(keycard.KeycardCmd)
@@ -89,6 +91,13 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		// Skip Redis connection for commands that don't need it
 		if cmd.Name() == "completion" || cmd.Name() == "help" || cmd.Name() == "__completeNoDesc" || cmd.Name() == "__complete" {
 			return nil
+		}
+		// `lsc boot ...` is a local-only developer tool — must work without Redis.
+		for c := cmd; c != nil; c = c.Parent() {
+			if c.Name() == "boot" {
+				boot.SetJSONOutput(&JSONOutput)
+				return nil
+			}
 		}
 		if Verbose {
 			fmt.Fprintf(os.Stderr, "lsc version %s starting\n", version)
