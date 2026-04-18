@@ -374,7 +374,9 @@ Settings can be viewed with `lsc settings list` and modified with `lsc set <key>
 - `dashboard.valhalla-url` - Routing service URL
 
 **Battery:**
-- `battery.ignore-seatbox` - Ignore seatbox in battery calculations
+- `scooter.battery-keep-active-on-seatbox-open` - Keep a running battery active when the seatbox opens
+- `scooter.dual-battery` - Enable dual battery mode
+- `scooter.max-voltage-delta` - Max voltage delta (mV) between batteries for dual-battery activation
 
 **Power:**
 - `hibernation-timer` - Hibernation timer duration
