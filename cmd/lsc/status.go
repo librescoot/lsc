@@ -64,10 +64,11 @@ var statusCmd = &cobra.Command{
 
 		auxBatteryData, _ := redisClient.HGetAll("aux-battery")
 		cbBatteryData, _ := redisClient.HGetAll("cb-battery")
+		scooterData, _ := redisClient.HGetAll("scooter")
 
 		// If JSON output is requested, output structured JSON
 		if JSONOutput {
-			outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData)
+			outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData, scooterData)
 			return
 		}
 
@@ -80,6 +81,9 @@ var statusCmd = &cobra.Command{
 			format.FormatOnOff(vehicleData["brake:right"])))
 		format.PrintKV("Blinker", format.SafeValueOr(vehicleData["blinker:switch"], "off"))
 		format.PrintKV("Seatbox", format.SafeValueOr(vehicleData["seatbox:lock"], "closed"))
+		if temp := scooterData["temperature"]; temp != "" {
+			format.PrintKV("Ambient", format.FormatAmbientTemperatureColored(temp))
+		}
 
 		// Display Motor Status
 		format.PrintSection("Motor Status")
@@ -192,7 +196,7 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData map[string]string) {
+func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData, scooterData map[string]string) {
 	// Helper function to parse int
 	parseInt := func(s string) int {
 		v, _ := strconv.Atoi(s)
@@ -302,6 +306,10 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatte
 		output["cb_battery"] = map[string]interface{}{
 			"present": false,
 		}
+	}
+
+	if temp := scooterData["temperature"]; temp != "" {
+		output["ambient_temperature_c"] = parseFloat(temp)
 	}
 
 	jsonBytes, _ := json.MarshalIndent(output, "", "  ")

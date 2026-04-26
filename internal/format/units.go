@@ -157,3 +157,25 @@ func FormatTemperatureColored(temp string) string {
 	val := ParseInt(temp)
 	return ColorizeTemperature(val)
 }
+
+// FormatAmbientTemperatureColored formats a float-valued ambient temperature (°C) with coloring
+func FormatAmbientTemperatureColored(temp string) string {
+	if temp == "" {
+		return Dim("N/A")
+	}
+	val, err := strconv.ParseFloat(temp, 64)
+	if err != nil {
+		return Dim("N/A")
+	}
+	text := fmt.Sprintf("%.1f°C", val)
+	switch {
+	case val < 0:
+		return Info(text)
+	case val <= 45:
+		return Success(text)
+	case val <= 55:
+		return Warning(text)
+	default:
+		return Error(text)
+	}
+}
