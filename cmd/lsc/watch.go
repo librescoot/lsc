@@ -42,8 +42,8 @@ Useful channels:
   vehicle          - Vehicle state changes
   alarm            - Alarm status changes
   battery:0/1      - Battery state changes
-  bmx:sensors      - Sensor data (10Hz when enabled)
-  bmx:magnetometer - Magnetometer readings (5Hz)
+  bmx:sensors      - Sensor data: accel/gyro/mag (10Hz)
+  bmx:heading      - Tilt-compensated magnetic heading (5Hz)
   bmx:interrupt    - Motion detection events
   engine-ecu throttle  - Throttle events
   engine-ecu odometer  - Odometer updates
