@@ -73,7 +73,7 @@ The command will:
   2. Collect kernel ring buffer (dmesg)
   3. Capture current Redis state snapshots
   4. Generate metadata file
-  5. Create both unpacked directory and compressed .tar.gz archive
+  5. Write a compressed .tar.gz archive to the output directory
 
 Examples:
   lsc logs                      # Extract all services (default)
@@ -102,11 +102,22 @@ func SetVersion(v string) {
 }
 
 func runLogsExtract(cmd *cobra.Command, args []string) {
-	// Determine output directory
-	outputDir := logsOutput
-	if outputDir == "" {
-		outputDir = fmt.Sprintf("/data/logs-%s", time.Now().Format("2006-01-02-15-04"))
+	// Resolve the destination directory that will hold the final tarball,
+	// and a per-run staging directory beneath it for the unpacked tree.
+	destDir := logsOutput
+	if destDir == "" {
+		destDir = "/data/log-bundles"
 	}
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, format.Error("Failed to create destination directory: %v\n"), err)
+		return
+	}
+
+	timestamp := time.Now().Format("2006-01-02-15-04")
+	bundleName := "logs-" + timestamp
+	outputDir := filepath.Join(destDir, ".staging-"+timestamp)
+	tarballPath := filepath.Join(destDir, bundleName+".tar.gz")
+	defer os.RemoveAll(outputDir)
 
 	// Default to "all" if no services specified
 	if len(args) == 0 {
@@ -185,7 +196,7 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 	osReleaseID, osReleaseVersion := readOSRelease("/etc/os-release")
 
 	if !*JSONOutput {
-		fmt.Printf("%s Extracting logs to %s\n", format.Info("→"), outputDir)
+		fmt.Printf("%s Extracting logs to %s\n", format.Info("→"), tarballPath)
 	}
 
 	// Extract service logs into mdb/
@@ -269,8 +280,7 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 	if !*JSONOutput {
 		fmt.Printf("%s Creating compressed archive\n", format.Info("→"))
 	}
-	tarballPath := outputDir + ".tar.gz"
-	if err := createTarball(outputDir, tarballPath); err != nil {
+	if err := createTarball(outputDir, bundleName, tarballPath); err != nil {
 		fmt.Fprintf(os.Stderr, format.Warning("Failed to create tarball: %v\n"), err)
 	} else if !*JSONOutput {
 		fmt.Printf("  %s %s\n", format.Success("✓"), filepath.Base(tarballPath))
@@ -281,8 +291,6 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 			"command":         "logs-extract",
 			"status":          "success",
 			"bundle_version":  2,
-			"output_dir":      outputDir,
-			"host_dir":        mdbDir,
 			"tarball":         tarballPath,
 			"services_count":  len(services),
 			"redis_snapshots": capturedCount,
@@ -292,8 +300,7 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 		fmt.Println(string(output))
 	} else {
 		fmt.Printf("\n%s Logs extracted successfully\n", format.Success("✓"))
-		fmt.Printf("  Directory: %s\n", outputDir)
-		fmt.Printf("  Archive:   %s\n", tarballPath)
+		fmt.Printf("  Archive: %s\n", tarballPath)
 	}
 }
 
@@ -457,7 +464,7 @@ func readOSRelease(path string) (string, string) {
 	return id, versionID
 }
 
-func createTarball(sourceDir, tarballPath string) error {
+func createTarball(sourceDir, bundleName, tarballPath string) error {
 	file, err := os.Create(tarballPath)
 	if err != nil {
 		return err
@@ -475,8 +482,8 @@ func createTarball(sourceDir, tarballPath string) error {
 			return err
 		}
 
-		// Skip the source directory itself and the tarball
-		if path == sourceDir || strings.HasSuffix(path, ".tar.gz") {
+		// Skip the source directory itself
+		if path == sourceDir {
 			return nil
 		}
 
@@ -491,7 +498,7 @@ func createTarball(sourceDir, tarballPath string) error {
 		if err != nil {
 			return err
 		}
-		header.Name = filepath.Join(filepath.Base(sourceDir), relPath)
+		header.Name = filepath.Join(bundleName, relPath)
 
 		// Write header
 		if err := tarWriter.WriteHeader(header); err != nil {
@@ -518,6 +525,6 @@ func createTarball(sourceDir, tarballPath string) error {
 func init() {
 	LogsCmd.Flags().StringVar(&logsSince, "since", "24h", "Start time for logs (journalctl format)")
 	LogsCmd.Flags().StringVar(&logsUntil, "until", "", "End time for logs (default: now)")
-	LogsCmd.Flags().StringVar(&logsOutput, "output", "", "Output directory (default: auto-generate)")
+	LogsCmd.Flags().StringVar(&logsOutput, "output", "", "Directory to write the .tar.gz into (default: /data/log-bundles)")
 	LogsCmd.Flags().StringVar(&logsPriority, "priority", "", "Log level filter (err, warning, info, debug)")
 }

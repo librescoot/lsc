@@ -214,15 +214,19 @@ Extract service logs and Redis snapshots:
   - `--since <time>` - Start time (e.g., 24h, 1d, "2025-10-25 10:00")
   - `--until <time>` - End time
   - `--priority <level>` - Log level (err, warning, info, debug)
-  - `--output <dir>` - Output directory
+  - `--output <dir>` - Directory to write the `.tar.gz` into (default: `/data/log-bundles`)
 
 **Examples:**
 ```bash
-lsc logs                          # Extract all services (last 24h)
+lsc logs                          # Extract all services (last 24h) into /data/log-bundles/
 lsc logs vehicle --since 1h
 lsc logs battery ecu --since 24h --output /data/debug
 lsc logs all --priority err       # Show only errors
 ```
+
+The command produces a single `logs-<timestamp>.tar.gz` archive in the
+output directory; the unpacked tree is staged in a temporary subdirectory
+and removed when the archive is written.
 
 ### Alarm
 
