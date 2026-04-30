@@ -1,6 +1,8 @@
-# lsc - LibreScoot Control CLI
+# lsc - Librescoot Control CLI
 
-A command-line interface for controlling and monitoring LibreScoot electric scooters via Redis.
+A command-line interface for controlling and monitoring Librescoot electric scooters via Redis.
+
+Part of the [Librescoot](https://librescoot.org/) open-source platform.
 
 ## Features
 
@@ -405,7 +407,7 @@ lsc completion powershell > lsc.ps1
 
 ## Architecture
 
-lsc communicates with LibreScoot services via Redis:
+lsc communicates with Librescoot services via Redis:
 
 - **Command Queues**: LPUSH to `scooter:*` lists for commands
 - **State Hashes**: HGET/HSET on `vehicle`, `battery:*`, etc.
@@ -434,4 +436,11 @@ go test ./...
 
 ## License
 
-Part of the LibreScoot open-source electric scooter platform.
+This project is dual-licensed. The source code is available under the
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+The maintainers reserve the right to grant separate licenses for commercial distribution; please contact the maintainers to discuss commercial licensing.
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
+
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-image]: https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png
