@@ -2,6 +2,7 @@ package lsc
 
 import (
 	"librescoot/lsc/cmd/lsc/diag"
+	"librescoot/lsc/cmd/lsc/power"
 
 	"github.com/spf13/cobra"
 )
@@ -116,6 +117,30 @@ var delCmd = &cobra.Command{
 	},
 }
 
+// hibernate-for / hibernate-cancel shortcuts delegate to the power subcommand
+// implementations so users can run `lsc hibernate-for 8h` without typing
+// `lsc power hibernate-for 8h`.
+var hibernateForShortcut = findPowerSubcommand("hibernate-for")
+var hibernateCancelShortcut = findPowerSubcommand("hibernate-cancel")
+
+func findPowerSubcommand(name string) *cobra.Command {
+	for _, c := range power.PowerCmd.Commands() {
+		if c.Name() == name {
+			shortcut := &cobra.Command{
+				Use:     c.Use,
+				Short:   c.Short + " (shortcut for 'power " + c.Name() + "')",
+				Long:    c.Long,
+				GroupID: "shortcuts",
+				Args:    c.Args,
+				Run:     c.Run,
+			}
+			shortcut.Flags().AddFlagSet(c.Flags())
+			return shortcut
+		}
+	}
+	return nil
+}
+
 func init() {
 	// Add --no-block flag to shortcuts that need it
 	lockCmd.Flags().BoolVar(&noBlock, "no-block", false, "Don't wait for state change confirmation")
@@ -132,6 +157,12 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(setCmd)
 	rootCmd.AddCommand(delCmd)
+	if hibernateForShortcut != nil {
+		rootCmd.AddCommand(hibernateForShortcut)
+	}
+	if hibernateCancelShortcut != nil {
+		rootCmd.AddCommand(hibernateCancelShortcut)
+	}
 
 	// Create diagnostic shortcuts that mirror the full commands
 	if batCmd := createDiagShortcut("battery", []string{"bat"}); batCmd != nil {
