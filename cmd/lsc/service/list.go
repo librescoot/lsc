@@ -17,10 +17,10 @@ func init() {
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List LibreScoot services and their status",
-	Long:  `List all LibreScoot systemd services with their current status.`,
+	Short: "List Librescoot services and their status",
+	Long:  `List all Librescoot systemd services with their current status.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// All LibreScoot services (MDB + DBC)
+		// All Librescoot services (MDB + DBC)
 		// User knows which ones exist on their platform
 		services := []string{
 			// Core infrastructure (both MDB and DBC)

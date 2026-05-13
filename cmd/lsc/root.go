@@ -70,7 +70,7 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "lsc",
 	Short: "lsc - librescoot control CLI",
-	Long: `lsc is a command-line interface for controlling and monitoring LibreScoot
+	Long: `lsc is a command-line interface for controlling and monitoring Librescoot
 electric scooters via Redis.
 
 It provides convenient access to:

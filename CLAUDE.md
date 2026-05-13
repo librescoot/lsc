@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`lsc` (librescoot control) is a CLI tool that abstracts Redis-based interfaces used by LibreScoot ECU firmware services. It provides user-friendly commands to control and monitor scooters without requiring direct Redis knowledge.
+`lsc` (librescoot control) is a CLI tool that abstracts Redis-based interfaces used by Librescoot ECU firmware services. It provides user-friendly commands to control and monitor scooters without requiring direct Redis knowledge.
 
-### LibreScoot System Context
+### Librescoot System Context
 
-LibreScoot runs on unu Scooter Pro hardware with a distributed architecture:
+Librescoot runs on unu Scooter Pro hardware with a distributed architecture:
 - **MDB (Middle Driver Board)**: Central control at 192.168.7.1, runs Redis and core services
 - **DBC (Dashboard Computer)**: i.MX6 processor at 192.168.7.2, runs scootui Flutter app
 - **ECU**: BOSCH/Lingbo motor controller, CAN bus communication
