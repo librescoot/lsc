@@ -36,11 +36,10 @@ var openCmd = &cobra.Command{
 
 // dbc, engine, and blink shortcuts - will be created by createDiagShortcut below
 
-// createDiagShortcut creates a shortcut command that mirrors a diag subcommand
-func createDiagShortcut(name string, aliases []string) *cobra.Command {
-	// Find the real command
+// createShortcut creates a shortcut command that mirrors a subcommand of parent.
+func createShortcut(parent *cobra.Command, name string, aliases []string) *cobra.Command {
 	var realCmd *cobra.Command
-	for _, c := range diag.DiagCmd.Commands() {
+	for _, c := range parent.Commands() {
 		if c.Name() == name {
 			realCmd = c
 			break
@@ -165,28 +164,33 @@ func init() {
 	}
 
 	// Create diagnostic shortcuts that mirror the full commands
-	if batCmd := createDiagShortcut("battery", []string{"bat"}); batCmd != nil {
+	if batCmd := createShortcut(diag.DiagCmd, "battery", []string{"bat"}); batCmd != nil {
 		rootCmd.AddCommand(batCmd)
 	}
-	if verCmd := createDiagShortcut("version", []string{"ver"}); verCmd != nil {
+	if verCmd := createShortcut(diag.DiagCmd, "version", []string{"ver"}); verCmd != nil {
 		rootCmd.AddCommand(verCmd)
 	}
-	if faultsCmd := createDiagShortcut("faults", nil); faultsCmd != nil {
+	if faultsCmd := createShortcut(diag.DiagCmd, "faults", nil); faultsCmd != nil {
 		rootCmd.AddCommand(faultsCmd)
 	}
-	if eventsCmd := createDiagShortcut("events", nil); eventsCmd != nil {
+	if eventsCmd := createShortcut(diag.DiagCmd, "events", nil); eventsCmd != nil {
 		rootCmd.AddCommand(eventsCmd)
 	}
-	if dbcCmd := createDiagShortcut("dashboard", []string{"dbc", "dash"}); dbcCmd != nil {
+	if dbcCmd := createShortcut(diag.DiagCmd, "dashboard", []string{"dbc", "dash"}); dbcCmd != nil {
 		rootCmd.AddCommand(dbcCmd)
 	}
-	if engineCmd := createDiagShortcut("engine", nil); engineCmd != nil {
+	if engineCmd := createShortcut(diag.DiagCmd, "engine", nil); engineCmd != nil {
 		rootCmd.AddCommand(engineCmd)
 	}
-	if blinkCmd := createDiagShortcut("blinkers", []string{"blink"}); blinkCmd != nil {
+	if blinkCmd := createShortcut(diag.DiagCmd, "blinkers", []string{"blink"}); blinkCmd != nil {
 		rootCmd.AddCommand(blinkCmd)
 	}
-	if blCmd := createDiagShortcut("backlight", nil); blCmd != nil {
+	if blCmd := createShortcut(diag.DiagCmd, "backlight", nil); blCmd != nil {
 		rootCmd.AddCommand(blCmd)
+	}
+
+	if hibCmd := createShortcut(power.PowerCmd, "hibernate", nil); hibCmd != nil {
+		hibCmd.Short = "Set power state to hibernate (shortcut for 'power hibernate')"
+		rootCmd.AddCommand(hibCmd)
 	}
 }
