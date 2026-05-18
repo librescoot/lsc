@@ -381,6 +381,8 @@ Settings can be viewed with `lsc settings list` and modified with `lsc set <key>
 
 **Battery:**
 - `scooter.battery-keep-active-on-seatbox-open` - Keep a running battery active when the seatbox opens
+- `scooter.battery-aux-low-keep-active-enter-mv` - Aux voltage (mV) below which keep-active engages automatically (default 11500)
+- `scooter.battery-aux-low-keep-active-exit-mv` - Aux voltage (mV) at or above which the auto override disengages (default 12000)
 - `scooter.dual-battery` - Enable dual battery mode
 - `scooter.max-voltage-delta` - Max voltage delta (mV) between batteries for dual-battery activation
 
