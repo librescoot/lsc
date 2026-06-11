@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,7 @@ var deleteCmd = &cobra.Command{
 	Short:   "Delete a saved location",
 	Long:    `Delete a saved location by ID.`,
 	Args:    cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -31,7 +32,7 @@ var deleteCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid ID '%s': must be an integer\n"), args[0])
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Check if location exists
@@ -47,7 +48,7 @@ var deleteCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Location with ID %d not found\n"), id)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Delete from Redis
@@ -62,7 +63,7 @@ var deleteCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to delete location: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -79,6 +80,7 @@ var deleteCmd = &cobra.Command{
 				location.Label,
 			)
 		}
+		return nil
 	},
 }
 

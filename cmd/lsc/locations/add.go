@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,7 @@ var addCmd = &cobra.Command{
 	Short: "Add a new saved location",
 	Long:  `Add a new saved location with coordinates and label.`,
 	Args:  cobra.MinimumNArgs(3),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse latitude
 		lat, err := strconv.ParseFloat(args[0], 64)
 		if err != nil {
@@ -32,7 +33,7 @@ var addCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid latitude '%s': must be a number\n"), args[0])
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Parse longitude
@@ -48,7 +49,7 @@ var addCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid longitude '%s': must be a number\n"), args[1])
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Validate coordinates
@@ -63,7 +64,7 @@ var addCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("%v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Join remaining args as label
@@ -82,7 +83,7 @@ var addCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to find available ID: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Create location
@@ -108,7 +109,7 @@ var addCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to save location: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -128,6 +129,7 @@ var addCmd = &cobra.Command{
 				format.Info(fmt.Sprintf("%d", id)),
 			)
 		}
+		return nil
 	},
 }
 

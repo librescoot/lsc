@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show firmware versions",
 	Long:  `Display firmware versions for all system components.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Fetch version data from various sources
 		system, err := RedisClient.HGetAll("system")
 		if err != nil {
@@ -26,7 +27,7 @@ var versionCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch system data: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		ecuData, _ := RedisClient.HGetAll("engine-ecu")
@@ -77,7 +78,7 @@ var versionCmd = &cobra.Command{
 
 			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Println(string(jsonBytes))
-			return
+			return nil
 		}
 
 		// Display system versions
@@ -124,6 +125,7 @@ var versionCmd = &cobra.Command{
 		}
 
 		fmt.Println()
+		return nil
 	},
 }
 

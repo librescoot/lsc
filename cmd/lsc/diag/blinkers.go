@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ var blinkersCmd = &cobra.Command{
 	Long:      `Control the scooter's turn signal blinkers.`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"off", "left", "right", "both"},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		state := args[0]
 
 		// Validate argument
@@ -38,7 +39,7 @@ var blinkersCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid state '%s'. Must be one of: off, left, right, both\n"), state)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Send command
@@ -53,7 +54,7 @@ var blinkersCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send blinker command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -66,6 +67,7 @@ var blinkersCmd = &cobra.Command{
 		} else {
 			fmt.Printf("%s Blinkers set to: %s\n", format.Success("✓"), state)
 		}
+		return nil
 	},
 }
 

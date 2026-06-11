@@ -19,7 +19,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List Librescoot services and their status",
 	Long:  `List all Librescoot systemd services with their current status.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// All Librescoot services (MDB + DBC)
 		// User knows which ones exist on their platform
 		services := []string{
@@ -55,6 +55,7 @@ var listCmd = &cobra.Command{
 		} else {
 			outputTable(services)
 		}
+		return nil
 	},
 }
 

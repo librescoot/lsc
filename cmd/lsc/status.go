@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -15,7 +16,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show overall scooter status",
 	Long:  `Displays a dashboard of key metrics from various scooter services.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Fetch data from Redis
 		vehicleData, err := redisClient.HGetAll("vehicle")
 		if err != nil {
@@ -27,7 +28,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Error fetching vehicle data: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		ecuData, err := redisClient.HGetAll("engine-ecu")
@@ -40,7 +41,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Error fetching ECU data: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		battery0Data, err := redisClient.HGetAll("battery:0")
@@ -53,7 +54,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Error fetching battery:0 data: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		battery1Data, err := redisClient.HGetAll("battery:1")
@@ -69,7 +70,7 @@ var statusCmd = &cobra.Command{
 		// If JSON output is requested, output structured JSON
 		if JSONOutput {
 			outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatteryData, cbBatteryData, scooterData)
-			return
+			return nil
 		}
 
 		// Display Vehicle Status
@@ -207,6 +208,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		fmt.Println() // Trailing newline
+		return nil
 	},
 }
 

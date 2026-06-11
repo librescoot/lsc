@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -58,7 +59,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show OTA update status",
 	Long:  `Display current OTA update status, installed version, and configuration.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		settings, err := RedisClient.HGetAll("settings")
 		if err != nil {
 			if JSONOutput != nil && *JSONOutput {
@@ -71,7 +72,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to get settings: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		otaData, err := RedisClient.HGetAll("ota")
@@ -86,7 +87,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to get OTA status: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		components := []string{"mdb", "dbc"}
@@ -237,6 +238,7 @@ var statusCmd = &cobra.Command{
 				fmt.Println()
 			}
 		}
+		return nil
 	},
 }
 

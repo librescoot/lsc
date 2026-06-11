@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
 )
@@ -21,8 +23,12 @@ var usbStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show current USB mode",
 	Long:  `Display the current USB mode setting.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		mode, err := redisClient.HGet("usb", "mode")
+		if err != nil && redis.IsNil(err) {
+			err = nil
+			mode = ""
+		}
 		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
@@ -32,7 +38,7 @@ var usbStatusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to get USB mode: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if mode == "" {
@@ -44,12 +50,13 @@ var usbStatusCmd = &cobra.Command{
 				"mode": mode,
 			})
 			fmt.Println(string(output))
-			return
+			return nil
 		}
 
 		format.PrintSection("USB Status")
 		format.PrintKV("Mode", format.ColorizeState(mode))
 		fmt.Println()
+		return nil
 	},
 }
 
@@ -57,7 +64,7 @@ var usbUmsCmd = &cobra.Command{
 	Use:   "ums",
 	Short: "Switch to UMS (USB Mass Storage) mode",
 	Long:  `Switch USB to Mass Storage mode. The device will appear as a USB drive when connected.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if !JSONOutput {
 			fmt.Println("Switching to UMS mode...")
 		}
@@ -73,7 +80,7 @@ var usbUmsCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to set USB mode: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		ctx := context.Background()
@@ -89,7 +96,7 @@ var usbUmsCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Warning("Mode set but publish failed: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -102,6 +109,7 @@ var usbUmsCmd = &cobra.Command{
 		} else {
 			fmt.Println(format.Success("USB mode set to UMS (Mass Storage)"))
 		}
+		return nil
 	},
 }
 
@@ -109,7 +117,7 @@ var usbNormalCmd = &cobra.Command{
 	Use:   "normal",
 	Short: "Switch to normal (network) mode",
 	Long:  `Switch USB to normal network mode.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if !JSONOutput {
 			fmt.Println("Switching to normal mode...")
 		}
@@ -125,7 +133,7 @@ var usbNormalCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to set USB mode: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		ctx := context.Background()
@@ -141,7 +149,7 @@ var usbNormalCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Warning("Mode set but publish failed: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -154,6 +162,7 @@ var usbNormalCmd = &cobra.Command{
 		} else {
 			fmt.Println(format.Success("USB mode set to normal (network)"))
 		}
+		return nil
 	},
 }
 

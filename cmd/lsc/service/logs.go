@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 
+	"librescoot/lsc/internal/cli"
+
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +26,7 @@ var logsCmd = &cobra.Command{
 	Short: "Show recent logs from a systemd service",
 	Long:  `Show recent logs from a systemd service using journalctl. Service name can be with or without .service suffix.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		service := args[0]
 		serviceName := ensureServiceSuffix(service)
 
@@ -39,9 +41,10 @@ var logsCmd = &cobra.Command{
 		journalCmd.Stderr = os.Stderr
 		journalCmd.Stdin = os.Stdin
 
-		err := journalCmd.Run()
-		if err != nil {
+		if err := journalCmd.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to retrieve logs for %s: %v\n", serviceName, err)
+			return cli.ErrSilent
 		}
+		return nil
 	},
 }

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 	"librescoot/lsc/internal/redis"
 
@@ -71,7 +72,7 @@ Examples:
   lsc monitor gps battery --format csv --duration 5m`,
 	Args:      cobra.MinimumNArgs(1),
 	ValidArgs: subsystems,
-	Run:       runMonitor,
+	RunE:      runMonitor,
 }
 
 // SetRedisClient sets the Redis client for monitor commands
@@ -84,19 +85,19 @@ func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
 }
 
-func runMonitor(cmd *cobra.Command, args []string) {
+func runMonitor(cmd *cobra.Command, args []string) error {
 	// Parse duration
 	duration, err := parseDuration(monitorDuration)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Invalid duration '%s': %v\n"), monitorDuration, err)
-		return
+		return cli.ErrSilent
 	}
 
 	// Parse interval
 	interval, err := parseDuration(monitorInterval)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Invalid interval '%s': %v\n"), monitorInterval, err)
-		return
+		return cli.ErrSilent
 	}
 
 	// Determine output directory
@@ -109,13 +110,13 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	selectedSubsystems := expandSubsystems(args)
 	if len(selectedSubsystems) == 0 {
 		fmt.Fprint(os.Stderr, format.Error("No valid subsystems specified\n"))
-		return
+		return cli.ErrSilent
 	}
 
 	// Create output directory
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to create output directory: %v\n"), err)
-		return
+		return cli.ErrSilent
 	}
 
 	if !*JSONOutput {
@@ -251,6 +252,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		fmt.Printf("  Duration:  %s\n", formatDuration(endTime.Sub(startTime)))
 		fmt.Printf("  Records:   %d\n", sumRecords(metadata.RecordCount))
 	}
+	return nil
 }
 
 func expandSubsystems(args []string) []string {

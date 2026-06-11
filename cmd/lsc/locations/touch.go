@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,7 @@ var touchCmd = &cobra.Command{
 	Short: "Update last-used timestamp",
 	Long:  `Update the last-used timestamp for a location (affects sort order).`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -31,7 +32,7 @@ var touchCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid ID '%s': must be an integer\n"), args[0])
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Load existing location
@@ -47,7 +48,7 @@ var touchCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Location with ID %d not found\n"), id)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Update last-used timestamp
@@ -65,7 +66,7 @@ var touchCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to update location: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -83,6 +84,7 @@ var touchCmd = &cobra.Command{
 				location.Label,
 			)
 		}
+		return nil
 	},
 }
 

@@ -38,9 +38,9 @@ var LocationsCmd = &cobra.Command{
 	Aliases: []string{"loc"},
 	Short:   "Manage saved locations",
 	Long:    `Manage saved locations for navigation.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Default to list when called without subcommand
-		listCmd.Run(cmd, args)
+		return listCmd.RunE(cmd, args)
 	},
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ var handlebarCmd = &cobra.Command{
 	Long:      `Manually control the handlebar lock mechanism. Use with caution - normally handled automatically by vehicle state.`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"lock", "unlock"},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		action := args[0]
 
 		// Validate argument
@@ -31,7 +32,7 @@ var handlebarCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'lock' or 'unlock'\n"), action)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Send command
@@ -47,7 +48,7 @@ var handlebarCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send handlebar command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -61,6 +62,7 @@ var handlebarCmd = &cobra.Command{
 			fmt.Printf("%s Handlebar %s command sent\n", format.Success("✓"), action)
 			fmt.Println(format.Dim("Note: This bypasses the automatic handlebar control"))
 		}
+		return nil
 	},
 }
 

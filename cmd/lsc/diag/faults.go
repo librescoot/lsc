@@ -13,7 +13,7 @@ var faultsCmd = &cobra.Command{
 	Use:   "faults",
 	Short: "Show active faults",
 	Long:  `Display all active faults from vehicle and battery systems.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Fetch faults from all sources
 		vehicleFaults, err := RedisClient.SMembers("vehicle:fault")
 		if err != nil {
@@ -40,12 +40,12 @@ var faultsCmd = &cobra.Command{
 				"battery_1":    battery1Faults,
 			}, "", "  ")
 			fmt.Println(string(output))
-			return
+			return nil
 		}
 
 		if totalFaults == 0 {
 			fmt.Println(format.Success("No active faults"))
-			return
+			return nil
 		}
 
 		format.PrintSection(fmt.Sprintf("Active Faults (%d)", totalFaults))
@@ -72,6 +72,7 @@ var faultsCmd = &cobra.Command{
 		}
 
 		format.PrintTable(headers, rows)
+		return nil
 	},
 }
 

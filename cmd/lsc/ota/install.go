@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -25,7 +26,7 @@ This command will:
   - Install the update using mender-update
   - Report installation progress`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		source := args[0]
 		var filePath string
 		var err error
@@ -55,7 +56,7 @@ This command will:
 				} else {
 					fmt.Fprintf(os.Stderr, format.Error("Failed to download update: %v\n"), err)
 				}
-				return
+				return cli.ErrSilent
 			}
 			defer os.Remove(filePath) // Clean up downloaded file
 		} else {
@@ -74,7 +75,7 @@ This command will:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("File not found: %s\n"), filePath)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Install using mender-update
@@ -104,7 +105,7 @@ This command will:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Installation failed: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -118,6 +119,7 @@ This command will:
 			fmt.Println(format.Success("Update installed successfully"))
 			fmt.Println(format.Warning("Note: A reboot may be required to complete the update"))
 		}
+		return nil
 	},
 }
 

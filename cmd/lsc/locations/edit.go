@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,7 @@ Examples:
   lsc loc edit 0 lat 52.5 lon 13.4
   lsc loc edit 0 label "Office" lat 52.5235 lon 13.4115`,
 	Args: cobra.MinimumNArgs(3),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -38,7 +39,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid ID '%s': must be an integer\n"), args[0])
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Load existing location
@@ -54,7 +55,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Location with ID %d not found\n"), id)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Parse field-value pairs
@@ -70,7 +71,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("%v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Apply updates
@@ -93,7 +94,7 @@ Examples:
 					} else {
 						fmt.Fprintf(os.Stderr, format.Error("Invalid latitude '%s': must be a number\n"), value)
 					}
-					return
+					return cli.ErrSilent
 				}
 				location.Latitude = lat
 				modified = true
@@ -110,7 +111,7 @@ Examples:
 					} else {
 						fmt.Fprintf(os.Stderr, format.Error("Invalid longitude '%s': must be a number\n"), value)
 					}
-					return
+					return cli.ErrSilent
 				}
 				location.Longitude = lon
 				modified = true
@@ -128,7 +129,7 @@ Examples:
 			} else {
 				fmt.Fprint(os.Stderr, format.Error("No valid fields to update\n"))
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Validate coordinates if changed
@@ -143,7 +144,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("%v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Update last-used-at timestamp
@@ -161,7 +162,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to update location: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -180,6 +181,7 @@ Examples:
 				format.Info(fmt.Sprintf("%d", id)),
 			)
 		}
+		return nil
 	},
 }
 

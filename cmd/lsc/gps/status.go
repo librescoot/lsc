@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show GPS status",
 	Long:  `Display current GPS fix status, position, and accuracy information.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Fetch GPS data
 		gpsData, err := RedisClient.HGetAll("gps")
 		if err != nil {
@@ -28,7 +29,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch GPS data: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if len(gpsData) == 0 {
@@ -40,7 +41,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Println(format.Warning("No GPS data available"))
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// If JSON output is requested
@@ -83,7 +84,7 @@ var statusCmd = &cobra.Command{
 
 			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Println(string(jsonBytes))
-			return
+			return nil
 		}
 
 		// Display GPS status
@@ -183,6 +184,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		fmt.Println()
+		return nil
 	},
 }
 

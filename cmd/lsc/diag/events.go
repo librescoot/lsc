@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 	"librescoot/lsc/internal/redis"
 
@@ -50,14 +51,14 @@ Examples:
   lsc events -n 10 -r                   # Last 10 events, newest first
   lsc events -f                         # Follow events in real-time
   lsc events --filter "battery"         # Events containing "battery"`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var filterRegex *regexp.Regexp
 		if eventsFilter != "" {
 			var err error
 			filterRegex, err = regexp.Compile(eventsFilter)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid filter regex: %v\n"), err)
-				return
+				return cli.ErrSilent
 			}
 		}
 
@@ -74,14 +75,13 @@ Examples:
 				cancel()
 			}()
 
-			followEvents(ctx, filterRegex)
-		} else {
-			showEvents(ctx, filterRegex)
+			return followEvents(ctx, filterRegex)
 		}
+		return showEvents(ctx, filterRegex)
 	},
 }
 
-func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
+func showEvents(ctx context.Context, filterRegex *regexp.Regexp) error {
 	// Determine the start ID based on --since
 	startID := "0"
 	var sinceTime time.Time
@@ -89,7 +89,7 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 		duration, err := parseDuration(eventsSince)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, format.Error("Invalid duration '%s': %v\n"), eventsSince, err)
-			return
+			return cli.ErrSilent
 		}
 		// Calculate the approximate stream ID from timestamp
 		sinceTime = time.Now().Add(-duration)
@@ -102,7 +102,7 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 		duration, err := parseDuration(eventsUntil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, format.Error("Invalid duration '%s': %v\n"), eventsUntil, err)
-			return
+			return cli.ErrSilent
 		}
 		untilTime = time.Now().Add(-duration)
 	}
@@ -119,12 +119,12 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 	})
 	if err != nil && err.Error() != "redis: nil" {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to read events: %v\n"), err)
-		return
+		return cli.ErrSilent
 	}
 
 	if len(streams) == 0 || len(streams[0].Messages) == 0 {
 		fmt.Println(format.Dim("No events found"))
-		return
+		return nil
 	}
 
 	// Filter and collect events
@@ -170,22 +170,23 @@ func showEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 	// Display events
 	if len(filteredEvents) == 0 {
 		fmt.Println(format.Dim("No events found matching criteria"))
-		return
+		return nil
 	}
 
 	for _, msg := range filteredEvents {
 		printEvent(msg)
 	}
+	return nil
 }
 
-func followEvents(ctx context.Context, filterRegex *regexp.Regexp) {
+func followEvents(ctx context.Context, filterRegex *regexp.Regexp) error {
 	// Start from the latest event
 	lastID := "$"
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		default:
 		}
 
@@ -202,7 +203,7 @@ func followEvents(ctx context.Context, filterRegex *regexp.Regexp) {
 				continue
 			}
 			fmt.Fprintf(os.Stderr, format.Error("Error reading events: %v\n"), err)
-			return
+			return cli.ErrSilent
 		}
 
 		if len(streams) == 0 || len(streams[0].Messages) == 0 {

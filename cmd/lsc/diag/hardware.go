@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -20,11 +21,10 @@ var dashboardCmd = &cobra.Command{
 	Short:   "Control dashboard power and connectivity",
 	Long:    `Control dashboard power (on/off) and check connectivity (ping, on-wait).`,
 	Args:    cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// If no args, show help
 		if len(args) == 0 {
-			cmd.Help()
-			return
+			return cmd.Help()
 		}
 
 		action := args[0]
@@ -40,7 +40,7 @@ var dashboardCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'on' or 'off'\n"), action)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Build command with optional :force suffix
@@ -60,7 +60,7 @@ var dashboardCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send dashboard command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -73,6 +73,7 @@ var dashboardCmd = &cobra.Command{
 		} else {
 			fmt.Printf("%s Dashboard power: %s\n", format.Success("✓"), action)
 		}
+		return nil
 	},
 }
 
@@ -81,7 +82,7 @@ var engineCmd = &cobra.Command{
 	Short:     "Control engine power",
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"on", "off"},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		action := args[0]
 
 		if action != "on" && action != "off" {
@@ -95,7 +96,7 @@ var engineCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'on' or 'off'\n"), action)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		command := fmt.Sprintf("engine:%s", action)
@@ -111,7 +112,7 @@ var engineCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send engine command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -124,6 +125,7 @@ var engineCmd = &cobra.Command{
 		} else {
 			fmt.Printf("%s Engine power: %s\n", format.Success("✓"), action)
 		}
+		return nil
 	},
 }
 
@@ -161,7 +163,7 @@ var dbcStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show DBC status (power, ready, display, features)",
 	Long:  `Display dashboard power, ready state, serial, backlight, ambient brightness, and feature availability. Use --ping to also verify network reachability.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dash, dashErr := RedisClient.HGetAll("dashboard")
 		if dashErr != nil {
 			dash = map[string]string{}
@@ -218,7 +220,7 @@ var dbcStatusCmd = &cobra.Command{
 			}
 			data, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Println(string(data))
-			return
+			return nil
 		}
 
 		format.PrintSection("Dashboard Status")
@@ -265,6 +267,7 @@ var dbcStatusCmd = &cobra.Command{
 			format.PrintKV("Navigation", format.Dim("unavailable"))
 		}
 		fmt.Println()
+		return nil
 	},
 }
 
@@ -294,12 +297,15 @@ var dbcPingCmd = &cobra.Command{
 	Use:   "ping",
 	Short: "Ping the DBC to check connectivity",
 	Long:  `Ping the Dashboard Computer at 192.168.7.2 to verify network connectivity.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		pingCmd := exec.Command("ping", "192.168.7.2")
 		pingCmd.Stdout = os.Stdout
 		pingCmd.Stderr = os.Stderr
 		pingCmd.Stdin = os.Stdin
-		pingCmd.Run()
+		if err := pingCmd.Run(); err != nil {
+			return cli.ErrSilent
+		}
+		return nil
 	},
 }
 
@@ -307,7 +313,7 @@ var dbcOnWaitCmd = &cobra.Command{
 	Use:   "on-wait",
 	Short: "Turn on DBC and wait until ready",
 	Long:  `Send dashboard:on command and wait for the dashboard to publish 'ready' state, then verify with ping.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
 		// Check if DBC is already ready
@@ -318,7 +324,7 @@ var dbcOnWaitCmd = &cobra.Command{
 			pingCmd := exec.Command("ping", "-c", "1", "-W", "2", "192.168.7.2")
 			if err := pingCmd.Run(); err == nil {
 				fmt.Println("Dashboard is ready and reachable!")
-				return
+				return nil
 			}
 			fmt.Println("Dashboard marked ready but not reachable, turning on...")
 		}
@@ -337,7 +343,7 @@ var dbcOnWaitCmd = &cobra.Command{
 		err = RedisClient.LPush("scooter:hardware", "dashboard:on")
 		if err != nil {
 			fmt.Printf("Error sending dashboard:on command: %v\n", err)
-			return
+			return cli.ErrSilent
 		}
 
 		// Wait for ready notification
@@ -364,7 +370,7 @@ var dbcOnWaitCmd = &cobra.Command{
 							continue // Keep waiting
 						}
 						fmt.Printf("Dashboard is ready and reachable! (took %s)\n", elapsed)
-						return
+						return nil
 					}
 				}
 			case <-timeoutChan:
@@ -378,10 +384,10 @@ var dbcOnWaitCmd = &cobra.Command{
 					if ready == "true" {
 						elapsed := time.Since(startTime).Truncate(time.Millisecond)
 						fmt.Printf("Dashboard is ready and reachable (took %s, ready notification may have been missed)\n", elapsed)
-						return
+						return nil
 					}
 				}
-				return
+				return cli.ErrSilent
 			}
 		}
 	},
@@ -391,7 +397,7 @@ var dbcOffWaitCmd = &cobra.Command{
 	Use:   "off-wait",
 	Short: "Turn off DBC and wait until unreachable",
 	Long:  `Send dashboard:off command and wait for the DBC to become unreachable via ping.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Build command with optional :force suffix
 		command := "dashboard:off"
 		if forceFlag {
@@ -403,7 +409,7 @@ var dbcOffWaitCmd = &cobra.Command{
 		err := RedisClient.LPush("scooter:hardware", command)
 		if err != nil {
 			fmt.Printf("Error sending dashboard:off command: %v\n", err)
-			return
+			return cli.ErrSilent
 		}
 
 		// Wait for DBC to become unreachable
@@ -419,7 +425,7 @@ var dbcOffWaitCmd = &cobra.Command{
 			if time.Since(startTime) > timeout {
 				stopTimer()
 				fmt.Printf("Timeout waiting for dashboard off after %d seconds\n", onWaitTimeout)
-				return
+				return cli.ErrSilent
 			}
 
 			// Try to ping DBC
@@ -431,7 +437,7 @@ var dbcOffWaitCmd = &cobra.Command{
 				stopTimer()
 				elapsed := time.Since(startTime).Truncate(time.Millisecond)
 				fmt.Printf("Dashboard is off! (took %s)\n", elapsed)
-				return
+				return nil
 			}
 
 			// Wait a bit before trying again

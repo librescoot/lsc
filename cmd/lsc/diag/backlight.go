@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,7 @@ var backlightCmd = &cobra.Command{
 	Long:      `Turn the dashboard backlight on or off. "off" sets an override that forces brightness to 0. "on" clears the override and resumes automatic brightness.`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"on", "off"},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		action := args[0]
 
 		if action != "on" && action != "off" {
@@ -31,7 +32,7 @@ var backlightCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid action '%s'. Must be 'on' or 'off'\n"), action)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		value := "true"
@@ -51,7 +52,7 @@ var backlightCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to set backlight override: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if err := RedisClient.Publish(context.Background(), "dashboard", "backlight-enabled"); err != nil {
@@ -66,7 +67,7 @@ var backlightCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to set backlight override: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -79,6 +80,7 @@ var backlightCmd = &cobra.Command{
 		} else {
 			fmt.Printf("%s Backlight: %s\n", format.Success("✓"), action)
 		}
+		return nil
 	},
 }
 

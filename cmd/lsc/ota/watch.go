@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -118,7 +119,7 @@ Polls the OTA status every second and displays changes for both MDB and DBC.
 Useful for watching download progress or installation status.
 
 Press Ctrl+C to stop.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
@@ -155,7 +156,7 @@ Press Ctrl+C to stop.`,
 		initial := readStatuses()
 		if len(initial) == 0 {
 			fmt.Fprint(os.Stderr, format.Error("Failed to read OTA status\n"))
-			return
+			return cli.ErrSilent
 		}
 		for _, c := range components {
 			s := initial[c]
@@ -170,7 +171,7 @@ Press Ctrl+C to stop.`,
 			select {
 			case <-sigChan:
 				fmt.Println()
-				return
+				return nil
 			case <-ticker.C:
 				statuses := readStatuses()
 				for _, c := range components {

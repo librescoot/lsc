@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -15,7 +16,7 @@ var batteryCmd = &cobra.Command{
 	Use:   "battery [id...]",
 	Short: "Show detailed battery information",
 	Long:  `Display comprehensive battery information for one or more batteries. IDs can be numeric (0, 1) or named (aux, cb). If no IDs specified, shows all batteries.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine which batteries to show
 		batteryIDs := []string{"0", "1", "aux", "cb"}
 		if len(args) > 0 {
@@ -44,18 +45,28 @@ var batteryCmd = &cobra.Command{
 				"batteries": batteries,
 			}, "", "  ")
 			fmt.Println(string(jsonBytes))
-		} else {
-			for _, id := range batteryIDs {
-				switch id {
-				case "aux":
-					showAuxBattery()
-				case "cb":
-					showCBBattery()
-				default:
-					showBattery(id)
-				}
+			return nil
+		}
+
+		var failed bool
+		for _, id := range batteryIDs {
+			var err error
+			switch id {
+			case "aux":
+				err = showAuxBattery()
+			case "cb":
+				err = showCBBattery()
+			default:
+				err = showBattery(id)
+			}
+			if err != nil {
+				failed = true
 			}
 		}
+		if failed {
+			return cli.ErrSilent
+		}
+		return nil
 	},
 }
 
@@ -115,16 +126,16 @@ func getBatteryData(id string) map[string]interface{} {
 	}
 }
 
-func showBattery(id string) {
+func showBattery(id string) error {
 	data, err := RedisClient.HGetAll(fmt.Sprintf("battery:%s", id))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to fetch battery:%s data: %v\n"), id, err)
-		return
+		return cli.ErrSilent
 	}
 
 	if data["present"] != "true" {
 		fmt.Printf("\n%s\n\n", format.LightGray(fmt.Sprintf("=== Battery %s: not present ===", id)))
-		return
+		return nil
 	}
 
 	prefix := format.LightGray(fmt.Sprintf("=== Battery %s: ", id))
@@ -174,6 +185,7 @@ func showBattery(id string) {
 	}
 
 	fmt.Println()
+	return nil
 }
 
 func getAuxBatteryData() map[string]interface{} {
@@ -231,15 +243,15 @@ func getCBBatteryData() map[string]interface{} {
 	return result
 }
 
-func showAuxBattery() {
+func showAuxBattery() error {
 	data, err := RedisClient.HGetAll("aux-battery")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to fetch aux-battery data: %v\n"), err)
-		return
+		return cli.ErrSilent
 	}
 	if len(data) == 0 {
 		fmt.Printf("\n%s\n\n", format.LightGray("=== Aux Battery: no data ==="))
-		return
+		return nil
 	}
 
 	fmt.Printf("\n%s\n", format.LightGray("=== Aux Battery ==="))
@@ -254,17 +266,18 @@ func showAuxBattery() {
 		format.PrintKV("Status", format.ColorizeState(s))
 	}
 	fmt.Println()
+	return nil
 }
 
-func showCBBattery() {
+func showCBBattery() error {
 	data, err := RedisClient.HGetAll("cb-battery")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, format.Error("Failed to fetch cb-battery data: %v\n"), err)
-		return
+		return cli.ErrSilent
 	}
 	if data["present"] != "true" {
 		fmt.Printf("\n%s\n\n", format.LightGray("=== CBB: not present ==="))
-		return
+		return nil
 	}
 
 	fmt.Printf("\n%s\n", format.LightGray("=== CBB ==="))
@@ -310,6 +323,7 @@ func showCBBattery() {
 		format.PrintKV("Time to empty", t)
 	}
 	fmt.Println()
+	return nil
 }
 
 func init() {

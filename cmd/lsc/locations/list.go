@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all saved locations",
 	Long:  `Display all saved locations.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		locations, err := loadAllLocations()
 		if err != nil {
 			if JSONOutput != nil && *JSONOutput {
@@ -27,7 +28,7 @@ var listCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to load locations: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -60,13 +61,13 @@ var listCmd = &cobra.Command{
 			}
 			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Println(string(jsonBytes))
-			return
+			return nil
 		}
 
 		// Human-readable output
 		if len(locations) == 0 {
 			fmt.Println(format.Dim("No saved locations"))
-			return
+			return nil
 		}
 
 		format.PrintSection("Saved Locations")
@@ -91,6 +92,7 @@ var listCmd = &cobra.Command{
 		}
 
 		format.PrintTable(headers, rows)
+		return nil
 	},
 }
 

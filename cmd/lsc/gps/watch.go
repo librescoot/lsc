@@ -23,7 +23,7 @@ var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Watch GPS updates in real-time",
 	Long:  `Poll GPS updates and display changes in real-time.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -53,7 +53,7 @@ var watchCmd = &cobra.Command{
 		for {
 			select {
 			case <-ctx.Done():
-				return
+				return nil
 			case <-ticker.C:
 				// Poll GPS hash and display
 				printGPSUpdate(ctx)

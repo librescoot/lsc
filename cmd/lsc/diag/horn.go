@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ var hornCmd = &cobra.Command{
 	Long:      `Control the scooter's horn.`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"on", "off"},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		state := args[0]
 
 		// Validate argument
@@ -31,7 +32,7 @@ var hornCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid state '%s'. Must be 'on' or 'off'\n"), state)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Send command
@@ -46,7 +47,7 @@ var hornCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send horn command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -59,6 +60,7 @@ var hornCmd = &cobra.Command{
 		} else {
 			fmt.Printf("%s Horn: %s\n", format.Success("✓"), state)
 		}
+		return nil
 	},
 }
 

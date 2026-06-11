@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,7 @@ var showCmd = &cobra.Command{
 	Short:   "Show details of a saved location",
 	Long:    `Display detailed information about a specific saved location.`,
 	Args:    cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
@@ -31,7 +32,7 @@ var showCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid ID '%s': must be an integer\n"), args[0])
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Load location
@@ -47,7 +48,7 @@ var showCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Location with ID %d not found\n"), id)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -74,6 +75,7 @@ var showCmd = &cobra.Command{
 			format.PrintKV("Last used", formatRelativeTime(location.LastUsedAt))
 			fmt.Println()
 		}
+		return nil
 	},
 }
 
