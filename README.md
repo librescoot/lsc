@@ -25,7 +25,7 @@ Part of the [Librescoot](https://librescoot.org/) open-source platform.
 
 ## Installation
 
-Build for ARM (e.g., Raspberry Pi):
+Build for ARM (the scooter's MDB/DBC boards):
 ```bash
 GOOS=linux GOARCH=arm GOARM=7 go build -o lsc .
 ```

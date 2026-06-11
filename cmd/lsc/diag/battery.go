@@ -259,11 +259,11 @@ func showCBBattery() {
 		return
 	}
 	if data["present"] != "true" {
-		fmt.Printf("\n%s\n\n", format.LightGray("=== CB Battery: not present ==="))
+		fmt.Printf("\n%s\n\n", format.LightGray("=== CBB: not present ==="))
 		return
 	}
 
-	fmt.Printf("\n%s\n", format.LightGray("=== CB Battery ==="))
+	fmt.Printf("\n%s\n", format.LightGray("=== CBB ==="))
 
 	// Charge, voltage, current on one line
 	chargeVal, _ := strconv.Atoi(data["charge"])

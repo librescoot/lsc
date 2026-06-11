@@ -154,7 +154,7 @@ Press Ctrl+C to stop.`,
 		// Print initial status
 		initial := readStatuses()
 		if len(initial) == 0 {
-			fmt.Fprintf(os.Stderr, format.Error("Failed to read OTA status\n"))
+			fmt.Fprint(os.Stderr, format.Error("Failed to read OTA status\n"))
 			return
 		}
 		for _, c := range components {

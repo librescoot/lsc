@@ -8,18 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Librescoot System Context
 
-Librescoot runs on unu Scooter Pro hardware with a distributed architecture:
+Librescoot runs on a distributed two-board architecture:
 - **MDB (Middle Driver Board)**: Central control at 192.168.7.1, runs Redis and core services
-- **DBC (Dashboard Computer)**: i.MX6 processor at 192.168.7.2, runs scootui Flutter app
-- **ECU**: BOSCH/Lingbo motor controller, CAN bus communication
-- **Batteries**: Dual battery system with NFC communication
+- **DBC (Dashboard Computer)**: i.MX6 processor at 192.168.7.2, runs the Qt dashboard (scootui-qt)
+- **ECU**: Bosch-branded motor controller (built by LingBo), CAN bus communication
+- **Batteries**: Main battery slot(s) plus AUX (12V) and CBB (Connectivity Battery Box), NFC communication for main packs
 - **Sensors**: BMX055 (9-axis), GPS via cellular modem
 - **Hardware**: GPIO inputs (brakes, kickstand, buttons), PWM LED outputs, locks/solenoids
 
 ## Development Commands
 
 ```bash
-# Build for ARM (default target - Raspberry Pi on scooter)
+# Build for ARM (default target - MDB/DBC, armv7)
 make build
 
 # Build for AMD64 (Linux development/testing)

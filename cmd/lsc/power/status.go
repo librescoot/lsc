@@ -153,7 +153,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		if len(cbBattery) > 0 && cbBattery["present"] == "true" {
-			format.PrintSection("Control Board Battery")
+			format.PrintSection("Connectivity Battery Box")
 
 			charge := cbBattery["charge"]
 			if charge != "" {

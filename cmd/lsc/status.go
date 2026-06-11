@@ -166,9 +166,9 @@ var statusCmd = &cobra.Command{
 			}
 		}
 
-		// Display Control Board Battery
+		// Display Connectivity Battery Box (CBB)
 		if cbBatteryData["present"] == "true" {
-			fmt.Printf("\n%s\n", format.LightGray("=== CB Battery ==="))
+			fmt.Printf("\n%s\n", format.LightGray("=== CBB ==="))
 			chargeVal, _ := strconv.Atoi(cbBatteryData["charge"])
 			chargeParts := format.ColorizePercentage(chargeVal)
 			if v := cbBatteryData["cell-voltage"]; v != "" {
