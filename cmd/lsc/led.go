@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -149,7 +150,7 @@ Examples:
   lsc led cue blink-left      # Same using alias
   lsc led cue blink_both      # Hazard lights (underscores work too)`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		indexStr := args[0]
 		index, err := parseCueIndex(indexStr)
 		if err != nil {
@@ -163,7 +164,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("%v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if err := redisClient.LPush("scooter:led:cue", strconv.Itoa(index)); err != nil {
@@ -177,7 +178,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send LED cue command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -190,6 +191,7 @@ Examples:
 		} else {
 			fmt.Printf("%s LED cue %d triggered\n", format.Success("✓"), index)
 		}
+		return nil
 	},
 }
 
@@ -230,7 +232,7 @@ Examples:
   lsc led fade brake brake-linear-on        # Same using aliases
   lsc led fade front-ring smooth-off        # Smooth off front ring`,
 	Args: cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		channelStr := args[0]
 		indexStr := args[1]
 
@@ -246,7 +248,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("%v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		index, err := parseFadeIndex(indexStr)
@@ -261,7 +263,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("%v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		command := fmt.Sprintf("%d:%d", channel, index)
@@ -276,7 +278,7 @@ Examples:
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send LED fade command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -290,6 +292,7 @@ Examples:
 		} else {
 			fmt.Printf("%s LED fade animation %d triggered on channel %d\n", format.Success("✓"), index, channel)
 		}
+		return nil
 	},
 }
 

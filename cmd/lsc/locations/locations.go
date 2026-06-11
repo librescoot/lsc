@@ -269,3 +269,18 @@ func parseFieldValuePairs(args []string) (map[string]string, error) {
 
 func init() {
 }
+
+// FindByLabel returns the saved location whose label matches (case-insensitive).
+// Used by 'lsc nav set' to resolve saved location names.
+func FindByLabel(label string) (*SavedLocation, error) {
+	locs, err := loadAllLocations()
+	if err != nil {
+		return nil, err
+	}
+	for i := range locs {
+		if strings.EqualFold(locs[i].Label, label) {
+			return &locs[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no saved location named '%s'", label)
+}

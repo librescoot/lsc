@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/confirm"
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
 )
@@ -23,9 +26,13 @@ var alarmStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show alarm status",
 	Long:  `Display current alarm status and settings.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get alarm status
 		status, err := redisClient.HGet("alarm", "status")
+		if err != nil && redis.IsNil(err) {
+			err = nil
+			status = ""
+		}
 		if err != nil {
 			if JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
@@ -35,7 +42,7 @@ var alarmStatusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to get alarm status: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Get alarm settings
@@ -47,10 +54,10 @@ var alarmStatusCmd = &cobra.Command{
 		hairTriggerDuration, _ := redisClient.HGet("settings", "alarm.hairtrigger-duration")
 
 		if JSONOutput {
-			// Parse duration or use default
+			// Parse duration or use the settings schema default
 			durationVal := duration
 			if durationVal == "" {
-				durationVal = "10"
+				durationVal = "60"
 			}
 
 			output, _ := json.Marshal(map[string]interface{}{
@@ -63,18 +70,19 @@ var alarmStatusCmd = &cobra.Command{
 				"hair_trigger_duration": format.SafeValueOr(hairTriggerDuration, "3"),
 			})
 			fmt.Println(string(output))
-			return
+			return nil
 		}
 
 		format.PrintSection("Alarm Status")
 		format.PrintKV("Status", format.ColorizeState(status))
 		format.PrintKV("Enabled", format.ColorizeState(enabled))
 		format.PrintKV("Honk", format.SafeValueOr(honk, "false"))
-		format.PrintKV("Duration", format.SafeValueOr(duration, "10")+" seconds")
+		format.PrintKV("Duration", format.SafeValueOr(duration, "60")+" seconds")
 		format.PrintKV("Seatbox Trigger", format.SafeValueOr(seatboxTrigger, "true"))
 		format.PrintKV("Hair Trigger", format.SafeValueOr(hairTrigger, "false"))
 		format.PrintKV("Hair Trigger Duration", format.SafeValueOr(hairTriggerDuration, "3")+" seconds")
 		fmt.Println()
+		return nil
 	},
 }
 
@@ -82,7 +90,7 @@ var alarmArmCmd = &cobra.Command{
 	Use:   "arm",
 	Short: "Arm the alarm",
 	Long:  `Enable the alarm system. Will arm when vehicle enters stand-by state.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if !JSONOutput {
 			fmt.Println("Arming alarm...")
 		}
@@ -99,7 +107,7 @@ var alarmArmCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to enable alarm: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Publish the change
@@ -116,7 +124,7 @@ var alarmArmCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Warning("Alarm enabled but publish failed: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if noBlock {
@@ -129,7 +137,7 @@ var alarmArmCmd = &cobra.Command{
 			} else {
 				fmt.Println(format.Success("Alarm enabled"))
 			}
-			return
+			return nil
 		}
 
 		// Wait for alarm to arm (if vehicle is in stand-by)
@@ -155,7 +163,7 @@ var alarmArmCmd = &cobra.Command{
 			} else {
 				fmt.Println(format.Success(fmt.Sprintf("Alarm %s", status)))
 			}
-			return
+			return nil
 		}
 
 		for {
@@ -171,7 +179,7 @@ var alarmArmCmd = &cobra.Command{
 				} else {
 					fmt.Println(format.Success("Alarm enabled (will arm when vehicle enters stand-by)"))
 				}
-				return
+				return nil
 			case msg := <-ch:
 				if msg.Payload == "status" {
 					status, _ := redisClient.HGet("alarm", "status")
@@ -186,7 +194,7 @@ var alarmArmCmd = &cobra.Command{
 						} else {
 							fmt.Println(format.Success(fmt.Sprintf("Alarm %s", status)))
 						}
-						return
+						return nil
 					}
 				}
 			}
@@ -198,7 +206,7 @@ var alarmDisarmCmd = &cobra.Command{
 	Use:   "disarm",
 	Short: "Disarm the alarm",
 	Long:  `Disable the alarm system.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if !JSONOutput {
 			fmt.Println("Disarming alarm...")
 		}
@@ -215,7 +223,7 @@ var alarmDisarmCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to disable alarm: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Publish the change
@@ -232,7 +240,7 @@ var alarmDisarmCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Warning("Alarm disabled but publish failed: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if noBlock {
@@ -245,7 +253,7 @@ var alarmDisarmCmd = &cobra.Command{
 			} else {
 				fmt.Println(format.Success("Alarm disabled"))
 			}
-			return
+			return nil
 		}
 
 		// Wait for alarm status to change to disarmed
@@ -257,12 +265,13 @@ var alarmDisarmCmd = &cobra.Command{
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "disarm",
 					"status":  "disabled",
+					"message": "alarm.enabled set to false but status confirmation timed out",
 				})
 				fmt.Println(string(output))
 			} else {
-				fmt.Println(format.Success("Alarm disabled"))
+				fmt.Println(format.Warning("Alarm disabled (status confirmation timed out)"))
 			}
-			return
+			return nil
 		}
 
 		if JSONOutput {
@@ -275,6 +284,7 @@ var alarmDisarmCmd = &cobra.Command{
 		} else {
 			fmt.Println(format.Success("Alarm disarmed"))
 		}
+		return nil
 	},
 }
 
@@ -283,11 +293,24 @@ var alarmTriggerCmd = &cobra.Command{
 	Short: "Manually trigger the alarm",
 	Long:  `Manually trigger the alarm for a specified duration (in seconds). Uses alarm.duration setting if not specified.`,
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get duration from args or settings
 		duration := "10"
 		if len(args) > 0 {
 			duration = args[0]
+			if d, err := strconv.Atoi(duration); err != nil || d <= 0 {
+				if JSONOutput {
+					output, _ := json.Marshal(map[string]interface{}{
+						"command": "trigger",
+						"status":  "error",
+						"error":   fmt.Sprintf("invalid duration '%s': must be a positive number of seconds", duration),
+					})
+					fmt.Println(string(output))
+				} else {
+					fmt.Fprintf(os.Stderr, format.Error("Invalid duration '%s': must be a positive number of seconds\n"), duration)
+				}
+				return cli.ErrSilent
+			}
 		} else {
 			if d, err := redisClient.HGet("settings", "alarm.duration"); err == nil && d != "" {
 				duration = d
@@ -312,7 +335,7 @@ var alarmTriggerCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to trigger alarm: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -325,6 +348,7 @@ var alarmTriggerCmd = &cobra.Command{
 		} else {
 			fmt.Println(format.Success("Alarm triggered"))
 		}
+		return nil
 	},
 }
 
@@ -333,7 +357,7 @@ var alarmSilenceCmd = &cobra.Command{
 	Short: "Temporarily silence the alarm",
 	Long: `Temporarily disarm the alarm without changing the alarm.enabled setting.
 The alarm will re-arm automatically when the vehicle next enters stand-by.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if !JSONOutput {
 			fmt.Println("Silencing alarm...")
 		}
@@ -349,7 +373,7 @@ The alarm will re-arm automatically when the vehicle next enters stand-by.`,
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to silence alarm: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -362,6 +386,7 @@ The alarm will re-arm automatically when the vehicle next enters stand-by.`,
 		} else {
 			fmt.Println(format.Success("Alarm silenced (will re-arm on next stand-by)"))
 		}
+		return nil
 	},
 }
 

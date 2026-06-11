@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -33,7 +34,7 @@ Examples:
   lsc watch vehicle alarm battery:0
 
   # Watch sensors with JSON output
-  lsc watch bmx:sensors --format=json
+  lsc watch motion:sensors --format=json
 
   # Watch and filter messages
   lsc watch vehicle --filter="state|lock"
@@ -42,9 +43,10 @@ Useful channels:
   vehicle          - Vehicle state changes
   alarm            - Alarm status changes
   battery:0/1      - Battery state changes
-  bmx:sensors      - Sensor data: accel/gyro/mag (10Hz)
-  bmx:heading      - Tilt-compensated magnetic heading (5Hz)
-  bmx:interrupt    - Motion detection events
+  motion:sensors   - Sensor data: accel/gyro/mag (10Hz)
+  motion:heading   - Tilt-compensated magnetic heading (5Hz)
+  motion:interrupt - Motion detection events
+  bmx:interrupt    - Motion interrupt relay (alarm-service)
   engine-ecu throttle  - Throttle events
   engine-ecu odometer  - Odometer updates
   gps              - GPS updates
@@ -52,7 +54,7 @@ Useful channels:
   dashboard        - Dashboard status
   settings         - Settings changes`,
 	Args: cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		channels := args
 
 		// Compile filter regex if provided
@@ -62,7 +64,7 @@ Useful channels:
 			filterRegex, err = regexp.Compile(watchFilter)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, format.Error("Invalid filter regex: %v\n"), err)
-				return
+				return cli.ErrSilent
 			}
 		}
 
@@ -94,7 +96,7 @@ Useful channels:
 		for {
 			select {
 			case <-ctx.Done():
-				return
+				return nil
 			case msg := <-ch:
 				// Apply filter if provided
 				if filterRegex != nil {

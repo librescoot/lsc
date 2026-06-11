@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ var hibernateCmd = &cobra.Command{
 	Use:   "hibernate",
 	Short: "Set power state to hibernate",
 	Long:  `Request the power manager to transition to hibernate (power off) state.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		command := "hibernate"
 
 		if hibernateManual {
@@ -39,7 +40,7 @@ var hibernateCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to send hibernate command: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput != nil && *JSONOutput {
@@ -52,6 +53,7 @@ var hibernateCmd = &cobra.Command{
 			fmt.Printf("%s Power state set to: %s\n", format.Success("✓"), command)
 			fmt.Println(format.Warning("Warning: System will power off"))
 		}
+		return nil
 	},
 }
 

@@ -184,11 +184,25 @@ var statusCmd = &cobra.Command{
 				sohStr = format.ColorizePercentage(soh)
 			}
 			format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, format.SafeValueOr(cbBatteryData["cycle-count"], "0")))
+			if rc := format.MicrowattHoursToWattHours(cbBatteryData["remaining-capacity"]); rc != "" {
+				if fc := format.MicrowattHoursToWattHours(cbBatteryData["full-capacity"]); fc != "" {
+					format.PrintKV("Capacity", rc+" / "+fc)
+				} else {
+					format.PrintKV("Capacity", rc)
+				}
+			}
 			if temp := cbBatteryData["temperature"]; temp != "" {
 				format.PrintKV("Temperature", format.FormatTemperatureColored(temp))
 			}
 			if s := cbBatteryData["charge-status"]; s != "" {
 				format.PrintKV("Status", format.ColorizeState(s))
+			}
+			if cbBatteryData["charge-status"] == "charging" {
+				if t := format.SecondsToHuman(cbBatteryData["time-to-full"]); t != "" {
+					format.PrintKV("Time to full", t)
+				}
+			} else if t := format.SecondsToHuman(cbBatteryData["time-to-empty"]); t != "" {
+				format.PrintKV("Time to empty", t)
 			}
 		}
 
@@ -293,14 +307,18 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatte
 	// Add cb battery
 	if cbBatteryData["present"] == "true" {
 		output["cb_battery"] = map[string]interface{}{
-			"present":        true,
-			"charge_percent": parseInt(cbBatteryData["charge"]),
-			"charge_status":  cbBatteryData["charge-status"],
-			"temperature_c":  parseInt(cbBatteryData["temperature"]),
-			"voltage_v":      parseFloat(cbBatteryData["cell-voltage"]) / 1000000.0,
-			"current_a":      parseFloat(cbBatteryData["current"]) / 1000000.0,
-			"health_percent": parseInt(cbBatteryData["state-of-health"]),
-			"cycles":         parseInt(cbBatteryData["cycle-count"]),
+			"present":               true,
+			"charge_percent":        parseInt(cbBatteryData["charge"]),
+			"charge_status":         cbBatteryData["charge-status"],
+			"temperature_c":         parseInt(cbBatteryData["temperature"]),
+			"voltage_v":             parseFloat(cbBatteryData["cell-voltage"]) / 1000000.0,
+			"current_a":             parseFloat(cbBatteryData["current"]) / 1000000.0,
+			"health_percent":        parseInt(cbBatteryData["state-of-health"]),
+			"cycles":                parseInt(cbBatteryData["cycle-count"]),
+			"remaining_capacity_wh": parseFloat(cbBatteryData["remaining-capacity"]) / 1000000.0,
+			"full_capacity_wh":      parseFloat(cbBatteryData["full-capacity"]) / 1000000.0,
+			"time_to_empty_s":       parseInt(cbBatteryData["time-to-empty"]),
+			"time_to_full_s":        parseInt(cbBatteryData["time-to-full"]),
 		}
 	} else if len(cbBatteryData) > 0 {
 		output["cb_battery"] = map[string]interface{}{

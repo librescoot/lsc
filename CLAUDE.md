@@ -22,11 +22,8 @@ Librescoot runs on a distributed two-board architecture:
 # Build for ARM (default target - MDB/DBC, armv7)
 make build
 
-# Build for AMD64 (Linux development/testing)
-make build-amd64
-
-# Build for native platform
-make build-native
+# Build for the host platform (development/testing; overwrites bin/lsc)
+make build-host
 
 # Clean build artifacts
 make clean
@@ -39,7 +36,6 @@ make lint
 
 # Run locally (requires Redis connection)
 go run . status
-./bin/lsc-native --help
 
 # Install dependencies
 make deps
@@ -113,7 +109,7 @@ Shortcut commands (in `shortcuts.go`) delegate to the real command implementatio
 var lockCmd = &cobra.Command{
     Use:   "lock",
     Short: "Lock the scooter (shortcut for 'vehicle lock')",
-    Run:   vehicleLockCmd.Run,  // Delegates to vehicle.go
+    RunE:  vehicleLockCmd.RunE,  // Delegates to vehicle.go
 }
 ```
 
@@ -273,11 +269,11 @@ func init() {
 Before deploying to hardware, test with local Redis:
 
 ```bash
-# Build native binary
-make build-native
+# Build for the host platform (overwrites bin/lsc)
+make build-host
 
 # Run against local Redis
-./bin/lsc-native status --redis-addr 127.0.0.1:6379
+./bin/lsc status --redis-addr 127.0.0.1:6379
 
 # Run tests
 make test

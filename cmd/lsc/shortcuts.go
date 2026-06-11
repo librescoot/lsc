@@ -15,7 +15,7 @@ var lockCmd = &cobra.Command{
 	Use:     "lock",
 	Short:   "Lock the scooter (shortcut for 'vehicle lock')",
 	GroupID: "shortcuts",
-	Run:     vehicleLockCmd.Run,
+	RunE:    vehicleLockCmd.RunE,
 }
 
 // unlock shortcut - delegates to vehicle unlock
@@ -23,7 +23,7 @@ var unlockCmd = &cobra.Command{
 	Use:     "unlock",
 	Short:   "Unlock the scooter (shortcut for 'vehicle unlock')",
 	GroupID: "shortcuts",
-	Run:     vehicleUnlockCmd.Run,
+	RunE:    vehicleUnlockCmd.RunE,
 }
 
 // open shortcut (seatbox) - delegates to vehicle open
@@ -31,7 +31,7 @@ var openCmd = &cobra.Command{
 	Use:     "open",
 	Short:   "Open the seatbox (shortcut for 'vehicle open')",
 	GroupID: "shortcuts",
-	Run:     vehicleOpenCmd.Run,
+	RunE:    vehicleOpenCmd.RunE,
 }
 
 // dbc, engine, and blink shortcuts - will be created by createDiagShortcut below
@@ -49,13 +49,22 @@ func createShortcut(parent *cobra.Command, name string, aliases []string) *cobra
 		return nil
 	}
 
-	// Create shortcut with same properties
-	shortcut := &cobra.Command{
+	shortcut := copyCommand(realCmd)
+	shortcut.Aliases = aliases
+	shortcut.GroupID = "shortcuts"
+	return shortcut
+}
+
+// copyCommand creates a copy of a command (and its subcommands) so the
+// shortcut tree never re-parents the original commands. cobra commands have a
+// single parent pointer; adding the original subcommand objects to a shortcut
+// would detach them from their real parent in help output and flag
+// inheritance.
+func copyCommand(realCmd *cobra.Command) *cobra.Command {
+	copied := &cobra.Command{
 		Use:                realCmd.Use,
-		Aliases:            aliases,
 		Short:              realCmd.Short,
 		Long:               realCmd.Long,
-		GroupID:            "shortcuts",
 		Args:               realCmd.Args,
 		ValidArgs:          realCmd.ValidArgs,
 		ValidArgsFunction:  realCmd.ValidArgsFunction,
@@ -71,37 +80,37 @@ func createShortcut(parent *cobra.Command, name string, aliases []string) *cobra
 		PersistentPostRunE: realCmd.PersistentPostRunE,
 	}
 
-	// Copy flags
-	shortcut.Flags().AddFlagSet(realCmd.Flags())
-	shortcut.PersistentFlags().AddFlagSet(realCmd.PersistentFlags())
+	// Share flag values with the real command so package-level flag
+	// variables stay wired up
+	copied.Flags().AddFlagSet(realCmd.Flags())
+	copied.PersistentFlags().AddFlagSet(realCmd.PersistentFlags())
 
-	// Copy subcommands
 	for _, subcmd := range realCmd.Commands() {
-		shortcut.AddCommand(subcmd)
+		copied.AddCommand(copyCommand(subcmd))
 	}
 
-	return shortcut
+	return copied
 }
 
 // get shortcut (get setting)
 var getCmd = &cobra.Command{
-	Use:     "get <key>",
-	Short:   "Get a setting value (shortcut for 'settings get')",
+	Use:     "get <key> [<key>...]",
+	Short:   "Get one or more setting values (shortcut for 'settings get')",
 	GroupID: "shortcuts",
-	Args:    cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		settingsGetCmd.Run(cmd, args)
+	Args:    cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return settingsGetCmd.RunE(cmd, args)
 	},
 }
 
 // set shortcut (set setting)
 var setCmd = &cobra.Command{
-	Use:     "set <key> <value>",
-	Short:   "Set a setting value (shortcut for 'settings set')",
+	Use:     "set <key> <value> [<key> <value>...]",
+	Short:   "Set one or more setting values (shortcut for 'settings set')",
 	GroupID: "shortcuts",
-	Args:    cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		settingsSetCmd.Run(cmd, args)
+	Args:    settingsSetArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return settingsSetCmd.RunE(cmd, args)
 	},
 }
 
@@ -111,8 +120,8 @@ var delCmd = &cobra.Command{
 	Short:   "Delete a setting key (shortcut for 'settings del')",
 	GroupID: "shortcuts",
 	Args:    cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		settingsDelCmd.Run(cmd, args)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return settingsDelCmd.RunE(cmd, args)
 	},
 }
 
@@ -132,6 +141,7 @@ func findPowerSubcommand(name string) *cobra.Command {
 				GroupID: "shortcuts",
 				Args:    c.Args,
 				Run:     c.Run,
+				RunE:    c.RunE,
 			}
 			shortcut.Flags().AddFlagSet(c.Flags())
 			return shortcut

@@ -223,6 +223,10 @@ func getCBBatteryData() map[string]interface{} {
 		result["temperature_c"] = parseInt(data["temperature"])
 		result["voltage_v"] = parseFloat(data["cell-voltage"]) / 1000000.0
 		result["current_a"] = parseFloat(data["current"]) / 1000000.0
+		result["remaining_capacity_wh"] = parseFloat(data["remaining-capacity"]) / 1000000.0
+		result["full_capacity_wh"] = parseFloat(data["full-capacity"]) / 1000000.0
+		result["time_to_empty_s"] = parseInt(data["time-to-empty"])
+		result["time_to_full_s"] = parseInt(data["time-to-full"])
 	}
 	return result
 }
@@ -285,11 +289,25 @@ func showCBBattery() {
 	}
 	format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, cycles))
 
+	if rc := format.MicrowattHoursToWattHours(data["remaining-capacity"]); rc != "" {
+		if fc := format.MicrowattHoursToWattHours(data["full-capacity"]); fc != "" {
+			format.PrintKV("Capacity", rc+" / "+fc)
+		} else {
+			format.PrintKV("Capacity", rc)
+		}
+	}
 	if temp := data["temperature"]; temp != "" {
 		format.PrintKV("Temperature", format.FormatTemperatureColored(temp))
 	}
 	if s := data["charge-status"]; s != "" {
 		format.PrintKV("Status", format.ColorizeState(s))
+	}
+	if data["charge-status"] == "charging" {
+		if t := format.SecondsToHuman(data["time-to-full"]); t != "" {
+			format.PrintKV("Time to full", t)
+		}
+	} else if t := format.SecondsToHuman(data["time-to-empty"]); t != "" {
+		format.PrintKV("Time to empty", t)
 	}
 	fmt.Println()
 }

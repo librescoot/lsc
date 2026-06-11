@@ -1,6 +1,7 @@
 package lsc
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,10 +13,13 @@ import (
 	"librescoot/lsc/cmd/lsc/keycard"
 	"librescoot/lsc/cmd/lsc/locations"
 	"librescoot/lsc/cmd/lsc/logs"
+	"librescoot/lsc/cmd/lsc/modem"
 	"librescoot/lsc/cmd/lsc/monitor"
+	"librescoot/lsc/cmd/lsc/nav"
 	"librescoot/lsc/cmd/lsc/ota"
 	"librescoot/lsc/cmd/lsc/power"
 	"librescoot/lsc/cmd/lsc/service"
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
@@ -50,7 +54,9 @@ func init() {
 	rootCmd.AddCommand(keycard.KeycardCmd)
 	rootCmd.AddCommand(locations.LocationsCmd)
 	rootCmd.AddCommand(logs.LogsCmd)
+	rootCmd.AddCommand(modem.ModemCmd)
 	rootCmd.AddCommand(monitor.MonitorCmd)
+	rootCmd.AddCommand(nav.NavCmd)
 	rootCmd.AddCommand(ota.OTACmd)
 	rootCmd.AddCommand(power.PowerCmd)
 	rootCmd.AddCommand(service.ServiceCmd)
@@ -60,7 +66,9 @@ func init() {
 	keycard.KeycardCmd.GroupID = "main"
 	locations.LocationsCmd.GroupID = "main"
 	logs.LogsCmd.GroupID = "main"
+	modem.ModemCmd.GroupID = "main"
 	monitor.MonitorCmd.GroupID = "main"
+	nav.NavCmd.GroupID = "main"
 	ota.OTACmd.GroupID = "main"
 	power.PowerCmd.GroupID = "main"
 	service.ServiceCmd.GroupID = "main"
@@ -118,7 +126,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
-			return err
+			return cli.ErrSilent
 		}
 
 		if Verbose {
@@ -131,7 +139,9 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		keycard.SetRedisClient(redisClient)
 		locations.SetRedisClient(redisClient)
 		logs.SetRedisClient(redisClient)
+		modem.SetRedisClient(redisClient)
 		monitor.SetRedisClient(redisClient)
+		nav.SetRedisClient(redisClient)
 		ota.SetRedisClient(redisClient)
 		power.SetRedisClient(redisClient)
 		service.SetRedisClient(redisClient)
@@ -142,7 +152,9 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		keycard.SetJSONOutput(&JSONOutput)
 		locations.SetJSONOutput(&JSONOutput)
 		logs.SetJSONOutput(&JSONOutput)
+		modem.SetJSONOutput(&JSONOutput)
 		monitor.SetJSONOutput(&JSONOutput)
+		nav.SetJSONOutput(&JSONOutput)
 		ota.SetJSONOutput(&JSONOutput)
 		power.SetJSONOutput(&JSONOutput)
 		service.SetJSONOutput(&JSONOutput)
@@ -163,5 +175,12 @@ func Execute(v string) {
 	version = v
 	rootCmd.Version = version
 	logs.SetVersion(version)
-	cobra.CheckErr(rootCmd.Execute())
+	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
+	if err := rootCmd.Execute(); err != nil {
+		if !errors.Is(err, cli.ErrSilent) {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		os.Exit(1)
+	}
 }

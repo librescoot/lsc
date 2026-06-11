@@ -12,6 +12,8 @@ Part of the [Librescoot](https://librescoot.org/) open-source platform.
 - **Service Management**: Start, stop, restart, enable, disable systemd services and view logs
 - **OTA Updates**: View update status and install updates
 - **GPS**: Monitor GPS status and track location
+- **Modem**: View connectivity status and control modem power
+- **Navigation**: Set and clear the dashboard navigation destination
 - **Battery Diagnostics**: View detailed battery information and health
 - **Alarm System**: Arm, disarm, and trigger the vehicle alarm
 - **Keycard Management**: Authorize/revoke keycards for vehicle access
@@ -164,6 +166,19 @@ lsc svc logs redis -n 100
 - `lsc gps watch` - Monitor GPS location in real-time
   - `--compact` - One-line format output
 
+### Modem
+
+- `lsc modem` / `lsc modem status` - Show modem and internet connectivity status
+- `lsc modem on` - Enable the modem
+- `lsc modem off` - Disable the modem (re-enabled automatically when driving)
+
+### Navigation
+
+- `lsc nav` / `lsc nav status` - Show the current navigation destination
+- `lsc nav set <lat,lon>` - Set the destination to coordinates
+- `lsc nav set <label>` - Set the destination to a saved location
+- `lsc nav clear` - Clear the destination and stop navigation
+
 ### Monitoring
 
 - `lsc watch` - Watch Redis pub/sub channels for real-time events
@@ -314,7 +329,8 @@ reboot
 
 ## JSON Output
 
-All commands support JSON output for scripting and automation:
+All commands support JSON output for scripting and automation. Commands exit
+non-zero when they fail or when a state confirmation times out:
 
 ```bash
 # Get status in JSON format
@@ -426,7 +442,7 @@ go mod download
 make build
 
 # Build for your local platform
-make build-native
+make build-host
 
 # Or manually:
 go build -o lsc .

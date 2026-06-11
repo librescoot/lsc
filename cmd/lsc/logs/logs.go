@@ -52,7 +52,7 @@ var serviceMap = map[string]string{
 
 // Redis keys to snapshot
 var redisKeys = []string{
-	"settings", "vehicle", "gps", "gps:filtered", "gps:raw",
+	"settings", "vehicle", "gps",
 	"battery:0", "battery:1", "aux-battery", "cb-battery",
 	"engine-ecu", "power-manager", "modem", "internet",
 	"alarm", "ble", "system", "dashboard", "ota",

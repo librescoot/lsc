@@ -129,6 +129,36 @@ func MicroampsToAmps(ua string) string {
 	return fmt.Sprintf("%.1f A", float64(val)/1000000.0)
 }
 
+// MicrowattHoursToWattHours converts a microwatt-hours string to a human-readable Wh string
+func MicrowattHoursToWattHours(uwh string) string {
+	val, err := strconv.Atoi(uwh)
+	if err != nil || val <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%.1f Wh", float64(val)/1000000.0)
+}
+
+// SecondsToHuman converts a seconds string to a compact duration like "2d 4h", "3h 12m", "45m"
+func SecondsToHuman(s string) string {
+	val, err := strconv.Atoi(s)
+	if err != nil || val <= 0 {
+		return ""
+	}
+	days := val / 86400
+	hours := (val % 86400) / 3600
+	minutes := (val % 3600) / 60
+	switch {
+	case days > 0:
+		return fmt.Sprintf("%dd %dh", days, hours)
+	case hours > 0:
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	case minutes > 0:
+		return fmt.Sprintf("%dm", minutes)
+	default:
+		return fmt.Sprintf("%ds", val)
+	}
+}
+
 // FormatVoltageColored formats voltage with appropriate coloring (14S lithium pack, mV)
 func FormatVoltageColored(mv string) string {
 	// 14S lithium: ~42-58.8V; good >= 50V, warning >= 45V

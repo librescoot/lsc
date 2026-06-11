@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
 
 	"github.com/spf13/cobra"
@@ -15,7 +16,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show power management status",
 	Long:  `Display current power manager state, battery levels, and inhibitor status.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Fetch power manager data
 		pmData, err := RedisClient.HGetAll("power-manager")
 		if err != nil {
@@ -27,7 +28,7 @@ var statusCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch power-manager data: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Fetch power mux data
@@ -75,12 +76,18 @@ var statusCmd = &cobra.Command{
 
 			if len(cbBattery) > 0 && cbBattery["present"] == "true" {
 				output["cb_battery"] = map[string]interface{}{
-					"present":        true,
-					"charge_percent": parseInt(cbBattery["charge"]),
-					"charge_status":  cbBattery["charge-status"],
-					"health_percent": parseInt(cbBattery["state-of-health"]),
-					"cycles":         parseInt(cbBattery["cycle-count"]),
-					"temperature_c":  parseInt(cbBattery["temperature"]),
+					"present":               true,
+					"charge_percent":        parseInt(cbBattery["charge"]),
+					"charge_status":         cbBattery["charge-status"],
+					"health_percent":        parseInt(cbBattery["state-of-health"]),
+					"cycles":                parseInt(cbBattery["cycle-count"]),
+					"temperature_c":         parseInt(cbBattery["temperature"]),
+					"voltage_v":             parseFloat(cbBattery["cell-voltage"]) / 1000000.0,
+					"current_a":             parseFloat(cbBattery["current"]) / 1000000.0,
+					"remaining_capacity_wh": parseFloat(cbBattery["remaining-capacity"]) / 1000000.0,
+					"full_capacity_wh":      parseFloat(cbBattery["full-capacity"]) / 1000000.0,
+					"time_to_empty_s":       parseInt(cbBattery["time-to-empty"]),
+					"time_to_full_s":        parseInt(cbBattery["time-to-full"]),
 				}
 			} else {
 				output["cb_battery"] = map[string]interface{}{
@@ -90,7 +97,7 @@ var statusCmd = &cobra.Command{
 
 			jsonBytes, _ := json.MarshalIndent(output, "", "  ")
 			fmt.Println(string(jsonBytes))
-			return
+			return nil
 		}
 
 		// Display power manager status
@@ -161,6 +168,13 @@ var statusCmd = &cobra.Command{
 				format.PrintKV("Charge", format.ColorizePercentage(chargeVal))
 			}
 
+			if v := cbBattery["cell-voltage"]; v != "" {
+				format.PrintKV("Voltage", format.FormatCBVoltageColored(v))
+			}
+			if c := cbBattery["current"]; c != "" {
+				format.PrintKV("Current", format.MicroampsToAmps(c))
+			}
+
 			chargeStatus := cbBattery["charge-status"]
 			if chargeStatus != "" {
 				format.PrintKV("Status", format.ColorizeState(chargeStatus))
@@ -181,9 +195,25 @@ var statusCmd = &cobra.Command{
 			if temp != "" {
 				format.PrintKV("Temperature", format.FormatTemperatureColored(temp))
 			}
+
+			if rc := format.MicrowattHoursToWattHours(cbBattery["remaining-capacity"]); rc != "" {
+				if fc := format.MicrowattHoursToWattHours(cbBattery["full-capacity"]); fc != "" {
+					format.PrintKV("Capacity", rc+" / "+fc)
+				} else {
+					format.PrintKV("Capacity", rc)
+				}
+			}
+			if cbBattery["charge-status"] == "charging" {
+				if t := format.SecondsToHuman(cbBattery["time-to-full"]); t != "" {
+					format.PrintKV("Time to full", t)
+				}
+			} else if t := format.SecondsToHuman(cbBattery["time-to-empty"]); t != "" {
+				format.PrintKV("Time to empty", t)
+			}
 		}
 
 		fmt.Println()
+		return nil
 	},
 }
 

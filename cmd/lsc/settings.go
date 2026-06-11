@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/redis"
 	"librescoot/lsc/internal/schema"
 
 	"github.com/spf13/cobra"
@@ -33,9 +35,9 @@ var settingsCmd = &cobra.Command{
 	Use:   "settings",
 	Short: "Manage scooter settings",
 	Long:  `View and modify scooter settings stored in Redis.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// When called without subcommand, show all settings
-		settingsListCmd.Run(cmd, args)
+		return settingsListCmd.RunE(cmd, args)
 	},
 }
 
@@ -43,7 +45,7 @@ var settingsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all settings",
 	Long:  `Display all known settings. Shows current values from Redis, with unset settings shown as (not set).`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		settings, err := redisClient.HGetAll("settings")
 		if err != nil {
 			if JSONOutput {
@@ -54,7 +56,7 @@ var settingsListCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to fetch settings: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		s := fetchSchema()
@@ -79,7 +81,7 @@ var settingsListCmd = &cobra.Command{
 			}
 			jsonBytes, _ := json.MarshalIndent(result, "", "  ")
 			fmt.Println(string(jsonBytes))
-			return
+			return nil
 		}
 
 		format.PrintSection("Settings")
@@ -100,7 +102,7 @@ var settingsListCmd = &cobra.Command{
 			}
 			format.PrintTable(headers, rows)
 			fmt.Println()
-			return
+			return nil
 		}
 
 		// Group schema settings by service
@@ -202,6 +204,7 @@ var settingsListCmd = &cobra.Command{
 
 		format.PrintTable(headers, rows)
 		fmt.Println()
+		return nil
 	},
 }
 
@@ -210,13 +213,17 @@ var settingsGetCmd = &cobra.Command{
 	Short: "Get one or more setting values",
 	Long:  `Retrieve the value of one or more settings.`,
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if JSONOutput {
 			result := make(map[string]interface{})
 			hasError := false
 
 			for _, key := range args {
 				value, err := redisClient.HGet("settings", key)
+				if err != nil && redis.IsNil(err) {
+					err = nil
+					value = ""
+				}
 				if err != nil {
 					result[key] = map[string]interface{}{
 						"error": err.Error(),
@@ -235,18 +242,24 @@ var settingsGetCmd = &cobra.Command{
 					"values": result,
 				})
 				fmt.Println(string(output))
-			} else {
-				jsonBytes, _ := json.MarshalIndent(result, "", "  ")
-				fmt.Println(string(jsonBytes))
+				return cli.ErrSilent
 			}
-			return
+			jsonBytes, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(jsonBytes))
+			return nil
 		}
 
 		// Non-JSON output
+		var hasError bool
 		for _, key := range args {
 			value, err := redisClient.HGet("settings", key)
+			if err != nil && redis.IsNil(err) {
+				err = nil
+				value = ""
+			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to get setting '%s': %v\n"), key, err)
+				hasError = true
 				continue
 			}
 
@@ -266,6 +279,10 @@ var settingsGetCmd = &cobra.Command{
 				}
 			}
 		}
+		if hasError {
+			return cli.ErrSilent
+		}
+		return nil
 	},
 }
 
@@ -292,17 +309,10 @@ Common Settings:
   cellular.apn                    - Cellular APN string
 
 Use 'lsc settings list' to see all available settings and their current values.`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 2 {
-			return fmt.Errorf("requires at least one key-value pair")
-		}
-		if len(args)%2 != 0 {
-			return fmt.Errorf("requires even number of arguments (key-value pairs)")
-		}
-		return nil
-	},
-	Run: func(cmd *cobra.Command, args []string) {
+	Args: settingsSetArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
+		schemaForSet := fetchSchema()
 		type setResult struct {
 			Key    string `json:"key"`
 			Value  string `json:"value"`
@@ -320,11 +330,11 @@ Use 'lsc settings list' to see all available settings and their current values.`
 
 			// Validate the value
 			var validationErr error
-			if s := fetchSchema(); s != nil {
-				validationErr = s.ValidateValue(key, value)
+			if schemaForSet != nil {
+				validationErr = schemaForSet.ValidateValue(key, value)
 			}
 			if validationErr != nil && !forceSet {
-				// Without --force, validation errors are fatal
+				// Without --force, a failed validation skips this pair
 				hasError = true
 				if JSONOutput {
 					results = append(results, setResult{
@@ -400,7 +410,23 @@ Use 'lsc settings list' to see all available settings and their current values.`
 				fmt.Println(string(output))
 			}
 		}
+		if hasError {
+			return cli.ErrSilent
+		}
+		return nil
 	},
+}
+
+// settingsSetArgs validates key-value pair arguments; shared with the 'set'
+// shortcut so both accept the same argument shapes.
+var settingsSetArgs = func(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("requires at least one key-value pair")
+	}
+	if len(args)%2 != 0 {
+		return fmt.Errorf("requires even number of arguments (key-value pairs)")
+	}
+	return nil
 }
 
 var settingsDelCmd = &cobra.Command{
@@ -408,7 +434,7 @@ var settingsDelCmd = &cobra.Command{
 	Short: "Delete a setting key",
 	Long:  `Delete a setting key from the settings hash and publish the change.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
 
 		// Delete the key from Redis hash
@@ -421,7 +447,7 @@ var settingsDelCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Error("Failed to delete setting '%s': %v\n"), key, err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		// Publish the change so services can react
@@ -438,7 +464,7 @@ var settingsDelCmd = &cobra.Command{
 			} else {
 				fmt.Fprintf(os.Stderr, format.Warning("Setting deleted but publish failed: %v\n"), err)
 			}
-			return
+			return cli.ErrSilent
 		}
 
 		if JSONOutput {
@@ -450,6 +476,7 @@ var settingsDelCmd = &cobra.Command{
 		} else {
 			fmt.Println(format.Success(fmt.Sprintf("Setting '%s' deleted", key)))
 		}
+		return nil
 	},
 }
 

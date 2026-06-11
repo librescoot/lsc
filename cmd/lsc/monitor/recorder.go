@@ -29,7 +29,7 @@ func recordGPS(ctx context.Context, wg *sync.WaitGroup, outputDir string, interv
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			data, err := RedisClient.HGetAll("gps:filtered")
+			data, err := RedisClient.HGetAll("gps")
 			if err != nil || len(data) == 0 {
 				continue
 			}
@@ -41,7 +41,7 @@ func recordGPS(ctx context.Context, wg *sync.WaitGroup, outputDir string, interv
 			// Add GPS fields
 			for key, val := range data {
 				// Convert numeric fields
-				if key == "lat" || key == "lon" || key == "speed" || key == "heading" || key == "altitude" {
+				if key == "latitude" || key == "longitude" || key == "speed" || key == "course" || key == "altitude" {
 					if f, err := strconv.ParseFloat(val, 64); err == nil {
 						record[key] = f
 					}
@@ -104,10 +104,14 @@ func recordBattery(ctx context.Context, wg *sync.WaitGroup, outputDir string, in
 
 				// Add battery fields with type conversion
 				for key, val := range data {
-					switch key {
-					case "soc", "voltage", "current", "temperature":
+					switch {
+					case key == "charge" || key == "voltage" || key == "current" ||
+						key == "state-of-health" || key == "cycle-count" ||
+						strings.HasPrefix(key, "temperature"):
 						if f, err := strconv.ParseFloat(val, 64); err == nil {
 							record[key] = f
+						} else {
+							record[key] = val
 						}
 					default:
 						record[key] = val
@@ -248,13 +252,7 @@ func recordPower(ctx context.Context, wg *sync.WaitGroup, outputDir string, inte
 
 			// Add power manager fields
 			for key, val := range data {
-				if key == "uptime" {
-					if i, err := strconv.ParseInt(val, 10, 64); err == nil {
-						record[key] = i
-					}
-				} else {
-					record[key] = val
-				}
+				record[key] = val
 			}
 
 			if err := writer.WriteJSON(record); err == nil {

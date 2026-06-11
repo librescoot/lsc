@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -66,6 +67,11 @@ func (c *Client) Close() error {
 // GetClient returns the underlying redis client for advanced operations
 func (c *Client) GetClient() *rdb.Client {
 	return c.client
+}
+
+// IsNil reports whether err means a missing key or hash field
+func IsNil(err error) bool {
+	return errors.Is(err, rdb.Nil)
 }
 
 // HGet retrieves a field from a Redis hash
