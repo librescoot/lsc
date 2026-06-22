@@ -11,10 +11,10 @@ import (
 )
 
 var serviceModeCmd = &cobra.Command{
-	Use:     "servicemode",
+	Use:     "service-mode",
 	Short:   "Enable or disable Service mode (Servicemodus)",
 	Long:    "Service mode disables auto-standby, auto-hibernate, the alarm, and handlebar auto-lock, keeps usb0 up, and shows the debug screen. It persists until disabled.",
-	Aliases: []string{"svcmode"},
+	Aliases: []string{"servicemode", "svcmode"},
 }
 
 var serviceModeOnCmd = &cobra.Command{
