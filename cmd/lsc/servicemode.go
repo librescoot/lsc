@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"librescoot/lsc/internal/cli"
+	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,18 @@ var serviceModeStatusCmd = &cobra.Command{
 	Short: "Show whether Service mode is active",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		val, err := redisClient.HGet("settings", "dashboard.service-mode-active")
+		// A missing field means the overlay has never been applied: genuinely
+		// off. Any other error is a transport/connection failure and must not
+		// be reported as a definitive "off".
+		if err != nil && !redis.IsNil(err) {
+			if JSONOutput {
+				out, _ := json.Marshal(map[string]any{"status": "error", "error": err.Error()})
+				fmt.Println(string(out))
+			} else {
+				fmt.Fprintf(os.Stderr, "Failed to read Service mode status: %v\n", err)
+			}
+			return cli.ErrSilent
+		}
 		active := err == nil && val == "true"
 		if JSONOutput {
 			out, _ := json.Marshal(map[string]any{"active": active})
