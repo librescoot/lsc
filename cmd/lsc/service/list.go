@@ -24,7 +24,7 @@ var listCmd = &cobra.Command{
 		// User knows which ones exist on their platform
 		services := []string{
 			// Core infrastructure (both MDB and DBC)
-			"redis",
+			datastoreUnit(),
 			// MDB-only services
 			"librescoot-vehicle",
 			"librescoot-battery",

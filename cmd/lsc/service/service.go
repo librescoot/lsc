@@ -1,8 +1,11 @@
 package service
 
 import (
-	"librescoot/lsc/internal/redis"
+	"os/exec"
 	"strings"
+	"sync"
+
+	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
 )
@@ -41,10 +44,37 @@ var serviceNameMap = map[string]string{
 	"netconfig":  "librescoot-netconfig",
 }
 
+var (
+	datastoreOnce sync.Once
+	datastoreName string
+)
+
+// datastoreUnit returns the unit name of the key-value store. Librescoot 1.2
+// replaced Redis with Valkey (same protocol, same port, different unit);
+// earlier images still ship redis.service. Ask systemd which one exists rather
+// than baking in a version assumption, so one binary serves both.
+func datastoreUnit() string {
+	datastoreOnce.Do(func() {
+		datastoreName = "redis"
+		out, err := exec.Command("systemctl", "show", "valkey.service",
+			"--property=LoadState", "--value").Output()
+		if err == nil && strings.TrimSpace(string(out)) == "loaded" {
+			datastoreName = "valkey"
+		}
+	})
+	return datastoreName
+}
+
 // resolveServiceName maps shorthand names to full service names
 func resolveServiceName(name string) string {
 	// Remove .service suffix if present for mapping
 	baseName := strings.TrimSuffix(name, ".service")
+
+	// Either datastore name reaches whichever unit this image actually has,
+	// so an old habit or an old script keeps working across the 1.2 switch.
+	if baseName == "redis" || baseName == "valkey" {
+		return datastoreUnit()
+	}
 
 	// Check if there's a mapping
 	if fullName, ok := serviceNameMap[baseName]; ok {
