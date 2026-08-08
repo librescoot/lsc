@@ -136,15 +136,7 @@ var statusCmd = &cobra.Command{
 
 			voltage := auxBattery["voltage"]
 			if voltage != "" {
-				voltageVal, _ := strconv.Atoi(voltage)
 				format.PrintKV("Voltage", format.FormatVoltageColored(voltage))
-
-				// Typical 12V battery ranges
-				if voltageVal > 12500 {
-					// Good voltage for 12V system
-				} else if voltageVal > 11000 {
-					// Low voltage warning
-				}
 			}
 
 			charge := auxBattery["charge"]
