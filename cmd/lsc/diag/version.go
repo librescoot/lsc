@@ -11,6 +11,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// boardVersion picks the human-readable version from a version:<board> hash,
+// falling back to the lowercase version_id when the full string is absent.
+func boardVersion(ver map[string]string) string {
+	if v := ver["version"]; v != "" {
+		return v
+	}
+	return ver["version_id"]
+}
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show firmware versions",
@@ -30,6 +39,12 @@ var versionCmd = &cobra.Command{
 			return cli.ErrSilent
 		}
 
+		// Board versions come from version-service, one hash per board. The
+		// system hash carries mdb-version/dbc-version/environment too, but
+		// those are written by radio-gaga, which is not part of the platform.
+		mdbVer, _ := RedisClient.HGetAll("version:mdb")
+		dbcVer, _ := RedisClient.HGetAll("version:dbc")
+
 		ecuData, _ := RedisClient.HGetAll("engine-ecu")
 		battery0Data, _ := RedisClient.HGetAll("battery:0")
 		battery1Data, _ := RedisClient.HGetAll("battery:1")
@@ -39,10 +54,9 @@ var versionCmd = &cobra.Command{
 			// Build JSON output
 			output := map[string]interface{}{
 				"system": map[string]interface{}{
-					"mdb":         system["mdb-version"],
-					"dbc":         system["dbc-version"],
-					"nrf":         system["nrf-fw-version"],
-					"environment": system["environment"],
+					"mdb": boardVersion(mdbVer),
+					"dbc": boardVersion(dbcVer),
+					"nrf": system["nrf-fw-version"],
 				},
 				"components": map[string]interface{}{
 					"ecu": ecuData["fw-version"],
@@ -83,10 +97,9 @@ var versionCmd = &cobra.Command{
 
 		// Display system versions
 		format.PrintSection("System Versions")
-		format.PrintKV("MDB", format.SafeValueOr(system["mdb-version"], "N/A"))
-		format.PrintKV("DBC", format.SafeValueOr(system["dbc-version"], "N/A"))
+		format.PrintKV("MDB", format.SafeValueOr(boardVersion(mdbVer), "N/A"))
+		format.PrintKV("DBC", format.SafeValueOr(boardVersion(dbcVer), "N/A"))
 		format.PrintKV("nRF", format.SafeValueOr(system["nrf-fw-version"], "N/A"))
-		format.PrintKV("Environment", format.SafeValueOr(system["environment"], "N/A"))
 
 		// Display component versions
 		format.PrintSection("Component Versions")
