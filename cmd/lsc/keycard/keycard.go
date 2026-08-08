@@ -214,15 +214,13 @@ func formatUIDList(uids []string) []string {
 	return formatted
 }
 
-// restartKeycardService restarts the librescoot-keycard service
-func restartKeycardService() error {
-	// Try to restart the service
+// restartKeycardService restarts the librescoot-keycard service. A failure
+// here (service missing, permission denied) is non-fatal: the UID file has
+// already been written, and the running service will pick it up on its own
+// next restart or reload.
+func restartKeycardService() {
 	cmd := exec.Command("systemctl", "restart", "librescoot-keycard")
-	if err := cmd.Run(); err != nil {
-		// Service might not exist or permission denied - non-fatal
-		return nil
-	}
-	return nil
+	_ = cmd.Run()
 }
 
 // removeDuplicates removes duplicate UIDs from a list

@@ -273,7 +273,9 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 
 	metadataPath := filepath.Join(outputDir, "metadata.json")
 	if data, err := json.MarshalIndent(metadata, "", "  "); err == nil {
-		os.WriteFile(metadataPath, data, 0644)
+		if err := os.WriteFile(metadataPath, data, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, format.Warning("Failed to write bundle metadata: %v\n"), err)
+		}
 	}
 
 	// Create tarball

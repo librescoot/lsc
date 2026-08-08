@@ -67,7 +67,7 @@ func recordBattery(ctx context.Context, wg *sync.WaitGroup, outputDir string, in
 	writers := make(map[int]*MetricWriter)
 	defer func() {
 		for _, w := range writers {
-			w.Close()
+			_ = w.Close()
 		}
 	}()
 

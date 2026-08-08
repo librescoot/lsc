@@ -131,23 +131,24 @@ func downloadFile(url string) (string, error) {
 	}
 	defer tmpFile.Close()
 
-	// Download file
+	// Download file. On any failure below, best-effort remove the temp
+	// file and surface the original download error, not a cleanup error.
 	resp, err := http.Get(url)
 	if err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name())
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	// Copy to temp file
 	_, err = io.Copy(tmpFile, resp.Body)
 	if err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name())
 		return "", err
 	}
 

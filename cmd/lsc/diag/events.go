@@ -345,9 +345,11 @@ func init() {
 	eventsCmd.Flags().BoolVarP(&eventsReverse, "reverse", "r", false, "Show newest events first")
 	eventsCmd.Flags().StringVar(&eventsFilter, "filter", "", "Filter events by regex pattern")
 
-	// Keep --count as deprecated alias for --lines
+	// Keep --count as deprecated alias for --lines. MarkDeprecated only
+	// fails if the flag name doesn't match one just registered above, so
+	// there is nothing to react to at runtime.
 	eventsCmd.Flags().IntVar(&eventsCount, "count", 50, "Maximum number of events to show (deprecated: use -n/--lines)")
-	eventsCmd.Flags().MarkDeprecated("count", "use -n or --lines instead")
+	_ = eventsCmd.Flags().MarkDeprecated("count", "use -n or --lines instead")
 
 	DiagCmd.AddCommand(eventsCmd)
 }

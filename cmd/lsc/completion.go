@@ -53,12 +53,14 @@ PowerShell:
 `,
 	DisableFlagsInUseLine: true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-	Args:                  cobra.ExactValidArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		switch args[0] {
 		case "bash":
 			var buf bytes.Buffer
-			cmd.Root().GenBashCompletionV2(&buf, false)
+			if err := cmd.Root().GenBashCompletionV2(&buf, false); err != nil {
+				return err
+			}
 			// Replace the fallback init_completion helper that depends on the
 			// bash-completion package (_get_comp_words_by_ref) with an
 			// equivalent implementation using bash built-ins.
@@ -66,14 +68,16 @@ PowerShell:
 				"__lsc_init_completion()\n{\n    COMPREPLY=()\n    _get_comp_words_by_ref \"$@\" cur prev words cword\n}",
 				"__lsc_init_completion()\n{\n    COMPREPLY=()\n    words=(\"${COMP_WORDS[@]}\")\n    cword=$COMP_CWORD\n    cur=\"${words[$cword]}\"\n    prev=\"${words[$((cword > 0 ? cword - 1 : 0))]}\"\n}",
 				1)
-			fmt.Fprint(os.Stdout, script)
+			_, err := fmt.Fprint(os.Stdout, script)
+			return err
 		case "zsh":
-			cmd.Root().GenZshCompletion(os.Stdout)
+			return cmd.Root().GenZshCompletion(os.Stdout)
 		case "fish":
-			cmd.Root().GenFishCompletion(os.Stdout, true)
+			return cmd.Root().GenFishCompletion(os.Stdout, true)
 		case "powershell":
-			cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 		}
+		return nil
 	},
 }
 

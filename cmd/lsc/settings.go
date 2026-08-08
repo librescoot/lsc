@@ -18,6 +18,21 @@ import (
 
 var forceSet bool
 
+// titleCaseWords capitalizes the first letter of each space-separated word.
+// Service names here are plain lowercase ASCII (e.g. "vehicle service"), so
+// this covers the display cases without pulling in a Unicode-aware title
+// caser for a single cosmetic label.
+func titleCaseWords(s string) string {
+	words := strings.Fields(s)
+	for i, w := range words {
+		if w == "" {
+			continue
+		}
+		words[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	return strings.Join(words, " ")
+}
+
 func fetchSchema() *schema.Schema {
 	raw, err := redisClient.Get("settings:schema")
 	if err != nil {
@@ -132,7 +147,7 @@ var settingsListCmd = &cobra.Command{
 
 		for _, service := range services {
 			prettyService := strings.ReplaceAll(service, "-", " ")
-			prettyService = strings.Title(prettyService)
+			prettyService = titleCaseWords(prettyService)
 			rows = append(rows, []string{prettyService})
 
 			for _, entry := range grouped[service] {

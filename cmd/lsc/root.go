@@ -122,7 +122,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 
 		// Restore stderr
 		os.Stderr = oldStderr
-		devNull.Close()
+		_ = devNull.Close()
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
@@ -163,7 +163,9 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
 		if redisClient != nil {
-			redisClient.Close()
+			if err := redisClient.Close(); err != nil && Verbose {
+				fmt.Fprintf(os.Stderr, "Error closing Redis connection: %v\n", err)
+			}
 			redisClient = nil
 		}
 	},

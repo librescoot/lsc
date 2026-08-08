@@ -166,7 +166,10 @@ func readBootState() (bootState, error) {
 
 	nextNum := 0
 	if next != "" {
-		fmt.Sscanf(next, "%d", &nextNum)
+		// A malformed value here matches the same tolerance as the
+		// fwPrintenv calls above: fall back to the zero value rather
+		// than fail the whole status read over one bootloader field.
+		_, _ = fmt.Sscanf(next, "%d", &nextNum)
 	}
 
 	return bootState{
@@ -189,7 +192,9 @@ func labelFor(layout menderLayout, num int) string {
 func confirmPrompt(msg string) bool {
 	fmt.Printf("%s [y/N]: ", msg)
 	var r string
-	fmt.Scanln(&r)
+	// An unreadable answer (EOF, closed stdin) leaves r empty, which
+	// falls through to the same "not confirmed" result as an explicit no.
+	_, _ = fmt.Scanln(&r)
 	r = strings.ToLower(strings.TrimSpace(r))
 	return r == "y" || r == "yes"
 }
