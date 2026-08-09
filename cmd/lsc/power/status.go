@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 
 	"librescoot/lsc/internal/cli"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+var statusShowAllInhibitors bool
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
@@ -41,7 +44,11 @@ var statusCmd = &cobra.Command{
 		cbBattery, _ := RedisClient.HGetAll("cb-battery")
 
 		// Fetch inhibitors from both sources
-		inhibitors, _ := RedisClient.SMembers("power-manager:busy-services")
+		inhibitors, err := RedisClient.HGetAll("power-manager:busy-services")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, format.Warning("Failed to fetch inhibitors: %v\n"), err)
+			inhibitors = map[string]string{}
+		}
 
 		// Fetch external inhibitors (e.g. from update-service)
 		externalInhibits, _ := RedisClient.HGetAll("power:inhibits")
@@ -116,15 +123,54 @@ var statusCmd = &cobra.Command{
 			format.PrintKV("Power Source", formatPowerSource(selectedInput))
 		}
 
-		// Inhibitors
-		hasInhibitors := len(inhibitors) > 0 || len(externalInhibits) > 0
-		if hasInhibitors {
-			format.PrintSubsection("Active Inhibitors")
-			for _, inh := range inhibitors {
-				fmt.Printf("  %s %s\n", format.Warning("•"), inh)
+		// Inhibitors. power-manager:busy-services is pm-service's full published
+		// view and already includes anything synced in from power:inhibits, so
+		// by default only that one source is shown to avoid printing the same
+		// inhibitor twice. --all additionally shows the raw power:inhibits hash
+		// as its own section, since it can diverge from busy-services if
+		// pm-service is down or its Redis sync is stalled (busy-services then
+		// keeps its last published value instead of reflecting reality).
+		blockingInhibitors := make(map[string]string)
+		advisoryInhibitors := make(map[string]string)
+		for who, typ := range inhibitors {
+			if typ == "delay" {
+				advisoryInhibitors[who] = typ
+			} else {
+				blockingInhibitors[who] = typ
 			}
-			for name, val := range externalInhibits {
-				fmt.Printf("  %s %s %s\n", format.Warning("•"), name, format.Dim("("+val+")"))
+		}
+
+		sortedKeys := func(m map[string]string) []string {
+			keys := make([]string, 0, len(m))
+			for k := range m {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			return keys
+		}
+
+		hasBusyList := len(blockingInhibitors) > 0 || (statusShowAllInhibitors && len(advisoryInhibitors) > 0)
+		hasExternalList := statusShowAllInhibitors && len(externalInhibits) > 0
+		hasInhibitors := hasBusyList || hasExternalList
+
+		if hasInhibitors {
+			if hasBusyList {
+				format.PrintSubsection("Active Inhibitors")
+				for _, who := range sortedKeys(blockingInhibitors) {
+					fmt.Printf("  %s %s %s\n", format.Warning("•"), who, format.Dim("("+blockingInhibitors[who]+")"))
+				}
+				if statusShowAllInhibitors {
+					for _, who := range sortedKeys(advisoryInhibitors) {
+						fmt.Printf("  %s %s %s\n", format.Dim("•"), who, format.Dim("(advisory, does not block)"))
+					}
+				}
+			}
+
+			if hasExternalList {
+				format.PrintSubsection("Raw power:inhibits (as written by clients)")
+				for _, name := range sortedKeys(externalInhibits) {
+					fmt.Printf("  %s %s %s\n", format.Warning("•"), name, format.Dim("("+externalInhibits[name]+")"))
+				}
 			}
 		} else {
 			format.PrintKV("Inhibitors", format.Success("None"))
@@ -223,5 +269,7 @@ func formatPowerSource(source string) string {
 }
 
 func init() {
+	statusCmd.Flags().BoolVar(&statusShowAllInhibitors, "all", false, "Also show advisory (delay) inhibitors, which block nothing, and the raw power:inhibits hash")
+
 	PowerCmd.AddCommand(statusCmd)
 }
