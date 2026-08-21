@@ -20,12 +20,12 @@ var faultsCmd = &cobra.Command{
 			vehicleFaults = []string{}
 		}
 
-		battery0Faults, err := RedisClient.SMembers("battery:0:faults")
+		battery0Faults, err := RedisClient.SMembers("battery:0:fault")
 		if err != nil {
 			battery0Faults = []string{}
 		}
 
-		battery1Faults, err := RedisClient.SMembers("battery:1:faults")
+		battery1Faults, err := RedisClient.SMembers("battery:1:fault")
 		if err != nil {
 			battery1Faults = []string{}
 		}

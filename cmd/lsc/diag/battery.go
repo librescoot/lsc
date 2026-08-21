@@ -95,7 +95,7 @@ func getBatteryData(id string) map[string]interface{} {
 	}
 
 	// Get faults
-	faults, _ := RedisClient.SMembers(fmt.Sprintf("battery:%s:faults", id))
+	faults, _ := RedisClient.SMembers(fmt.Sprintf("battery:%s:fault", id))
 
 	return map[string]interface{}{
 		"id":      id,
@@ -175,7 +175,7 @@ func showBattery(id string) error {
 	))
 
 	// Faults
-	faults, err := RedisClient.SMembers(fmt.Sprintf("battery:%s:faults", id))
+	faults, err := RedisClient.SMembers(fmt.Sprintf("battery:%s:fault", id))
 	if err == nil && len(faults) > 0 {
 		for _, fault := range faults {
 			fmt.Printf("  %s %s\n", format.Error("•"), fault)
