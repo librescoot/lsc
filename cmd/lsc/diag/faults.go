@@ -12,12 +12,17 @@ import (
 var faultsCmd = &cobra.Command{
 	Use:   "faults",
 	Short: "Show active faults",
-	Long:  `Display all active faults from vehicle and battery systems.`,
+	Long:  `Display all active faults from vehicle, ECU and battery systems.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Fetch faults from all sources
 		vehicleFaults, err := RedisClient.SMembers("vehicle:fault")
 		if err != nil {
 			vehicleFaults = []string{}
+		}
+
+		ecuFaults, err := RedisClient.SMembers("engine-ecu:fault")
+		if err != nil {
+			ecuFaults = []string{}
 		}
 
 		battery0Faults, err := RedisClient.SMembers("battery:0:fault")
@@ -30,12 +35,13 @@ var faultsCmd = &cobra.Command{
 			battery1Faults = []string{}
 		}
 
-		totalFaults := len(vehicleFaults) + len(battery0Faults) + len(battery1Faults)
+		totalFaults := len(vehicleFaults) + len(ecuFaults) + len(battery0Faults) + len(battery1Faults)
 
 		if JSONOutput != nil && *JSONOutput {
 			output, _ := json.MarshalIndent(map[string]interface{}{
 				"total_faults": totalFaults,
 				"vehicle":      vehicleFaults,
+				"engine_ecu":   ecuFaults,
 				"battery_0":    battery0Faults,
 				"battery_1":    battery1Faults,
 			}, "", "  ")
@@ -56,6 +62,12 @@ var faultsCmd = &cobra.Command{
 		if len(vehicleFaults) > 0 {
 			for _, fault := range vehicleFaults {
 				rows = append(rows, []string{"Vehicle", format.Error(fault)})
+			}
+		}
+
+		if len(ecuFaults) > 0 {
+			for _, fault := range ecuFaults {
+				rows = append(rows, []string{"ECU", format.Error(fault)})
 			}
 		}
 
