@@ -149,6 +149,13 @@ func (c *Client) XRead(ctx context.Context, args *XReadArgs) ([]XStream, error) 
 	return c.client.XRead(ctx, args).Result()
 }
 
+// XRevRangeN returns at most count entries of a stream in reverse order
+// (newest first). A missing key yields an empty slice and a nil error, so
+// callers can treat "stream was never written" as a normal outcome.
+func (c *Client) XRevRangeN(ctx context.Context, stream, start, stop string, count int64) ([]XMessage, error) {
+	return c.client.XRevRangeN(ctx, stream, start, stop, count).Result()
+}
+
 // XReadStreams reads from multiple streams starting from given IDs
 func (c *Client) XReadStreams(ctx context.Context, streams ...string) ([]XStream, error) {
 	return c.client.XRead(ctx, &rdb.XReadArgs{

@@ -245,6 +245,22 @@ The command produces a single `logs-<timestamp>.tar.gz` archive in the
 output directory; the unpacked tree is staged in a temporary subdirectory
 and removed when the archive is written.
 
+The archive contains `mdb/` with one `.log` per service plus `dmesg.log`,
+and `mdb/redis/` with a `.json` snapshot per Redis hash. Fault history comes
+from the `events:faults` stream and lands in `mdb/redis/events-faults.log`,
+oldest entry first:
+
+```
+# events:faults (Redis stream, oldest first)
+# stream-id  time-utc  event  group  code  description
+1761400443123-0  2025-10-25T13:54:03.123Z  RAISE  vehicle  3  CAN bus timeout
+1761400500456-0  2025-10-25T13:55:00.456Z  CLEAR  vehicle  3
+```
+
+A clear is written to the stream as a negative code and shows up as `CLEAR`
+with the code it refers to. The file is always present, even on a scooter
+that has raised no faults and therefore has no `events:faults` key at all.
+
 ### Alarm
 
 - `lsc alarm status` - Check alarm status

@@ -72,8 +72,9 @@ The command will:
   1. Extract journalctl logs for specified services
   2. Collect kernel ring buffer (dmesg)
   3. Capture current Redis state snapshots
-  4. Generate metadata file
-  5. Write a compressed .tar.gz archive to the output directory
+  4. Capture the events:faults stream as a fault history log
+  5. Generate metadata file
+  6. Write a compressed .tar.gz archive to the output directory
 
 Examples:
   lsc logs                      # Extract all services (default)
@@ -236,6 +237,13 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 		fmt.Printf("  %s %d keys captured\n", format.Success("✓"), capturedCount)
 	}
 
+	faultEventCount, err := captureFaultEvents(redisDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, format.Warning("Failed to capture fault events: %v\n"), err)
+	} else if !*JSONOutput {
+		fmt.Printf("  %s %s (%d entries)\n", format.Success("✓"), faultEventsFilename, faultEventCount)
+	}
+
 	// Per-host metadata (mdb/metadata.json)
 	hostMetadata := map[string]interface{}{
 		"host":               "mdb",
@@ -247,6 +255,7 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 		"os_release_version": osReleaseVersion,
 		"journal_bytes":      journalBytes,
 		"dmesg_bytes":        dmesgBytes,
+		"fault_events":       faultEventCount,
 		"collector":          "local",
 	}
 	if data, err := json.MarshalIndent(hostMetadata, "", "  "); err == nil {
@@ -296,6 +305,7 @@ func runLogsExtract(cmd *cobra.Command, args []string) {
 			"tarball":         tarballPath,
 			"services_count":  len(services),
 			"redis_snapshots": capturedCount,
+			"fault_events":    faultEventCount,
 			"journal_bytes":   journalBytes,
 			"dmesg_bytes":     dmesgBytes,
 		})
