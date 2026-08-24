@@ -82,15 +82,28 @@ func FormatRPM(rpm string) string {
 	return rpm + " RPM"
 }
 
-// Bytes renders a byte count in binary units
+// Bytes renders a byte count in decimal SI units, so kB/MB/GB mean what they
+// say. It used to divide by 1024 while still labelling the result MB, which
+// reported a 202,055,680 byte tile archive as "192.7 MB".
+//
+// Decimal also matches the other side of every comparison a reader makes here:
+// scootui-qt's map info screen, the sizes the tile repos publish, and the
+// release manifest. GitHub's own UI divides by 1024 and labels it MB, so its
+// rendering of the same asset reads about 5% smaller than this does. That is
+// GitHub being wrong, not a discrepancy to chase.
 func Bytes(n int64) string {
+	const (
+		kB = 1000
+		MB = 1000 * kB
+		GB = 1000 * MB
+	)
 	switch {
-	case n >= 1024*1024*1024:
-		return fmt.Sprintf("%.1f GB", float64(n)/(1024*1024*1024))
-	case n >= 1024*1024:
-		return fmt.Sprintf("%.1f MB", float64(n)/(1024*1024))
-	case n >= 1024:
-		return fmt.Sprintf("%.1f KB", float64(n)/1024)
+	case n >= GB:
+		return fmt.Sprintf("%.1f GB", float64(n)/GB)
+	case n >= MB:
+		return fmt.Sprintf("%.1f MB", float64(n)/MB)
+	case n >= kB:
+		return fmt.Sprintf("%.1f kB", float64(n)/kB)
 	default:
 		return fmt.Sprintf("%d B", n)
 	}

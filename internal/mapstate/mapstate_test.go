@@ -96,7 +96,7 @@ func TestParseInstalledWithoutProvenance(t *testing.T) {
 	if !s.AnyInstalled() {
 		t.Error("AnyInstalled = false, want true")
 	}
-	if got, want := s.Map.Summary(), "198.4 MB, written 2026-08-13, provenance unknown"; got != want {
+	if got, want := s.Map.Summary(), "208.1 MB, written 2026-08-13, provenance unknown"; got != want {
 		t.Errorf("Summary = %q, want %q", got, want)
 	}
 }
@@ -193,7 +193,7 @@ func TestArtifactSummary(t *testing.T) {
 				PublishedAt: "2026-08-12T16:26:27Z",
 				MTime:       "2026-08-13T09:12:00Z",
 			},
-			want: "198.4 MB, 78d1f829d3a1, published 2026-08-12",
+			want: "208.1 MB, 78d1f829d3a1, published 2026-08-12",
 		},
 		{
 			name: "digest but no release",
@@ -202,7 +202,7 @@ func TestArtifactSummary(t *testing.T) {
 				SHA256: "78d1f829d3a1b4c5e6f708192a3b4c5d",
 				MTime:  "2026-08-13T09:12:00Z",
 			},
-			want: "1.0 KB, 78d1f829d3a1, written 2026-08-13",
+			want: "1.0 kB, 78d1f829d3a1, written 2026-08-13",
 		},
 		{
 			name: "bare file",
