@@ -11,6 +11,7 @@ import (
 
 	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/mapstate"
 
 	"github.com/spf13/cobra"
 )
@@ -185,6 +186,12 @@ var dbcStatusCmd = &cobra.Command{
 		mapsAvail := dash["maps-available"] == "true"
 		navAvail := dash["navigation-available"] == "true"
 
+		mapFields, mapErr := RedisClient.HGetAll(mapstate.Hash)
+		if mapErr != nil {
+			mapFields = map[string]string{}
+		}
+		tiles := mapstate.Parse(mapFields)
+
 		var pingOK bool
 		var pingLatency time.Duration
 		var pingChecked bool
@@ -206,6 +213,7 @@ var dbcStatusCmd = &cobra.Command{
 				"backlight_pwm":        parseIntOrNil(backlightRaw),
 				"maps_available":       mapsAvail,
 				"navigation_available": navAvail,
+				"maps":                 tiles.JSON(),
 			}
 			if hasBrightness {
 				output["ambient_lux"] = brightnessLux
@@ -257,7 +265,11 @@ var dbcStatusCmd = &cobra.Command{
 
 		format.PrintSection("Features")
 		if mapsAvail {
-			format.PrintKV("Maps", format.Success("available"))
+			if label := tiles.RegionShort(); label != "" {
+				format.PrintKV("Maps", fmt.Sprintf("%s (%s)", format.Success("available"), label))
+			} else {
+				format.PrintKV("Maps", format.Success("available"))
+			}
 		} else {
 			format.PrintKV("Maps", format.Dim("unavailable"))
 		}
@@ -266,9 +278,49 @@ var dbcStatusCmd = &cobra.Command{
 		} else {
 			format.PrintKV("Navigation", format.Dim("unavailable"))
 		}
+
+		format.PrintSection("Map Tiles")
+		printTileState(tiles, time.Now())
 		fmt.Println()
 		return nil
 	},
+}
+
+// printTileState summarises the installed tiles. "not recorded" is a statement
+// about the hash, which an MDB reboot clears and only the dashboard rewrites,
+// not about what is on the DBC's disk.
+func printTileState(s mapstate.State, now time.Time) {
+	if !s.Recorded {
+		format.PrintKV("State", format.Dim("not recorded (no dashboard boot since the MDB started)"))
+		return
+	}
+
+	if label := s.RegionLabel(); label != "" {
+		format.PrintKV("Region", label)
+	} else {
+		format.PrintKV("Region", format.Dim("unknown"))
+	}
+	printTileSummary("Map", s.Map)
+	printTileSummary("Routing", s.Routing)
+
+	if s.UpdateAvailableKnown {
+		if s.UpdateAvailable {
+			format.PrintKV("Update available", format.Warning("yes"))
+		} else {
+			format.PrintKV("Update available", "no")
+		}
+	}
+	if s.UpdatedAt != "" {
+		format.PrintKV("Recorded", mapstate.Timestamp(s.UpdatedAt, now))
+	}
+}
+
+func printTileSummary(label string, a mapstate.Artifact) {
+	if a.Installed {
+		format.PrintKV(label, a.Summary())
+		return
+	}
+	format.PrintKV(label, format.Dim(a.Summary()))
 }
 
 func parseFloat(s string) (float64, bool) {

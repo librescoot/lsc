@@ -31,19 +31,10 @@ func colorizeOTAStatus(status string) string {
 
 func formatBytes(bytesStr string) string {
 	val, err := strconv.ParseInt(bytesStr, 10, 64)
-	if err != nil || val == 0 {
+	if err != nil {
 		return "0 B"
 	}
-	switch {
-	case val >= 1024*1024*1024:
-		return fmt.Sprintf("%.1f GB", float64(val)/(1024*1024*1024))
-	case val >= 1024*1024:
-		return fmt.Sprintf("%.1f MB", float64(val)/(1024*1024))
-	case val >= 1024:
-		return fmt.Sprintf("%.1f KB", float64(val)/1024)
-	default:
-		return fmt.Sprintf("%d B", val)
-	}
+	return format.Bytes(val)
 }
 
 func formatProgress(percent, downloaded, total string) string {

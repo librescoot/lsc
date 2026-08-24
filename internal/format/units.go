@@ -82,6 +82,20 @@ func FormatRPM(rpm string) string {
 	return rpm + " RPM"
 }
 
+// Bytes renders a byte count in binary units
+func Bytes(n int64) string {
+	switch {
+	case n >= 1024*1024*1024:
+		return fmt.Sprintf("%.1f GB", float64(n)/(1024*1024*1024))
+	case n >= 1024*1024:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1024*1024))
+	case n >= 1024:
+		return fmt.Sprintf("%.1f KB", float64(n)/1024)
+	default:
+		return fmt.Sprintf("%d B", n)
+	}
+}
+
 // ParseInt safely parses an integer string, returning 0 on error
 func ParseInt(s string) int {
 	val, err := strconv.Atoi(s)

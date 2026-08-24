@@ -14,6 +14,7 @@ Part of the [Librescoot](https://librescoot.org/) open-source platform.
 - **GPS**: Monitor GPS status and track location
 - **Modem**: View connectivity status and control modem power
 - **Navigation**: Set and clear the dashboard navigation destination
+- **Maps**: Show which offline map and routing tiles are installed
 - **Battery Diagnostics**: View detailed battery information and health
 - **Alarm System**: Arm, disarm, and trigger the vehicle alarm
 - **Keycard Management**: Authorize/revoke keycards for vehicle access
@@ -179,6 +180,45 @@ lsc svc logs redis -n 100
 - `lsc nav set <label>` - Set the destination to a saved location
 - `lsc nav clear` - Clear the destination and stop navigation
 
+### Maps
+
+- `lsc maps` / `lsc tiles` - Show the installed map and routing tiles
+
+Reads the `maps` hash, which lives on the MDB but describes files under the
+DBC's `/data`, so it works with the dashboard powered off:
+
+```
+$ lsc maps
+
+=== Installed Maps ===
+Region:              Berlin & Brandenburg (berlin_brandenburg)
+
+Map tiles:
+  Size:              198.4 MB
+  Written:           2026-08-13 09:12:00 UTC (11 days ago)
+  SHA-256:           78d1f829d3a1b4c5e6f708192a3b4c5d6e7f80912a3b4c5d6e7f80912a3b4c5d
+  Published:         2026-08-12 16:26:27 UTC (11 days ago)
+
+Routing tiles:
+  Size:              192.7 MB
+  Written:           2026-08-13 09:20:00 UTC (11 days ago)
+  Provenance:        unknown, no release recorded
+
+Update check:        2026-08-20 07:00:00 UTC (4 days ago)
+Update available:    no
+```
+
+Notes on reading the output:
+
+- An artifact with no recorded size is not on disk, and is reported as "not
+  installed" rather than getting a block of empty fields.
+- "Provenance unknown" means the tiles are installed but nothing recorded which
+  release they came from, which is what flashing or copying them in by hand
+  looks like. The dashboard fills the digest in on a later run.
+- "No map state recorded" is a statement about the hash, not about the DBC. The
+  MDB's datastore has no persistence, so the hash is empty from an MDB reboot
+  until the dashboard next boots.
+
 ### Monitoring
 
 - `lsc watch` - Watch Redis pub/sub channels for real-time events
@@ -197,7 +237,7 @@ lsc svc logs redis -n 100
 - `lsc diag handlebar [lock|unlock]` - Control handlebar lock
 - `lsc diag dashboard` - Control dashboard power
   - `on` / `off` - Power on/off
-  - `status` - Show power status
+  - `status` - Show power status, features, and installed map tiles
   - `ping` - Check connectivity
   - `on-wait` - Power on and wait until ready
   - `off-wait` - Power off and wait until unreachable
