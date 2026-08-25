@@ -47,8 +47,9 @@ Useful channels:
   motion:heading   - Tilt-compensated magnetic heading (5Hz)
   motion:interrupt - Motion detection events
   bmx:interrupt    - Motion interrupt relay (alarm-service)
-  engine-ecu throttle  - Throttle events
-  engine-ecu odometer  - Odometer updates
+  engine-ecu       - ECU updates; the message names the field that changed
+                     (throttle, odometer, kers, kers-reason-off,
+                     regen-available, fault)
   gps              - GPS updates
   buttons          - Button press events
   dashboard        - Dashboard status
