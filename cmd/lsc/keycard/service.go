@@ -138,16 +138,22 @@ func runKeycardCommand(command string) error {
 	return keycardResultError(result)
 }
 
-// isResult reports whether a command failed with exactly the given code,
+// isResult reports whether a command failed with one of the given codes,
 // which callers use to treat "already there" or "not there" as a skip rather
 // than a failure when acting on several UIDs at once.
-func isResult(command, code string) (bool, error) {
+//
+// Several codes, because one outcome can have more than one name: add: on a
+// UID that is already registered answers already-authorized for a card and
+// already-registered for a master, and an import skips both alike.
+func isResult(command string, codes ...string) (bool, error) {
 	result, err := sendKeycardCommand(command)
 	if err != nil {
 		return false, err
 	}
-	if result == code {
-		return true, nil
+	for _, code := range codes {
+		if result == code {
+			return true, nil
+		}
 	}
 	return false, keycardResultError(result)
 }

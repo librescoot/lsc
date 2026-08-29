@@ -59,13 +59,15 @@ var removeMasterCmd = &cobra.Command{
 
 		// The last master gone means the next start re-arms boot-time master
 		// bootstrap, and the first card presented then claims the vehicle.
-		remaining, err := readKeycardFile(masterFilePath())
-		realMasters, mastersDisabled := splitMasters(remaining)
-		mastersLeft := len(realMasters)
-		if err != nil {
-			mastersLeft = -1
+		mastersLeft := -1
+		rearmed := false
+		if remaining, err := readKeycardFile(masterFilePath()); err == nil {
+			realMasters, mastersDisabled := splitMasters(remaining)
+			mastersLeft = len(realMasters)
+			// The sentinel keeps the bootstrap disarmed, so an empty list is
+			// not on its own enough to re-arm it.
+			rearmed = mastersLeft == 0 && !mastersDisabled
 		}
-		rearmed := mastersLeft == 0 && !mastersDisabled
 
 		if *JSONOutput {
 			printJSONResponse("success", map[string]interface{}{
