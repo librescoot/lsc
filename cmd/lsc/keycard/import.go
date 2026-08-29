@@ -56,13 +56,13 @@ any section header, or under [authorized], are imported as regular cards.`,
 		// Every UID goes in one at a time so keycard-service applies its own
 		// duplicate and role rules to each, and publishes an event for each.
 		importAuthorized, authorizedConflicts, err := importUIDs(useService, authorized, "add:", authorizedFilePath(),
-			"error:already-authorized", "error:already-registered")
+			"already-authorized", "already-registered")
 		if err != nil {
 			printError("Failed to import authorized keycards", err)
 			return err
 		}
 		importMasters, masterConflicts, err := importUIDs(useService, masters, "master:add:", masterFilePath(),
-			"error:already-registered")
+			"already-registered")
 		if err != nil {
 			printError("Failed to import master keycards", err)
 			return err

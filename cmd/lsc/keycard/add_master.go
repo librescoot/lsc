@@ -29,10 +29,10 @@ var addMasterCmd = &cobra.Command{
 		added := 0
 		for _, uid := range uids {
 			if useService {
-				// error:already-registered covers a UID that is already a
+				// already-registered covers a UID that is already a
 				// master or already an authorized card; either way there is
 				// nothing to add, so it counts as a skip and not a failure.
-				skipped, err := isResult("master:add:"+uid, "error:already-registered")
+				skipped, err := isResult("master:add:"+uid, "already-registered")
 				if err != nil {
 					printError(fmt.Sprintf("Failed to add master %s", uid), err)
 					return err

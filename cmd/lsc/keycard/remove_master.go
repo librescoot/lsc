@@ -32,7 +32,7 @@ var removeMasterCmd = &cobra.Command{
 		removed := 0
 		for _, uid := range uids {
 			if useService {
-				notFound, err := isResult("master:remove:"+uid, "error:not-found")
+				notFound, err := isResult("master:remove:"+uid, "not-found")
 				if err != nil {
 					printError(fmt.Sprintf("Failed to remove master %s", uid), err)
 					return err
