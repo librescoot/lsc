@@ -16,6 +16,8 @@ var exportCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filePath := args[0]
 
+		// Reads go to the UID files, not to the service's list command; see
+		// getKeycardPaths for why.
 		authorizedPath, masterPath := getKeycardPaths()
 
 		// Read authorized UIDs
@@ -26,11 +28,14 @@ var exportCmd = &cobra.Command{
 		}
 
 		// Read master UIDs
-		masterUIDs, err := readKeycardFile(masterPath)
+		rawMasterUIDs, err := readKeycardFile(masterPath)
 		if err != nil {
 			printError("Failed to read master UIDs", err)
 			return err
 		}
+		// The NONE sentinel is service state, not a card, so it is not
+		// exported: importing it back would try to add it as a UID.
+		masterUIDs, _ := splitMasters(rawMasterUIDs)
 
 		// Write to file in section-based format
 		if err := writeKeycardExportFile(filePath, authorizedUIDs, masterUIDs); err != nil {

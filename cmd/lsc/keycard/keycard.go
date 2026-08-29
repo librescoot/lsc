@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -37,6 +36,9 @@ func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
 }
 
+// Reads go to the files, not the service: command-result has no request
+// correlation, so a multi-entry reply cannot be collected reliably. Mutations
+// go through the command interface, see service.go.
 func getKeycardPaths() (authorizedPath, masterPath string) {
 	return "/data/keycard/authorized_uids.txt", "/data/keycard/master_uids.txt"
 }
@@ -65,7 +67,7 @@ func readKeycardFile(path string) ([]string, error) {
 	return uids, nil
 }
 
-// The on-device format is one uppercase, space-separated UID per line.
+// Fallback path only. Bare uppercase hex, the shape the service writes.
 func writeKeycardFile(path string, uids []string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -75,8 +77,7 @@ func writeKeycardFile(path string, uids []string) error {
 	var formattedUIDs []string
 	for _, uid := range uids {
 		if strings.TrimSpace(uid) != "" {
-			formatted := formatUIDSpaceSeparated(uid)
-			formattedUIDs = append(formattedUIDs, formatted)
+			formattedUIDs = append(formattedUIDs, normalizeUID(uid))
 		}
 	}
 
@@ -151,6 +152,22 @@ func validateUIDFormat(uid string) error {
 	return nil
 }
 
+// masterDisabled records that no physical master is wanted; unlike an empty
+// list it stops bootstrap re-arming on the next start.
+const masterDisabled = "NONE"
+
+// splitMasters separates the real master UIDs from the sentinel.
+func splitMasters(uids []string) (real []string, disabled bool) {
+	for _, uid := range uids {
+		if uid == masterDisabled {
+			disabled = true
+			continue
+		}
+		real = append(real, uid)
+	}
+	return real, disabled
+}
+
 func normalizeUID(uid string) string {
 	uid = strings.ReplaceAll(uid, ":", "")
 	uid = strings.ReplaceAll(uid, "-", "")
@@ -182,15 +199,7 @@ func formatUIDList(uids []string) []string {
 	return formatted
 }
 
-// restartKeycardService restarts the librescoot-keycard service. A failure
-// here (service missing, permission denied) is non-fatal: the UID file has
-// already been written, and the running service will pick it up on its own
-// next restart or reload.
-func restartKeycardService() {
-	cmd := exec.Command("systemctl", "restart", "librescoot-keycard")
-	_ = cmd.Run()
-}
-
+// removeDuplicates removes duplicate UIDs from a list
 func removeDuplicates(uids []string) []string {
 	seen := make(map[string]bool)
 	var result []string

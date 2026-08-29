@@ -2,7 +2,6 @@ package keycard
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -13,65 +12,50 @@ var addMasterCmd = &cobra.Command{
 	Long:  `Add one or more master keycard UIDs for learn mode. Multiple UIDs can be provided as separate arguments.`,
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, masterPath := getKeycardPaths()
-
-		// Read existing master UIDs
-		existingMasterUIDs, err := readKeycardFile(masterPath)
-		if err != nil {
-			printError("Failed to read master UIDs", err)
-			return err
-		}
-
-		// Build set of existing UIDs for deduplication
-		existingMap := make(map[string]bool)
-		for _, uid := range existingMasterUIDs {
-			existingMap[uid] = true
-		}
-
-		// Validate and add new UIDs
-		var addedUIDs []string
-		for _, uid := range args {
-			if err := validateUIDFormat(uid); err != nil {
-				if *JSONOutput {
-					printJSONResponse("error", nil, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf("Error: Invalid UID %s: %v", uid, err))
-				}
+		uids := make([]string, 0, len(args))
+		for _, arg := range args {
+			if err := validateUIDFormat(arg); err != nil {
+				printError(fmt.Sprintf("Invalid UID %s", arg), err)
 				return err
 			}
-			normalizedUID := normalizeUID(uid)
+			uids = append(uids, normalizeUID(arg))
+		}
 
-			// Skip if already exists
-			if existingMap[normalizedUID] {
+		useService := serviceRunning()
+		if !useService {
+			fallbackNotice()
+		}
+
+		added := 0
+		for _, uid := range uids {
+			if useService {
+				// error:already-registered covers a UID that is already a
+				// master or already an authorized card; either way there is
+				// nothing to add, so it counts as a skip and not a failure.
+				skipped, err := isResult("master:add:"+uid, "error:already-registered")
+				if err != nil {
+					printError(fmt.Sprintf("Failed to add master %s", uid), err)
+					return err
+				}
+				if !skipped {
+					added++
+				}
 				continue
 			}
 
-			addedUIDs = append(addedUIDs, normalizedUID)
+			if err := addUIDToFile(masterFilePath(), uid); err != nil {
+				continue
+			}
+			added++
 		}
-
-		// Combine existing and new
-		allUIDs := append(existingMasterUIDs, addedUIDs...)
-		allUIDs = removeDuplicates(allUIDs)
-
-		// Write master UIDs
-		if err := writeKeycardFile(masterPath, allUIDs); err != nil {
-			printError("Failed to write master UIDs", err)
-			return err
-		}
-
-		// Restart keycard service
-		restartKeycardService()
 
 		if *JSONOutput {
-			printJSONResponse("success", map[string]interface{}{"added": len(addedUIDs)}, nil)
+			printJSONResponse("success", map[string]interface{}{"added": added}, nil)
+		} else if added == 0 {
+			printSuccess("All UIDs already exist")
 		} else {
-			if len(addedUIDs) == 0 {
-				printSuccess("All UIDs already exist")
-			} else {
-				printSuccess(fmt.Sprintf("Added %d master keycard UID(s)", len(addedUIDs)))
-			}
+			printSuccess(fmt.Sprintf("Added %d master keycard UID(s)", added))
 		}
-
 		return nil
 	},
 }

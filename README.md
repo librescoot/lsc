@@ -28,6 +28,11 @@ argument reference. The primary command groups are `vehicle`, `alarm`, `led`,
 `keycard`, `locations`, `logs`, `monitor`, and `watch`. Common shortcuts include
 `status`, `lock`, `unlock`, `open`, `battery`, `faults`, and `maps`.
 
+`keycard` changes go to keycard-service over `scooter:keycard`, so it stays
+authoritative for the duplicate, role and anti-lockout rules and publishes the
+matching `keycard:events`. With the service stopped, lsc edits the UID files
+under `/data/keycard/` itself and says so on stderr.
+
 Most commands read hashes and publish events or push commands through the
 Redis-compatible datastore. State-changing vehicle and alarm operations wait
 for their expected state change by default; their `--no-block` option sends the

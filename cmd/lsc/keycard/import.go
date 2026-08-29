@@ -13,161 +13,116 @@ var importCmd = &cobra.Command{
 	Use:   "import <file>",
 	Short: "Import keycards from a file",
 	Long: `Import keycards from a file. The file should contain one UID per line.
-Lines starting with # are treated as comments. Empty lines are ignored.`,
+Lines starting with # are treated as comments. Empty lines are ignored.
+A [master] section marks the UIDs that follow as master cards; UIDs before
+any section header, or under [authorized], are imported as regular cards.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		filePath := args[0]
-
-		// Read file
-		data, err := os.ReadFile(filePath)
+		data, err := os.ReadFile(args[0])
 		if err != nil {
-			if *JSONOutput {
-				printJSONResponse("error", nil, fmt.Errorf("failed to read file: %w", err))
-			} else {
-				fmt.Fprintf(os.Stderr, "Error: Failed to read file: %v\n", err)
-			}
+			printError("Failed to read file", err)
 			return err
 		}
 
-		// Parse UIDs from section-based format
-		var importedAuthorizedUIDs []string
-		var importedMasterUIDs []string
-		var invalidUIDs []string
-
-		lines := strings.Split(string(data), "\n")
-		currentSection := ""
-
-		for lineNum, line := range lines {
+		var authorized, masters, invalid []string
+		section := ""
+		for lineNum, line := range strings.Split(string(data), "\n") {
 			line = strings.TrimSpace(line)
-
-			// Skip empty lines and comments
 			if line == "" || strings.HasPrefix(line, "#") {
 				continue
 			}
-
-			// Check for section headers
 			if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-				currentSection = strings.ToLower(strings.TrimSuffix(strings.TrimPrefix(line, "["), "]"))
+				section = strings.ToLower(strings.Trim(line, "[]"))
 				continue
 			}
-
-			// Validate and normalize
 			if err := validateUIDFormat(line); err != nil {
-				invalidUIDs = append(invalidUIDs, fmt.Sprintf("Line %d: %s (%v)", lineNum+1, line, err))
+				invalid = append(invalid, fmt.Sprintf("Line %d: %s (%v)", lineNum+1, line, err))
 				continue
 			}
-
-			normalizedUID := normalizeUID(line)
-
-			// Add to appropriate section (default to authorized if no section)
-			if currentSection == "master" {
-				importedMasterUIDs = append(importedMasterUIDs, normalizedUID)
+			if section == "master" {
+				masters = append(masters, normalizeUID(line))
 			} else {
-				importedAuthorizedUIDs = append(importedAuthorizedUIDs, normalizedUID)
+				authorized = append(authorized, normalizeUID(line))
 			}
 		}
+		authorized = removeDuplicates(authorized)
+		masters = removeDuplicates(masters)
 
-		// Remove duplicates
-		importedAuthorizedUIDs = removeDuplicates(importedAuthorizedUIDs)
-		importedMasterUIDs = removeDuplicates(importedMasterUIDs)
+		useService := serviceRunning()
+		if !useService {
+			fallbackNotice()
+		}
 
-		// Get current authorized and master UIDs
-		authorizedPath, masterPath := getKeycardPaths()
-		existingAuthorizedUIDs, err := readKeycardFile(authorizedPath)
+		// Every UID goes in one at a time so keycard-service applies its own
+		// duplicate and role rules to each, and publishes an event for each.
+		importAuthorized, authorizedConflicts, err := importUIDs(useService, authorized, "add:", "error:already-authorized", authorizedFilePath())
 		if err != nil {
-			printError("Failed to read authorized UIDs", err)
+			printError("Failed to import authorized keycards", err)
 			return err
 		}
-
-		existingMasterUIDs, err := readKeycardFile(masterPath)
+		importMasters, masterConflicts, err := importUIDs(useService, masters, "master:add:", "error:already-registered", masterFilePath())
 		if err != nil {
-			printError("Failed to read master UIDs", err)
+			printError("Failed to import master keycards", err)
 			return err
 		}
 
-		// Check for conflicts in authorized UIDs
-		existingAuthorizedMap := make(map[string]bool)
-		for _, uid := range existingAuthorizedUIDs {
-			existingAuthorizedMap[uid] = true
-		}
-
-		var authorizedConflictCount int
-		var newAuthorizedUIDs []string
-		for _, uid := range importedAuthorizedUIDs {
-			if existingAuthorizedMap[uid] {
-				authorizedConflictCount++
-			} else {
-				newAuthorizedUIDs = append(newAuthorizedUIDs, uid)
-			}
-		}
-
-		// Check for conflicts in master UIDs
-		existingMasterMap := make(map[string]bool)
-		for _, uid := range existingMasterUIDs {
-			existingMasterMap[uid] = true
-		}
-
-		var masterConflictCount int
-		var newMasterUIDs []string
-		for _, uid := range importedMasterUIDs {
-			if existingMasterMap[uid] {
-				masterConflictCount++
-			} else {
-				newMasterUIDs = append(newMasterUIDs, uid)
-			}
-		}
-
-		// Combine and write
-		allAuthorizedUIDs := append(existingAuthorizedUIDs, newAuthorizedUIDs...)
-		allAuthorizedUIDs = removeDuplicates(allAuthorizedUIDs)
-
-		allMasterUIDs := append(existingMasterUIDs, newMasterUIDs...)
-		allMasterUIDs = removeDuplicates(allMasterUIDs)
-
-		if err := writeKeycardFile(authorizedPath, allAuthorizedUIDs); err != nil {
-			printError("Failed to write authorized UIDs", err)
-			return err
-		}
-
-		if err := writeKeycardFile(masterPath, allMasterUIDs); err != nil {
-			printError("Failed to write master UIDs", err)
-			return err
-		}
-
-		// Restart keycard service
-		restartKeycardService()
-
-		totalImported := len(newAuthorizedUIDs) + len(newMasterUIDs)
-		totalConflicts := authorizedConflictCount + masterConflictCount
+		totalImported := importAuthorized + importMasters
+		totalConflicts := authorizedConflicts + masterConflicts
 
 		if *JSONOutput {
 			response := map[string]interface{}{
 				"imported":             totalImported,
-				"authorized_imported":  len(newAuthorizedUIDs),
-				"master_imported":      len(newMasterUIDs),
+				"authorized_imported":  importAuthorized,
+				"master_imported":      importMasters,
 				"conflicts":            totalConflicts,
-				"authorized_conflicts": authorizedConflictCount,
-				"master_conflicts":     masterConflictCount,
-				"invalid":              len(invalidUIDs),
+				"authorized_conflicts": authorizedConflicts,
+				"master_conflicts":     masterConflicts,
+				"invalid":              len(invalid),
 			}
-			if len(invalidUIDs) > 0 {
-				response["invalid_lines"] = invalidUIDs
+			if len(invalid) > 0 {
+				response["invalid_lines"] = invalid
 			}
 			output, _ := json.MarshalIndent(response, "", "  ")
 			fmt.Println(string(output))
-		} else {
-			fmt.Printf("Imported %d keycards (%d authorized, %d master)\n", totalImported, len(newAuthorizedUIDs), len(newMasterUIDs))
-			if totalConflicts > 0 {
-				fmt.Printf("Skipped %d existing keycards (%d authorized, %d master)\n", totalConflicts, authorizedConflictCount, masterConflictCount)
-			}
-			if len(invalidUIDs) > 0 {
-				fmt.Printf("Warning: %d invalid lines:\n", len(invalidUIDs))
-				for _, invalid := range invalidUIDs {
-					fmt.Printf("  %s\n", invalid)
-				}
-			}
+			return nil
 		}
 
+		fmt.Printf("Imported %d keycards (%d authorized, %d master)\n", totalImported, importAuthorized, importMasters)
+		if totalConflicts > 0 {
+			fmt.Printf("Skipped %d existing keycards (%d authorized, %d master)\n", totalConflicts, authorizedConflicts, masterConflicts)
+		}
+		if len(invalid) > 0 {
+			fmt.Printf("Warning: %d invalid lines:\n", len(invalid))
+			for _, line := range invalid {
+				fmt.Printf("  %s\n", line)
+			}
+		}
 		return nil
 	},
+}
+
+// importUIDs adds every UID and reports how many landed and how many were
+// already registered. skipCode is the reply that means "already there".
+func importUIDs(useService bool, uids []string, prefix, skipCode, path string) (imported, conflicts int, err error) {
+	for _, uid := range uids {
+		if useService {
+			skipped, err := isResult(prefix+uid, skipCode)
+			if err != nil {
+				return imported, conflicts, err
+			}
+			if skipped {
+				conflicts++
+			} else {
+				imported++
+			}
+			continue
+		}
+
+		if err := addUIDToFile(path, uid); err != nil {
+			conflicts++
+			continue
+		}
+		imported++
+	}
+	return imported, conflicts, nil
 }

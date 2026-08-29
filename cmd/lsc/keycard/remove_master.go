@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"librescoot/lsc/internal/format"
 )
 
 var removeMasterCmd = &cobra.Command{
@@ -13,71 +15,73 @@ var removeMasterCmd = &cobra.Command{
 	Long:  `Remove one or more master keycard UIDs. Multiple UIDs can be provided as separate arguments.`,
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, masterPath := getKeycardPaths()
-
-		// Read existing master UIDs
-		existingMasterUIDs, err := readKeycardFile(masterPath)
-		if err != nil {
-			printError("Failed to read master UIDs", err)
-			return err
-		}
-
-		// Validate all UIDs to remove
-		var uidsToRemove []string
-		for _, uid := range args {
-			if err := validateUIDFormat(uid); err != nil {
-				if *JSONOutput {
-					printJSONResponse("error", nil, err)
-				} else {
-					fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf("Error: Invalid UID %s: %v", uid, err))
-				}
+		uids := make([]string, 0, len(args))
+		for _, arg := range args {
+			if err := validateUIDFormat(arg); err != nil {
+				printError(fmt.Sprintf("Invalid UID %s", arg), err)
 				return err
 			}
-			uidsToRemove = append(uidsToRemove, normalizeUID(uid))
+			uids = append(uids, normalizeUID(arg))
 		}
 
-		// Build set for quick lookup
-		toRemoveMap := make(map[string]bool)
-		for _, uid := range uidsToRemove {
-			toRemoveMap[uid] = true
+		useService := serviceRunning()
+		if !useService {
+			fallbackNotice()
 		}
 
-		// Remove UIDs
-		var newUIDs []string
-		var removedCount int
-		for _, uid := range existingMasterUIDs {
-			if toRemoveMap[uid] {
-				removedCount++
-			} else {
-				newUIDs = append(newUIDs, uid)
+		removed := 0
+		for _, uid := range uids {
+			if useService {
+				notFound, err := isResult("master:remove:"+uid, "error:not-found")
+				if err != nil {
+					printError(fmt.Sprintf("Failed to remove master %s", uid), err)
+					return err
+				}
+				if !notFound {
+					removed++
+				}
+				continue
 			}
-		}
 
-		// Check if any were removed
-		if removedCount == 0 {
-			if *JSONOutput {
-				printJSONResponse("error", nil, fmt.Errorf("no UIDs found to remove"))
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", "Error: No UIDs found to remove")
+			// Masters carry no anti-lockout rule: a vehicle with no master is
+			// recoverable, unlike one with no card that can unlock.
+			if err := removeUIDFromFile(masterFilePath(), uid, false); err != nil {
+				continue
 			}
-			return fmt.Errorf("no UIDs found to remove")
+			removed++
 		}
 
-		// Write updated master UIDs
-		if err := writeKeycardFile(masterPath, newUIDs); err != nil {
-			printError("Failed to write master UIDs", err)
+		if removed == 0 {
+			err := fmt.Errorf("no UIDs found to remove")
+			printError("Failed to remove master keycards", err)
 			return err
 		}
 
-		// Restart keycard service
-		restartKeycardService()
+		// The last master gone means the next start re-arms boot-time master
+		// bootstrap, and the first card presented then claims the vehicle.
+		remaining, err := readKeycardFile(masterFilePath())
+		realMasters, mastersDisabled := splitMasters(remaining)
+		mastersLeft := len(realMasters)
+		if err != nil {
+			mastersLeft = -1
+		}
+		rearmed := mastersLeft == 0 && !mastersDisabled
 
 		if *JSONOutput {
-			printJSONResponse("success", map[string]interface{}{"removed": removedCount}, nil)
+			printJSONResponse("success", map[string]interface{}{
+				"removed":           removed,
+				"masters_remaining": mastersLeft,
+				"bootstrap_rearmed": rearmed,
+			}, nil)
 		} else {
-			printSuccess(fmt.Sprintf("Removed %d master keycard UID(s)", removedCount))
+			printSuccess(fmt.Sprintf("Removed %d master keycard UID(s)", removed))
+			if rearmed {
+				fmt.Fprintf(os.Stderr, "%s\n", format.Error(
+					"Warning: no master cards remain. The next start re-arms master bootstrap, "+
+						"and the first card presented becomes master. Add a master card, or run "+
+						"'redis-cli lpush scooter:keycard set-master:NONE' to disable physical masters."))
+			}
 		}
-
 		return nil
 	},
 }

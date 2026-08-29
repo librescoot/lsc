@@ -11,6 +11,8 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all authorized keycards",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Reads go to the UID files, not to the service's list command; see
+		// getKeycardPaths for why.
 		authorizedPath, masterPath := getKeycardPaths()
 
 		// Read authorized UIDs
@@ -21,20 +23,25 @@ var listCmd = &cobra.Command{
 		}
 
 		// Read master UIDs
-		masterUIDs, err := readKeycardFile(masterPath)
+		rawMasterUIDs, err := readKeycardFile(masterPath)
 		if err != nil {
 			printError("Failed to read master UIDs", err)
 			return err
 		}
+		masterUIDs, mastersDisabled := splitMasters(rawMasterUIDs)
 
 		if *JSONOutput {
 			response := map[string]interface{}{
-				"authorized": formatUIDList(authorizedUIDs),
-				"master":     formatUIDList(masterUIDs),
+				"authorized":      formatUIDList(authorizedUIDs),
+				"master":          formatUIDList(masterUIDs),
+				"master_disabled": mastersDisabled,
 			}
 			output, _ := json.MarshalIndent(response, "", "  ")
 			fmt.Println(string(output))
 		} else {
+			if mastersDisabled && len(masterUIDs) == 0 {
+				fmt.Println("Master Card: none (physical master disabled)")
+			}
 			if len(masterUIDs) > 0 {
 				if len(masterUIDs) == 1 {
 					fmt.Printf("Master Card: %s\n", formatUIDSpaceSeparated(masterUIDs[0]))
