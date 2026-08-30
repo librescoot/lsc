@@ -95,6 +95,10 @@ A successful send is not necessarily a successful vehicle action; keep the
 default confirmation behaviour when possible and inspect status after critical
 operations.
 
+## Motion sensor calibration
+
+Use `lsc motion calibrate start|status|finish|cancel|reset` to manage motion-service's in-process magnetometer calibration. Perform clockwise and counter-clockwise circles upright in an open area away from vehicles and steel structures. A failed `finish` preserves the previous model; `reset` deletes it and disables magnetic heading.
+
 ## License
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](LICENSE).
