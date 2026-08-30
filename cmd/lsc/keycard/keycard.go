@@ -25,30 +25,24 @@ var KeycardCmd = &cobra.Command{
 	Short: "Manage keycard authentication",
 	Long:  `Manage authorized keycards for the scooter.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Default to list when called without subcommand
 		return listCmd.RunE(cmd, args)
 	},
 }
 
-// SetRedisClient sets the Redis client for all keycard commands
 func SetRedisClient(client *redis.Client) {
 	RedisClient = client
 }
 
-// SetJSONOutput sets the JSON output flag reference for all keycard commands
 func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
 }
 
-// getKeycardPaths returns the paths for authorized UIDs and master UID files
 func getKeycardPaths() (authorizedPath, masterPath string) {
 	return "/data/keycard/authorized_uids.txt", "/data/keycard/master_uids.txt"
 }
 
-// readKeycardFile reads and parses UIDs from a file
-// Normalizes UIDs to concatenated uppercase hex format (e.g., "042A3D6A0D6580")
+// UID files accept separators but normalize to uppercase contiguous hex internally.
 func readKeycardFile(path string) ([]string, error) {
-	// Check if file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return []string{}, nil
 	}
@@ -62,9 +56,7 @@ func readKeycardFile(path string) ([]string, error) {
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		// Skip empty lines and comments
 		if line != "" && !strings.HasPrefix(line, "#") {
-			// Normalize to concatenated uppercase format for internal comparison
 			normalized := normalizeUID(line)
 			uids = append(uids, normalized)
 		}
@@ -73,16 +65,13 @@ func readKeycardFile(path string) ([]string, error) {
 	return uids, nil
 }
 
-// writeKeycardFile writes UIDs to a file, creating directories as needed
-// Writes in space-separated uppercase hex format (e.g., "04 05 B5 82 D0 1E 91")
+// The on-device format is one uppercase, space-separated UID per line.
 func writeKeycardFile(path string, uids []string) error {
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	// Filter out empty UIDs and format as space-separated hex bytes
 	var formattedUIDs []string
 	for _, uid := range uids {
 		if strings.TrimSpace(uid) != "" {
@@ -91,7 +80,6 @@ func writeKeycardFile(path string, uids []string) error {
 		}
 	}
 
-	// Write UIDs to file
 	content := strings.Join(formattedUIDs, "\n")
 	if content != "" {
 		content += "\n"
@@ -104,16 +92,8 @@ func writeKeycardFile(path string, uids []string) error {
 	return nil
 }
 
-// writeKeycardExportFile writes authorized and master UIDs to a file in section-based format
-// Format:
-// [authorized]
-// 04 05 B5 82 D0 1E 91
-// FA F2 38 A5
-//
-// [master]
-// 04 2A 3D 6A 0D 65 80
+// Exports preserve authorization class with [authorized] and [master] sections.
 func writeKeycardExportFile(path string, authorizedUIDs, masterUIDs []string) error {
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
@@ -121,7 +101,6 @@ func writeKeycardExportFile(path string, authorizedUIDs, masterUIDs []string) er
 
 	var content strings.Builder
 
-	// Write authorized section
 	if len(authorizedUIDs) > 0 {
 		content.WriteString("[authorized]\n")
 		for _, uid := range authorizedUIDs {
@@ -132,7 +111,6 @@ func writeKeycardExportFile(path string, authorizedUIDs, masterUIDs []string) er
 		}
 	}
 
-	// Write master section
 	if len(masterUIDs) > 0 {
 		if content.Len() > 0 {
 			content.WriteString("\n")
@@ -153,21 +131,17 @@ func writeKeycardExportFile(path string, authorizedUIDs, masterUIDs []string) er
 	return nil
 }
 
-// validateUIDFormat validates that a UID is a valid hex string
-// Accepts hex strings up to 10 bytes (20 hex chars, minimum 1 byte / 2 hex chars)
+// NFC UIDs are one to ten bytes (two to twenty hexadecimal characters).
 func validateUIDFormat(uid string) error {
-	// Remove common separators
 	uid = strings.ReplaceAll(uid, ":", "")
 	uid = strings.ReplaceAll(uid, "-", "")
 	uid = strings.ReplaceAll(uid, " ", "")
 	uid = strings.ToUpper(uid)
 
-	// Check length (max 10 bytes = 20 hex chars, min 1 byte = 2 hex chars)
 	if len(uid) < 2 || len(uid) > 20 {
 		return fmt.Errorf("UID must be 1-10 bytes in hex format (2-20 characters)")
 	}
 
-	// Check if all characters are valid hex
 	for _, char := range uid {
 		if !((char >= '0' && char <= '9') || (char >= 'A' && char <= 'F')) {
 			return fmt.Errorf("UID must contain only hexadecimal characters")
@@ -177,7 +151,6 @@ func validateUIDFormat(uid string) error {
 	return nil
 }
 
-// normalizeUID normalizes a UID by removing separators and converting to uppercase
 func normalizeUID(uid string) string {
 	uid = strings.ReplaceAll(uid, ":", "")
 	uid = strings.ReplaceAll(uid, "-", "")
@@ -185,14 +158,10 @@ func normalizeUID(uid string) string {
 	return strings.ToUpper(uid)
 }
 
-// formatUIDSpaceSeparated formats a UID as space-separated uppercase hex bytes
-// Input can be: "04A1B2C3D4E5F6", "04:A1:B2:C3:D4:E5:F6", "04 A1 B2 C3 D4 E5 F6"
-// Output: "04 A1 B2 C3 D4 E5 F6"
+// formatUIDSpaceSeparated accepts normalized or separator-delimited input.
 func formatUIDSpaceSeparated(uid string) string {
-	// Normalize first (remove all separators, uppercase)
 	uid = normalizeUID(uid)
 
-	// Split into pairs of hex characters
 	var pairs []string
 	for i := 0; i < len(uid); i += 2 {
 		if i+1 < len(uid) {
@@ -205,7 +174,6 @@ func formatUIDSpaceSeparated(uid string) string {
 	return strings.Join(pairs, " ")
 }
 
-// formatUIDAList formats a list of normalized UIDs as space-separated format for display
 func formatUIDList(uids []string) []string {
 	var formatted []string
 	for _, uid := range uids {
@@ -223,7 +191,6 @@ func restartKeycardService() {
 	_ = cmd.Run()
 }
 
-// removeDuplicates removes duplicate UIDs from a list
 func removeDuplicates(uids []string) []string {
 	seen := make(map[string]bool)
 	var result []string
@@ -237,7 +204,6 @@ func removeDuplicates(uids []string) []string {
 	return result
 }
 
-// printJSONResponse prints a JSON response
 func printJSONResponse(status string, data interface{}, err error) {
 	response := map[string]interface{}{
 		"command": "keycard",
@@ -253,7 +219,6 @@ func printJSONResponse(status string, data interface{}, err error) {
 	fmt.Println(string(output))
 }
 
-// printError prints an error message
 func printError(msg string, err error) {
 	if *JSONOutput {
 		printJSONResponse("error", nil, fmt.Errorf("%s: %w", msg, err))
@@ -262,7 +227,6 @@ func printError(msg string, err error) {
 	}
 }
 
-// printSuccess prints a success message
 func printSuccess(msg string) {
 	if *JSONOutput {
 		printJSONResponse("success", nil, nil)

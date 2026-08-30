@@ -83,7 +83,6 @@ var statusCmd = &cobra.Command{
 
 		components := []string{"mdb", "dbc"}
 
-		// Fetch installed versions from version:{component} hashes
 		installedVersions := make(map[string]string)
 		for _, component := range components {
 			ver, err := RedisClient.HGet(fmt.Sprintf("version:%s", component), "version_id")
@@ -92,7 +91,6 @@ var statusCmd = &cobra.Command{
 			}
 		}
 
-		// Fetch vehicle state for standby timer (used when mdb is pending-reboot)
 		vehicleData, _ := RedisClient.HGetAll("vehicle")
 
 		if JSONOutput != nil && *JSONOutput {
@@ -107,7 +105,6 @@ var statusCmd = &cobra.Command{
 					c["installed-version"] = nil
 				}
 
-				// Configuration from settings
 				for _, key := range []string{"method", "channel", "check-interval", "last-check-time"} {
 					settingKey := fmt.Sprintf("updates.%s.%s", component, key)
 					if val, exists := settings[settingKey]; exists && val != "" {
@@ -117,7 +114,6 @@ var statusCmd = &cobra.Command{
 					}
 				}
 
-				// Runtime status from ota hash
 				for _, key := range []string{
 					"status", "update-version", "update-method",
 					"download-progress", "download-bytes", "download-total",
@@ -132,7 +128,6 @@ var statusCmd = &cobra.Command{
 					}
 				}
 
-				// Standby timer for MDB pending-reboot
 				if component == "mdb" && otaData["status:mdb"] == "pending-reboot" && vehicleData != nil {
 					c["vehicle-state"] = vehicleData["state"]
 					c["vehicle-state-timestamp"] = vehicleData["state:timestamp"]
@@ -150,14 +145,12 @@ var statusCmd = &cobra.Command{
 			for _, component := range components {
 				fmt.Printf("%s:\n", format.Info(component))
 
-				// Installed version
 				if v, ok := installedVersions[component]; ok {
 					format.PrintKV("  installed", v)
 				} else {
 					format.PrintKV("  installed", format.Dim("unknown"))
 				}
 
-				// Status with color
 				status := otaData[fmt.Sprintf("status:%s", component)]
 				if status != "" {
 					format.PrintKV("  status", colorizeOTAStatus(status))
@@ -165,19 +158,16 @@ var statusCmd = &cobra.Command{
 					format.PrintKV("  status", format.Dim("unknown"))
 				}
 
-				// Target version (only if not idle)
 				if status != "" && status != "idle" {
 					if ver := otaData[fmt.Sprintf("update-version:%s", component)]; ver != "" {
 						format.PrintKV("  target", ver)
 					}
 				}
 
-				// Update method
 				if method := otaData[fmt.Sprintf("update-method:%s", component)]; method != "" {
 					format.PrintKV("  method", method)
 				}
 
-				// Download progress (only during download)
 				if status == "downloading" {
 					progress := otaData[fmt.Sprintf("download-progress:%s", component)]
 					downloaded := otaData[fmt.Sprintf("download-bytes:%s", component)]
@@ -187,14 +177,12 @@ var statusCmd = &cobra.Command{
 					}
 				}
 
-				// Install progress (only during preparing/installing)
 				if status == "preparing" || status == "installing" {
 					if progress := otaData[fmt.Sprintf("install-progress:%s", component)]; progress != "" {
 						format.PrintKV("  install", fmt.Sprintf("%s%%", progress))
 					}
 				}
 
-				// Standby timer (only for mdb pending-reboot)
 				if status == "pending-reboot" && component == "mdb" && vehicleData != nil {
 					info := standbyTimerSummary(vehicleData["state"], vehicleData["state:timestamp"])
 					if info != "" {
@@ -202,7 +190,6 @@ var statusCmd = &cobra.Command{
 					}
 				}
 
-				// Error info
 				if status == "error" {
 					if errType := otaData[fmt.Sprintf("error:%s", component)]; errType != "" {
 						format.PrintKV("  error", format.Error(errType))
@@ -212,7 +199,6 @@ var statusCmd = &cobra.Command{
 					}
 				}
 
-				// Configuration
 				channel := settings[fmt.Sprintf("updates.%s.channel", component)]
 				if channel != "" {
 					format.PrintKV("  channel", channel)

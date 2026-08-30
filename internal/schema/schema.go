@@ -33,7 +33,6 @@ type Schema struct {
 	Settings map[string]Setting
 }
 
-// Parse unmarshals a JSON schema blob into a Schema.
 func Parse(data []byte) (*Schema, error) {
 	var raw map[string]Setting
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -42,7 +41,6 @@ func Parse(data []byte) (*Schema, error) {
 	return &Schema{Settings: raw}, nil
 }
 
-// PossibleValues extracts just the Value strings from the Values slice.
 func (s Setting) PossibleValues() []string {
 	out := make([]string, len(s.Values))
 	for i, v := range s.Values {
@@ -51,17 +49,13 @@ func (s Setting) PossibleValues() []string {
 	return out
 }
 
-// Get looks up a setting by key.
 func (s *Schema) Get(key string) (Setting, bool) {
 	setting, ok := s.Settings[key]
 	return setting, ok
 }
 
-// Services returns deduplicated service names in first-seen order.
-// Iteration order over Go maps is random, so we sort by key to get
-// a deterministic grouping, then preserve first-seen service order.
+// Sort keys because Go map iteration is random.
 func (s *Schema) Services() []string {
-	// Collect keys and sort for deterministic order
 	keys := make([]string, 0, len(s.Settings))
 	for k := range s.Settings {
 		keys = append(keys, k)
@@ -80,7 +74,6 @@ func (s *Schema) Services() []string {
 	return services
 }
 
-// sortStrings is a simple insertion sort to avoid importing "sort".
 func sortStrings(ss []string) {
 	for i := 1; i < len(ss); i++ {
 		for j := i; j > 0 && ss[j] < ss[j-1]; j-- {
@@ -89,14 +82,11 @@ func sortStrings(ss []string) {
 	}
 }
 
-// IsKnown checks if a key exists in the schema, including indexed pattern matching.
 func (s *Schema) IsKnown(key string) bool {
 	if _, ok := s.Settings[key]; ok {
 		return true
 	}
-	// Check indexed patterns: if a schema key has Pattern == "indexed",
-	// match keys like "dashboard.saved-locations.5.label" against
-	// "dashboard.saved-locations.0.label" by replacing the index.
+	// Indexed settings use .0. as the schema placeholder.
 	for schemaKey, setting := range s.Settings {
 		if setting.Pattern != "indexed" {
 			continue
@@ -108,8 +98,6 @@ func (s *Schema) IsKnown(key string) bool {
 	return false
 }
 
-// matchIndexedKey checks if candidateKey matches schemaKey with any numeric index
-// replacing the ".0." segment.
 func matchIndexedKey(schemaKey, candidateKey string) bool {
 	parts := strings.SplitN(schemaKey, ".0.", 2)
 	if len(parts) != 2 {
@@ -124,18 +112,14 @@ func matchIndexedKey(schemaKey, candidateKey string) bool {
 	if !strings.HasSuffix(rest, suffix) {
 		return false
 	}
-	// The middle segment should be a number
 	mid := rest[:len(rest)-len(suffix)]
 	_, err := strconv.Atoi(mid)
 	return err == nil
 }
 
-// ValidateValue validates a value against the setting's constraints.
-// Returns nil for unknown settings.
 func (s *Schema) ValidateValue(key, value string) error {
 	setting, ok := s.Settings[key]
 	if !ok {
-		// Also try indexed pattern match
 		for schemaKey, schemaSetting := range s.Settings {
 			if schemaSetting.Pattern == "indexed" && matchIndexedKey(schemaKey, key) {
 				setting = schemaSetting
