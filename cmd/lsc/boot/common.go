@@ -2,10 +2,12 @@ package boot
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 )
@@ -130,19 +132,48 @@ func fwPrintenv(key string) (string, error) {
 	return strings.TrimRight(string(out), "\n"), nil
 }
 
-// fwSetenvBatch writes multiple env vars in a single fw_setenv invocation via
-// `fw_setenv -s -` so the U-Boot environment update is atomic.
-func fwSetenvBatch(vars map[string]string) error {
-	cmd := exec.Command("fw_setenv", "-s", "-")
+var removeFwSetenvScript = os.Remove
+
+// fwSetenvBatch writes multiple env vars in one fw_setenv script invocation,
+// keeping the U-Boot environment update atomic. Some fw_setenv implementations
+// silently ignore `-s -`, so pass an actual, securely-created script file.
+func fwSetenvBatch(vars map[string]string) (retErr error) {
+	f, err := os.CreateTemp("", "lsc-fw_setenv-*")
+	if err != nil {
+		return fmt.Errorf("create fw_setenv script: %w", err)
+	}
+	path := f.Name()
+	defer func() {
+		if err := removeFwSetenvScript(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			retErr = errors.Join(retErr, fmt.Errorf("remove fw_setenv script: %w", err))
+		}
+	}()
+
+	keys := make([]string, 0, len(vars))
+	for key := range vars {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	var script strings.Builder
-	for k, v := range vars {
-		script.WriteString(k)
-		script.WriteString(" ")
-		script.WriteString(v)
+	for _, key := range keys {
+		script.WriteString(key)
+		script.WriteString("=")
+		script.WriteString(vars[key])
 		script.WriteString("\n")
 	}
-	cmd.Stdin = strings.NewReader(script.String())
-	out, err := cmd.CombinedOutput()
+	if _, err := f.WriteString(script.String()); err != nil {
+		writeErr := fmt.Errorf("write fw_setenv script: %w", err)
+		if closeErr := f.Close(); closeErr != nil {
+			return errors.Join(writeErr, fmt.Errorf("close fw_setenv script: %w", closeErr))
+		}
+		return writeErr
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close fw_setenv script: %w", err)
+	}
+
+	out, err := exec.Command("fw_setenv", "-s", path).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("fw_setenv: %w: %s", err, strings.TrimSpace(string(out)))
 	}
