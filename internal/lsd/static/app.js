@@ -142,6 +142,7 @@ $$(".jump").forEach(j => new ResizeObserver(measureSticky).observe(j));
 const Views = {};
 let currentView = "";
 function route() {
+  if (location.hash.startsWith("#services")) { location.replace("#system/services"); return; }
   const view = (location.hash.slice(1) || "dashboard").split("/")[0];
   const known = Views[view] ? view : "dashboard";
   $$(".view").forEach(v => { v.hidden = v.id !== "view-" + known; });
@@ -283,6 +284,8 @@ function renderDashboard() {
   }
   if (has(pm.state) && pm.state !== "running") chips.push(`<span class="status is-warn">Power manager ${esc(human(pm.state).toLowerCase())}</span>`);
   if (sys["usb0-gate"] === "open") chips.push(`<span class="status is-good">USB link held on</span>`);
+  const nFaults = Object.values(state.faults).reduce((n, l) => n + l.length, 0);
+  if (nFaults) chips.push(`<a class="status is-bad" href="#dashboard/faults">${nFaults === 1 ? "1 fault" : `${nFaults} faults`}</a>`);
   $("#hero-sub").innerHTML = `${has(vmdb.pretty_name) ? `<div class="hero-version">${esc(vmdb.pretty_name)}</div>` : ""}${chips.length ? `<div class="hero-chips">${chips.join("")}</div>` : ""}`;
 
   // Batteries.
@@ -298,12 +301,12 @@ function renderDashboard() {
   }
   const aux = H("aux-battery");
   if (Object.keys(aux).length) {
-    batts.push(battRow("Auxiliary 12 V", num(aux.charge), aux["charge-status"], [fmtV(aux.voltage)], false, true));
+    batts.push(battRow("AUX (12V)", num(aux.charge), aux["charge-status"], [fmtV(aux.voltage)], false, true));
   }
   const cbb = H("cb-battery");
   if (Object.keys(cbb).length) {
     const present = cbb.present !== "false";
-    batts.push(battRow("Connectivity box", present ? num(cbb.charge) : null, present ? cbb["charge-status"] : "not present",
+    batts.push(battRow("Connectivity (CBB)", present ? num(cbb.charge) : null, present ? cbb["charge-status"] : "not present",
       present ? [fmtTemp(cbb.temperature), has(cbb["state-of-health"]) ? `health ${cbb["state-of-health"]} %` : null] : [], !present));
   }
   $("#hero-batteries").innerHTML = batts.join("") || `<div class="muted">No battery data.</div>`;
@@ -341,17 +344,6 @@ function renderDashboard() {
       [has(gps.altitude) ? `altitude ${Math.round(num(gps.altitude))} m` : null, has(gps.speed) && num(gps.speed) >= 1 ? `${num(gps.speed).toFixed(0)} km/h` : null].filter(Boolean).join(", ")],
     ["Bluetooth", has(sys["nrf-fw-version"]) ? "Module present" : null],
   ]);
-
-  // Boards.
-  const boards = [
-    ["MDB", vmdb.version || vmdb.version_id, vmdb.serial_number_real],
-    ["Display", vdbc.version || vdbc.version_id, vdbc.serial_number_real],
-    ["Motor controller", has(ecu["fw-version"]) ? `firmware ${ecu["fw-version"]}` : null, null],
-    ["Bluetooth module", has(sys["nrf-fw-version"]) ? `firmware ${sys["nrf-fw-version"]}` : null, null],
-  ].filter(r => has(r[1]));
-  $("#boards tbody").innerHTML = boards.map(([n, ver, sn]) =>
-    `<tr><td>${esc(n)}</td><td>${esc(ver)}${sn ? `<div class="serial">${esc(sn)}</div>` : ""}</td></tr>`).join("")
-    || `<tr><td class="muted">Not reported yet.</td></tr>`;
 
   // Faults.
   const SRC = { "vehicle": "Vehicle", "engine-ecu": "Motor controller", "battery:0": "Battery 1", "battery:1": "Battery 2" };
@@ -603,21 +595,22 @@ function markCurrentGroup() {
   };
   if (currentView === "settings") mark($$("#settings-groups .group"), /^group-/, $("#settings-jump"));
   if (currentView === "dashboard") mark($$("#view-dashboard [id^=dash-]"), /^dash-/, $("#view-dashboard .jump"));
+  if (currentView === "system") mark($$("#view-system [id^=sys-]").filter(el => el.tagName !== "DL"), /^sys-/, $("#view-system .jump"));
 }
 window.addEventListener("scroll", markCurrentGroup, { passive: true });
-$("#settings-jump").addEventListener("click", e => {
-  const a = e.target.closest("[data-jump]");
+// Every .jump strip scrolls to <prefix><id>; the hash keeps the target so
+// deep links like #system/services land on the section.
+document.addEventListener("click", e => {
+  const a = e.target.closest(".jump [data-jump]");
   if (!a) return;
   e.preventDefault();
-  const g = document.getElementById("group-" + a.dataset.jump);
-  if (g) g.scrollIntoView({ behavior: "smooth", block: "start" });
+  const el = document.getElementById(a.closest(".jump").dataset.prefix + a.dataset.jump);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 });
-$("#view-dashboard .jump").addEventListener("click", e => {
-  const a = e.target.closest("[data-jump]");
-  if (!a) return;
-  e.preventDefault();
-  document.getElementById("dash-" + a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
-});
+function scrollToHashSection(view, prefix) {
+  const target = decodeURIComponent(location.hash.split("/")[1] || "");
+  if (target) document.getElementById(prefix + target)?.scrollIntoView({ block: "start" });
+}
 
 function currentValue(key) {
   return dirty.has(key) ? dirty.get(key) : (values[key] ?? "");
@@ -869,27 +862,38 @@ Views.system = async function () {
     const data = await API.get("/api/system/logs");
     renderBundles(data.bundles || []);
   } catch (err) { notify(err.message, true); }
+  await loadServices();
   const sel = $("#journal-unit");
   if (sel.options.length <= 2) {
-    try {
-      const units = (await API.get("/api/services")).units || [];
-      for (const u of units) sel.insertAdjacentHTML("beforeend", `<option value="${esc(u.unit)}">${esc(u.unit.replace(/\.service$/, ""))}</option>`);
-    } catch { /* services list is optional here */ }
+    for (const u of units) sel.insertAdjacentHTML("beforeend", `<option value="${esc(u.unit)}">${esc(u.unit.replace(/\.service$/, ""))}</option>`);
   }
+  scrollToHashSection("system", "sys-");
 };
 
 function renderSystemFacts() {
   const m = H("maps"), mo = H("modem"), net = H("internet");
+  const vmdb = H("version:mdb"), vdbc = H("version:dbc"), ecu = H("engine-ecu"), sys = H("system");
+  const boards = [
+    ["MDB", vmdb.version || vmdb.version_id, vmdb.serial_number_real],
+    ["Display", vdbc.version || vdbc.version_id, vdbc.serial_number_real],
+    ["Motor controller", has(ecu["fw-version"]) ? `firmware ${ecu["fw-version"]}` : null, null],
+    ["Bluetooth module", has(sys["nrf-fw-version"]) ? `firmware ${sys["nrf-fw-version"]}` : null, null],
+  ].filter(r => has(r[1]));
+  $("#boards tbody").innerHTML = boards.map(([n, ver, sn]) =>
+    `<tr><td>${esc(n)}</td><td>${esc(ver)}${sn ? `<div class="serial">${esc(sn)}</div>` : ""}</td></tr>`).join("")
+    || `<tr><td class="muted">Not reported yet.</td></tr>`;
+
+
   const art = (p) => has(m[`${p}:size`])
     ? `${esc(humanSize(num(m[`${p}:size`])))}${has(m[`${p}:published-at`]) ? `, published ${esc(m[`${p}:published-at`].slice(0, 10))}` : ""}`
     : `<span class="muted">not installed</span>`;
-  renderFacts($("#sys-maps"), [
+  renderFacts($("#sys-maps-facts"), [
     ["Region", has(m["region-name"]) ? esc(m["region-name"]) : has(m.region) ? esc(m.region) : null],
     ["Map tiles", art("map"), has(m["map:mtime"]) ? `written ${m["map:mtime"].slice(0, 10)}` : null],
     ["Routing tiles", art("routing"), has(m["routing:mtime"]) ? `written ${m["routing:mtime"].slice(0, 10)}` : null],
     ["Update", has(m["update-available"]) ? (m["update-available"] === "true" ? `<span class="status is-info">Available</span>` : "Up to date") : null, has(m["last-update-check"]) ? `checked ${ago(m["last-update-check"])}` : null],
   ]);
-  renderFacts($("#sys-modem"), [
+  renderFacts($("#sys-modem-facts"), [
     ["Modem", status(mo["power-state"], mo["power-state"] === "on" ? "On" : human(mo["power-state"])), has(mo["error-state"]) && mo["error-state"] !== "ok" ? human(mo["error-state"]) : null],
     ["Network", has(mo["operator-name"]) ? esc(mo["operator-name"]) : null, [mo["operator-code"], human(mo.registration), mo["is-roaming"] === "true" ? "roaming" : null].filter(Boolean).join(", ")],
     ["Connection", status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `signal ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
@@ -1399,12 +1403,12 @@ $("#cloud-config-form").addEventListener("submit", async e => {
 let units = [];
 let unitFilter = "all";
 
-Views.services = async function () {
+async function loadServices() {
   try {
     units = (await API.get("/api/services")).units || [];
     renderServices();
   } catch (err) { notify(err.message, true); }
-};
+}
 
 function unitTone(u) {
   if (u.load === "masked") return "is-warn";
@@ -1456,7 +1460,7 @@ $$(".chip").forEach(btn => btn.addEventListener("click", () => setUnitFilter(btn
 $("#services-filter-select").addEventListener("change", e => setUnitFilter(e.target.value));
 $("#services-refresh").addEventListener("click", async e => {
   e.currentTarget.classList.add("is-busy");
-  try { await Views.services(); } finally { $("#services-refresh").classList.remove("is-busy"); }
+  try { await loadServices(); } finally { $("#services-refresh").classList.remove("is-busy"); }
 });
 
 $("#services-table").addEventListener("click", async e => {
@@ -1473,7 +1477,7 @@ $("#services-table").addEventListener("click", async e => {
   try {
     await API.post("/api/services/action", { unit: svc, action: act });
     notify(`${ {restart: "Restarted", stop: "Stopped", start: "Started"}[act] || human(act)} ${name}`);
-    Views.services();
+    loadServices();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
 });

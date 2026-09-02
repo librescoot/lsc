@@ -17,14 +17,13 @@
     </a>
     <nav class="tabs" aria-label="Sections">
       <a href="#dashboard" data-view="dashboard">Dashboard</a>
-      <a href="#settings" data-view="settings">Settings</a>
       <a href="#navigation" data-view="navigation">Navigation</a>
+      <a href="#updates" data-view="updates">Updates</a>
+      <a href="#settings" data-view="settings">Settings</a>
       <a href="#keycards" data-view="keycards">Keycards</a>
       <a href="#files" data-view="files">Files</a>
-      <a href="#cloud" data-view="cloud">Cloud</a>
-      <a href="#updates" data-view="updates">Updates</a>
-      <a href="#services" data-view="services">Services</a>
       <a href="#system" data-view="system">System</a>
+      <a href="#cloud" data-view="cloud">Cloud</a>
     </nav>
     <div class="topbar-tools">
       <span id="conn" class="conn" data-state="connecting"><span class="dot"></span><span class="conn-text">connecting</span></span>
@@ -47,24 +46,12 @@
       <div id="hero-batteries" class="hero-batteries"></div>
     </div>
 
-    <nav class="jump" aria-label="Sections">
+    <nav class="jump" data-prefix="dash-" aria-label="Sections">
+      <a href="#dashboard/commands" data-jump="commands">Commands</a>
       <a href="#dashboard/vehicle" data-jump="vehicle">Vehicle</a>
       <a href="#dashboard/connectivity" data-jump="connectivity">Connectivity</a>
-      <a href="#dashboard/commands" data-jump="commands">Commands</a>
-      <a href="#dashboard/boards" data-jump="boards">Boards</a>
       <a href="#dashboard/faults" data-jump="faults">Faults</a>
     </nav>
-
-    <div class="two-col">
-      <section class="block" id="dash-vehicle">
-        <h2>Vehicle</h2>
-        <dl id="facts-vehicle" class="facts"></dl>
-      </section>
-      <section class="block" id="dash-connectivity">
-        <h2>Connectivity</h2>
-        <dl id="facts-conn" class="facts"></dl>
-      </section>
-    </div>
 
     <section class="block" id="dash-commands">
       <h2>Commands</h2>
@@ -141,17 +128,27 @@
     </section>
 
     <div class="two-col">
-      <section class="block" id="dash-boards">
-        <h2>Boards and firmware</h2>
-        <table id="boards" class="data"><tbody></tbody></table>
+      <section class="block" id="dash-vehicle">
+        <h2>Vehicle</h2>
+        <dl id="facts-vehicle" class="facts"></dl>
       </section>
-      <section class="block" id="dash-faults">
-        <h2>Faults</h2>
-        <div id="faults" class="faults"></div>
-        <h3>Recent fault events</h3>
-        <table id="events" class="data"><tbody></tbody></table>
+      <section class="block" id="dash-connectivity">
+        <h2>Connectivity</h2>
+        <dl id="facts-conn" class="facts"></dl>
       </section>
     </div>
+
+
+    <section class="block" id="dash-faults">
+      <h2>Faults</h2>
+      <div class="two-col faults-cols">
+        <div id="faults" class="faults"></div>
+        <div>
+          <h3>Recent fault events</h3>
+          <table id="events" class="data"><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
   </section>
 
   <section id="view-settings" class="view" hidden>
@@ -163,7 +160,7 @@
       </div>
     </div>
     <p class="lede">Changes apply when saved. An empty field means the default.</p>
-    <nav id="settings-jump" class="jump" aria-label="Services"></nav>
+    <nav id="settings-jump" class="jump" data-prefix="group-" aria-label="Services"></nav>
     <div id="settings-groups"></div>
   </section>
 
@@ -330,9 +327,30 @@
 
   <section id="view-system" class="view" hidden>
     <div class="page-head"><h1>System</h1></div>
+    <nav class="jump" data-prefix="sys-" aria-label="Sections">
+      <a href="#system/boards" data-jump="boards">Boards</a>
+      <a href="#system/maps" data-jump="maps">Maps</a>
+      <a href="#system/modem" data-jump="modem">Modem</a>
+      <a href="#system/logs" data-jump="logs">Logs</a>
+      <a href="#system/journal" data-jump="journal">Journal</a>
+      <a href="#system/services" data-jump="services">Services</a>
+    </nav>
 
     <div class="two-col">
-      <section class="block">
+      <section class="block" id="sys-boards">
+        <h2>Boards and firmware</h2>
+        <table id="boards" class="data"><tbody></tbody></table>
+      </section>
+      <section class="block" id="sys-maps-modem">
+        <h2 id="sys-maps">Maps</h2>
+        <dl id="sys-maps-facts" class="facts"></dl>
+        <h2 class="kc-sub" id="sys-modem">Modem</h2>
+        <dl id="sys-modem-facts" class="facts"></dl>
+      </section>
+    </div>
+
+    <div class="two-col">
+      <section class="block" id="sys-logs">
         <h2>Log bundles</h2>
         <p>A snapshot of the scooter's logs and state, for troubleshooting. Takes a moment to build.</p>
         <form id="log-bundle-form" class="inline-form">
@@ -348,15 +366,9 @@
         <div id="log-bundles"></div>
       </section>
 
-      <section class="block">
-        <h2>Maps</h2>
-        <dl id="sys-maps" class="facts"></dl>
-        <h2 class="kc-sub">Modem</h2>
-        <dl id="sys-modem" class="facts"></dl>
-      </section>
     </div>
 
-    <section class="block">
+    <section class="block" id="sys-journal">
       <h2>Journal</h2>
       <form id="journal-form" class="inline-form">
         <select id="journal-unit" aria-label="Unit"><option value="">All services</option><option value="dmesg">Kernel</option></select>
@@ -366,34 +378,34 @@
       </form>
       <pre id="journal-out" class="journal" hidden></pre>
     </section>
+
+    <section class="block" id="sys-services">
+      <div class="page-head">
+        <h2>Services <button type="button" id="services-refresh" class="icon-btn icon-btn-page" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></h2>
+        <div class="page-tools">
+          <div class="chips" role="group" aria-label="Filter">
+            <button type="button" class="chip is-active" data-filter="all">All</button>
+            <button type="button" class="chip" data-filter="active">Running</button>
+            <button type="button" class="chip" data-filter="inactive">Stopped</button>
+            <button type="button" class="chip" data-filter="failed">Failed</button>
+            <button type="button" class="chip" data-filter="masked">Masked</button>
+          </div>
+          <select id="services-filter-select" class="filter-select" aria-label="Filter">
+            <option value="all">All</option>
+            <option value="active">Running</option>
+            <option value="inactive">Stopped</option>
+            <option value="failed">Failed</option>
+            <option value="masked">Masked</option>
+          </select>
+        </div>
+      </div>
+      <table id="services-table" class="data services">
+        <thead><tr><th>Unit</th><th>State</th><th class="actions"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
   </section>
 
-  <section id="view-services" class="view" hidden>
-    <div class="page-head">
-      <h1>Services <button type="button" id="services-refresh" class="icon-btn icon-btn-page" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></h1>
-      <div class="page-tools">
-        <div class="chips" role="group" aria-label="Filter">
-          <button type="button" class="chip is-active" data-filter="all">All</button>
-          <button type="button" class="chip" data-filter="active">Running</button>
-          <button type="button" class="chip" data-filter="inactive">Stopped</button>
-          <button type="button" class="chip" data-filter="failed">Failed</button>
-          <button type="button" class="chip" data-filter="masked">Masked</button>
-        </div>
-        <select id="services-filter-select" class="filter-select" aria-label="Filter">
-          <option value="all">All</option>
-          <option value="active">Running</option>
-          <option value="inactive">Stopped</option>
-          <option value="failed">Failed</option>
-          <option value="masked">Masked</option>
-        </select>
-      </div>
-    </div>
-    <p class="lede">The services running on the scooter.</p>
-    <table id="services-table" class="data services">
-      <thead><tr><th>Unit</th><th>State</th><th class="actions"></th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </section>
 
 </main>
 

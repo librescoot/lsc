@@ -155,6 +155,7 @@ main { max-width: var(--content); margin: 0 auto; padding: 1.75rem 24px 6rem; }
 .hero-batteries { display: flex; flex-direction: column; gap: 0.9rem; }
 .batt { display: grid; grid-template-columns: 7.5rem 1fr; gap: 0.2rem 1rem; align-items: center; }
 .batt-name { color: var(--text-2); font-size: 0.9rem; }
+@media (max-width: 640px) { .batt { grid-template-columns: 6rem 1fr; } .batt-name { line-height: 1.2; } }
 .batt-value { font-family: var(--display); font-size: 1.5rem; line-height: 1; }
 .batt-value small { font-family: var(--body); font-size: 0.85rem; color: var(--text-2); margin-left: 0.4rem; }
 .batt-bar { grid-column: 2; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
@@ -330,7 +331,10 @@ tr:hover .row-actions, tr:focus-within .row-actions { opacity: 1; }
 @media (max-width: 640px) { .jump { margin: 0 -16px 1rem; padding: 0.4rem 16px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; } .jump::-webkit-scrollbar { display: none; } }
 /* Header plus the sticky tabs, measured by the script, so a jump lands just
    below them at any width. */
-.group, [id^="dash-"] { scroll-margin-top: calc(var(--sticky-h, 108px) + 8px); }
+.group, [id^="dash-"], [id^="sys-"] { scroll-margin-top: calc(var(--sticky-h, 108px) + 8px); }
+.hero-chips a.status { color: var(--red); }
+.faults-cols { gap: 1.5rem 2.5rem; }
+.faults-cols h3 { margin-top: 0; }
 .group { margin-bottom: 2rem; }
 .group > h2 { padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 0; }
 .setting {
@@ -379,8 +383,6 @@ table.files td:first-child a svg { flex: none; width: 16px; height: 16px; }
 table.files .fname { min-width: 0; }
 table.files td:first-child a:hover { color: var(--accent); text-decoration: none; }
 table.files .fname { font-family: var(--mono); font-size: 0.88rem; overflow-wrap: anywhere; }
-}
-}
 table.files svg { width: 16px; height: 16px; color: var(--text-3); flex: none; }
 table.files .is-dir svg { color: var(--accent); }
 table.files td:nth-child(3), table.files th:nth-child(3) { width: 13rem; }
@@ -406,6 +408,7 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
   table.files .row-actions { flex-direction: column; align-items: flex-end; gap: 0.2rem; opacity: 1; }
   table.files tbody tr:hover td { background: none; box-shadow: none; }
   table.files .files-empty td { grid-column: 1 / -1; }
+}
 
 /* ---- navigation ---- */
 .nav-dest-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -455,6 +458,7 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
 .journal { font-family: var(--mono); font-size: 0.78rem; line-height: 1.45; background: var(--code-bg, #111); color: #E0E0E0; border-radius: var(--radius); padding: 0.75rem 0.9rem; margin: 0.75rem 0 0; white-space: pre; overflow: auto; max-height: 34rem; }
 :root[data-theme="dark"] .journal { background: var(--surface); border: 1px solid var(--border); }
 .tabs { gap: 0; }
+#sys-services .page-head { align-items: center; }
 .tabs a { padding: 11px 0.65rem 0; font-size: 0.88rem; }
 
 /* ---- keycards ---- */
