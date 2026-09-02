@@ -1,0 +1,16 @@
+[Unit]
+Description=Librescoot Daemon (lsd) - web management interface
+After=network.target valkey.service librescoot-netconfig.service
+Requires=valkey.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lsd -addr 192.168.7.1:8090
+Restart=on-failure
+RestartSec=5
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
