@@ -124,6 +124,19 @@ themeBtn.addEventListener("click", () => {
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 applyTheme();
 
+// ---------- sticky offsets ----------
+// The header wraps to two rows on phones and the settings tabs stick under
+// it; both heights feed the CSS so sticky offsets and jump targets match.
+function measureSticky() {
+  const bar = $(".topbar").getBoundingClientRect().height;
+  const jump = $$(".jump").find(j => j.offsetParent !== null && j.childElementCount);
+  const stack = bar + (jump ? jump.getBoundingClientRect().height : 0);
+  document.documentElement.style.setProperty("--topbar-h", `${Math.round(bar)}px`);
+  document.documentElement.style.setProperty("--sticky-h", `${Math.round(stack)}px`);
+}
+new ResizeObserver(measureSticky).observe($(".topbar"));
+$$(".jump").forEach(j => new ResizeObserver(measureSticky).observe(j));
+
 // ---------- routing ----------
 
 const Views = {};
@@ -134,6 +147,7 @@ function route() {
   $$(".view").forEach(v => { v.hidden = v.id !== "view-" + known; });
   $$(".tabs a").forEach(a => a.classList.toggle("is-active", a.dataset.view === known));
   currentView = known;
+  updateSavebar();
   Views[known]();
 }
 window.addEventListener("hashchange", route);
@@ -213,7 +227,9 @@ function ago(iso) {
   if (s < 5) return "just now";
   if (s < 90) return `${s} s ago`;
   if (s < 5400) return `${Math.round(s / 60)} min ago`;
-  return new Date(t).toLocaleString();
+  if (s < 48 * 3600) return `${Math.round(s / 3600)} h ago`;
+  if (s < 30 * 86400) return `${Math.round(s / 86400)} d ago`;
+  return new Date(t).toLocaleDateString();
 }
 
 const GOOD = new Set(["ok", "ideal", "active", "running", "run", "connected", "on", "home", "present", "fix-established", "open", "normal", "closed", "enabled", "ready-to-drive", "parked", "float-charge", "charging", "locked", "down", "idle"]);
@@ -266,7 +282,7 @@ function renderDashboard() {
     chips.push(`<span class="status ${t}">Alarm ${esc(human(st).toLowerCase())}</span>`);
   }
   if (has(pm.state) && pm.state !== "running") chips.push(`<span class="status is-warn">Power manager ${esc(human(pm.state).toLowerCase())}</span>`);
-  if (has(sys["usb0-gate"])) chips.push(`<span class="status ${sys["usb0-gate"] === "open" ? "is-good" : ""}">USB link ${sys["usb0-gate"] === "open" ? "held open" : "follows dashboard"}</span>`);
+  if (sys["usb0-gate"] === "open") chips.push(`<span class="status is-good">USB link held on</span>`);
   $("#hero-sub").innerHTML = `${has(vmdb.pretty_name) ? `<div class="hero-version">${esc(vmdb.pretty_name)}</div>` : ""}${chips.length ? `<div class="hero-chips">${chips.join("")}</div>` : ""}`;
 
   // Batteries.
@@ -302,7 +318,7 @@ function renderDashboard() {
     ["Handlebar", status(v["handlebar:lock-state"]), has(v["handlebar:position"]) ? human(v["handlebar:position"]) : null],
     ["Seatbox", status(v["seatbox:lock"])],
     ["Kickstand", status(v.kickstand)],
-    ["Dashboard", status(v["dashboard:power"], v["dashboard:power"] === "on" ? "Powered" : "Off")],
+    ["Display", status(v["dashboard:power"], v["dashboard:power"] === "on" ? "On" : "Off")],
     ["Blinkers", has(v["blinker:state"]) ? esc(human(v["blinker:state"])) : null],
     ["Keycards", has(sys["keycard-authorized-count"]) ? `${esc(sys["keycard-authorized-count"])} authorized` : null,
       has(sys["keycard-master-count"]) ? `${sys["keycard-master-count"]} master` : null],
@@ -314,8 +330,6 @@ function renderDashboard() {
   const coord = (has(gps.latitude) && has(gps.longitude)) ? `${num(gps.latitude).toFixed(5)}, ${num(gps.longitude).toFixed(5)}` : null;
   const gpsState = gps.state === "fix-established" ? `Fix (${gps.fix || "3d"})` : human(gps.state);
   renderFacts($("#facts-conn"), [
-    ["USB link", status(sys["usb0-gate"], sys["usb0-gate"] === "open" ? "Held open" : sys["usb0-gate"] === "closed" ? "Follows dashboard" : null),
-      sys["usb0-gate"] === "closed" ? "this page drops when the dashboard is off" : null],
     ["Internet", status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `signal ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
     ["Mobile network", has(modem["operator-name"]) ? esc(modem["operator-name"]) : status(modem["power-state"]),
       [modem.registration, modem["error-state"] && modem["error-state"] !== "ok" ? modem["error-state"] : null].filter(Boolean).map(human).join(", ")],
@@ -331,7 +345,7 @@ function renderDashboard() {
   // Boards.
   const boards = [
     ["MDB", vmdb.version || vmdb.version_id, vmdb.serial_number_real],
-    ["Dashboard", vdbc.version || vdbc.version_id, vdbc.serial_number_real],
+    ["Display", vdbc.version || vdbc.version_id, vdbc.serial_number_real],
     ["Motor controller", has(ecu["fw-version"]) ? `firmware ${ecu["fw-version"]}` : null, null],
     ["Bluetooth module", has(sys["nrf-fw-version"]) ? `firmware ${sys["nrf-fw-version"]}` : null, null],
   ].filter(r => has(r[1]));
@@ -470,7 +484,7 @@ $$("[data-cmd]").forEach(btn => {
 function syncCommandAvailability() {
   const live = state.live;
   $("#cmd-offline").hidden = live;
-  $$("#commands [data-cmd]").forEach(b => { if (!b.classList.contains("is-busy")) b.disabled = !live; });
+  $$("#dash-commands [data-cmd]").forEach(b => { if (!b.classList.contains("is-busy")) b.disabled = !live; });
 
   const status = H("alarm").status || "";
   const mode = /trigger/.test(status) ? "triggered" : /armed$/.test(status) ? "armed" : status === "disarmed" ? "disarmed" : "";
@@ -579,21 +593,30 @@ function renderSettings() {
 // The sticky service tabs underline the group whose heading was scrolled
 // past most recently.
 function markCurrentGroup() {
-  const groups = $$("#settings-groups .group");
-  if (!groups.length) return;
-  const line = 120;
-  let current = groups[0];
-  for (const g of groups) if (g.getBoundingClientRect().top <= line) current = g;
-  const svc = current.id.replace(/^group-/, "");
-  $$("#settings-jump a").forEach(a => a.classList.toggle("is-current", a.dataset.jump === svc));
+  const line = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sticky-h")) + 12 || 120;
+  const mark = (sections, prefix, nav) => {
+    if (!sections.length) return;
+    let current = sections[0];
+    for (const g of sections) if (g.getBoundingClientRect().top <= line) current = g;
+    const id = current.id.replace(prefix, "");
+    $$("a", nav).forEach(a => a.classList.toggle("is-current", a.dataset.jump === id));
+  };
+  if (currentView === "settings") mark($$("#settings-groups .group"), /^group-/, $("#settings-jump"));
+  if (currentView === "dashboard") mark($$("#view-dashboard [id^=dash-]"), /^dash-/, $("#view-dashboard .jump"));
 }
-window.addEventListener("scroll", () => { if (currentView === "settings") markCurrentGroup(); }, { passive: true });
+window.addEventListener("scroll", markCurrentGroup, { passive: true });
 $("#settings-jump").addEventListener("click", e => {
   const a = e.target.closest("[data-jump]");
   if (!a) return;
   e.preventDefault();
   const g = document.getElementById("group-" + a.dataset.jump);
   if (g) g.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+$("#view-dashboard .jump").addEventListener("click", e => {
+  const a = e.target.closest("[data-jump]");
+  if (!a) return;
+  e.preventDefault();
+  document.getElementById("dash-" + a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 function currentValue(key) {
@@ -687,7 +710,7 @@ function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTi
 
 // ---------- updates ----------
 
-const upd = { data: null };
+const upd = { data: null, chosen: {} };
 
 Views.updates = async function () {
   try { upd.data = await API.get("/api/updates"); renderUpdates(); } catch (err) { notify(err.message, true); }
@@ -706,7 +729,7 @@ function channelOf(board) {
 function renderUpdates() {
   const d = upd.data; if (!d) return;
   const ota = state.hashes.ota || d.ota || {};
-  const NAMES = { mdb: "MDB", dbc: "Dashboard (DBC)" };
+  const NAMES = { mdb: "MDB", dbc: "Display (DBC)" };
   $("#upd-boards").innerHTML = ["mdb", "dbc"].map(b => {
     const v = d.versions[b] || {};
     const st = ota[`status:${b}`] || "";
@@ -726,21 +749,25 @@ function renderUpdates() {
       ["Last check", has(lastCheck) ? esc(ago(lastCheck)) : `<span class="muted">never</span>`, d.settings[`updates.${b}.check-interval`] === "0s" ? "automatic checks off" : has(d.settings[`updates.${b}.check-interval`]) ? `every ${d.settings[`updates.${b}.check-interval`]}` : null],
     ];
     const bar = (label, p, warn) => p === null ? "" : `<div class="muted" style="font-size:.85rem">${label} ${p} %</div><div class="progress ${warn ? "is-warn" : ""}"><span style="width:${p}%"></span></div>`;
-    const previewLine = preview === "checking" ? `<span class="muted">Looking up ${esc(ota[`preview-channel:${b}`] || "")}</span>`
-      : preview === "ready" ? `${esc(ota[`preview-channel:${b}`])} has <span class="mono">${esc(ota[`preview-version:${b}`])}</span>${has(ota[`preview-size:${b}`]) ? `, ${esc(humanSize(num(ota[`preview-size:${b}`])))} download` : ""}`
-      : preview === "unavailable" ? `<span class="muted">${esc(ota[`preview-channel:${b}`])} has nothing for this board</span>`
-      : preview === "error" ? `<span class="status is-bad">Could not read the ${esc(ota[`preview-channel:${b}`])} channel</span>` : "";
+    const chosen = upd.chosen[b] || ch;
+    const pc = ota[`preview-channel:${b}`];
+    const previewFor = pc === chosen ? preview : "";
+    const previewLine = chosen === ch ? ""
+      : previewFor === "checking" ? `<span class="muted">Looking up ${esc(chosen)}</span>`
+      : previewFor === "ready" ? `${esc(chosen)} has <span class="mono">${esc(ota[`preview-version:${b}`])}</span>${has(ota[`preview-size:${b}`]) ? `, a ${esc(humanSize(num(ota[`preview-size:${b}`])))} full download` : ""}`
+      : previewFor === "unavailable" ? `<span class="muted">${esc(chosen)} has nothing for this board</span>`
+      : previewFor === "error" ? `<span class="status is-bad">Could not read the ${esc(chosen)} channel</span>`
+      : `<span class="muted">Looking up ${esc(chosen)}</span>`;
     return `<section class="block board" data-board="${b}">
       <h2>${NAMES[b]}</h2>
       <dl class="facts">${rows.filter(r => r && has(r[1])).map(([l, val, aside]) => `<dt>${esc(l)}</dt><dd>${val}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`).join("")}</dl>
       ${bar("Download", dl, false)}${bar("Install", inst, false)}
       <div class="cmd-row">
         <button type="button" class="btn" data-upd="check" data-board="${b}">Check now</button>
-        <div class="cmd-combo">
-          <select data-upd-channel="${b}" aria-label="Channel">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === ch ? "selected" : ""}>${c}${c === ch ? " (current)" : ""}</option>`).join("")}</select>
-          <button type="button" class="btn" data-upd="preview" data-board="${b}">Look up</button>
-          <button type="button" class="btn" data-upd="channel" data-board="${b}">Switch</button>
-        </div>
+        <label class="channel-pick">Channel
+          <select data-upd-channel="${b}" aria-label="Release channel">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === chosen ? "selected" : ""}>${c}${c === ch ? " (current)" : ""}</option>`).join("")}</select>
+        </label>
+        ${chosen !== ch && previewFor === "ready" ? `<button type="button" class="btn btn-primary" data-upd="switch" data-board="${b}">Switch to ${esc(chosen)} and update now</button>` : ""}
       </div>
       ${previewLine ? `<p class="cmd-hint">${previewLine}</p>` : ""}
     </section>`;
@@ -761,20 +788,41 @@ function renderUpdates() {
   }).join("") || `<p class="cmd-hint">No update files on the scooter.</p>`;
 }
 
+$("#view-updates").addEventListener("change", async e => {
+  const sel = e.target.closest("[data-upd-channel]");
+  if (!sel) return;
+  const board = sel.dataset.updChannel;
+  upd.chosen[board] = sel.value;
+  renderUpdates();
+  if (sel.value !== channelOf(board)) {
+    try { await API.post("/api/updates/action", { board, action: "preview", channel: sel.value }); } catch (err) { notify(err.message, true); }
+  }
+});
+
 $("#view-updates").addEventListener("click", async e => {
   const btn = e.target.closest("[data-upd]");
   if (!btn) return;
   const { upd: action, board, file } = btn.dataset;
   const body = { board, action };
-  if (action === "preview" || action === "channel") body.channel = $(`[data-upd-channel="${board}"]`).value;
+  if (action === "switch") body.channel = upd.chosen[board];
   if (action === "install" || action === "delete") body.file = file;
-  if (action === "channel") {
-    const ok = await confirmDialog({ title: `Switch ${board.toUpperCase()} to ${body.channel}`, body: `The next check downloads a full ${body.channel} image for this board and installs it.`, ok: "Switch" });
+  if (action === "switch") {
+    const ok = await confirmDialog({ title: `Switch ${board.toUpperCase()} to ${body.channel}`, body: `The full ${body.channel} image is downloaded and installed now. That takes a while and, for the MDB, ends in a reboot.`, ok: `Switch and update` });
     if (!ok) return;
+    btn.classList.add("is-busy");
+    try {
+      await API.post("/api/updates/action", { board, action: "channel", channel: body.channel });
+      await API.post("/api/updates/action", { board, action: "check" });
+      notify(`${board.toUpperCase()} switching to ${body.channel}`);
+      delete upd.chosen[board];
+      Views.updates();
+    } catch (err) { notify(err.message, true); }
+    finally { btn.classList.remove("is-busy"); }
+    return;
   }
   if (action === "install") {
     const ok = await confirmDialog({ title: `Install on ${board.toUpperCase()}`, body: board === "dbc"
-      ? `${file} is copied to the dashboard (it is powered on if needed) and installed. The dashboard applies it on its next power cycle.`
+      ? `${file} is copied to the display (switched on if needed) and installed. It takes effect the next time the display powers up.`
       : `${file} is installed now. The MDB reboots when the installation is done and this page comes back after that.`, ok: "Install", danger: board === "mdb" });
     if (!ok) return;
   }
@@ -785,7 +833,7 @@ $("#view-updates").addEventListener("click", async e => {
   btn.classList.add("is-busy");
   try {
     const res = await API.post("/api/updates/action", body);
-    notify({ check: "Checking for updates", preview: "Looking up channel", channel: `Channel set to ${body.channel}`, install: "Update queued", delete: "File deleted" }[action]);
+    notify({ check: "Checking for updates", install: "Update queued", delete: "File deleted" }[action]);
     if (res && res.status) Views.updates();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
@@ -1169,7 +1217,7 @@ async function renderFiles() {
         : `<a href="${esc(dl)}">${ICON_FILE}<span class="fname">${esc(e.name)}</span></a>`;
       rows.push(`<tr>
         <td>${link}</td>
-        <td class="num">${e.dir ? "" : esc(humanSize(e.size))}</td>
+        <td class="num">${e.dir ? "" : esc(humanSize(e.size))}${e.mtime ? `<span class="m-date">${e.dir ? "" : ", "}${esc(new Date(e.mtime * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }))}</span>` : ""}</td>
         <td>${e.mtime ? esc(new Date(e.mtime * 1000).toLocaleString()) : ""}</td>
         <td class="actions"><span class="row-actions">
           <a class="btn btn-small btn-quiet" href="${esc(dl)}">${e.dir ? "Download .tar" : "Download"}</a>
@@ -1267,7 +1315,7 @@ function renderCloud(data) {
     ["Identifier", has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">none yet</span>`],
     ["IMEI", has(id.imei) ? `<span class="mono">${esc(id.imei)}</span>` : `<span class="muted">modem not ready</span>`],
     ["MDB serial", has(id["mdb-serial"]) ? `<span class="mono">${esc(id["mdb-serial"])}</span>` : null],
-    ["Dashboard serial", has(id["dbc-serial"]) ? `<span class="mono">${esc(id["dbc-serial"])}</span>` : null],
+    ["Display serial", has(id["dbc-serial"]) ? `<span class="mono">${esc(id["dbc-serial"])}</span>` : null],
   ]);
 
   const services = data.services || {};
@@ -1398,12 +1446,18 @@ function renderServices() {
   }).join("") || `<tr><td colspan="3" class="muted">Nothing matches this filter.</td></tr>`;
 }
 
-$$(".chip").forEach(btn => btn.addEventListener("click", () => {
-  unitFilter = btn.dataset.filter;
-  $$(".chip").forEach(b => b.classList.toggle("is-active", b === btn));
+function setUnitFilter(f) {
+  unitFilter = f;
+  $$(".chip").forEach(b => b.classList.toggle("is-active", b.dataset.filter === f));
+  $("#services-filter-select").value = f;
   renderServices();
-}));
-$("#services-refresh").addEventListener("click", Views.services);
+}
+$$(".chip").forEach(btn => btn.addEventListener("click", () => setUnitFilter(btn.dataset.filter)));
+$("#services-filter-select").addEventListener("change", e => setUnitFilter(e.target.value));
+$("#services-refresh").addEventListener("click", async e => {
+  e.currentTarget.classList.add("is-busy");
+  try { await Views.services(); } finally { $("#services-refresh").classList.remove("is-busy"); }
+});
 
 $("#services-table").addEventListener("click", async e => {
   const btn = e.target.closest("[data-svc]");

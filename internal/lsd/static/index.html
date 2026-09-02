@@ -47,18 +47,26 @@
       <div id="hero-batteries" class="hero-batteries"></div>
     </div>
 
+    <nav class="jump" aria-label="Sections">
+      <a href="#dashboard/vehicle" data-jump="vehicle">Vehicle</a>
+      <a href="#dashboard/connectivity" data-jump="connectivity">Connectivity</a>
+      <a href="#dashboard/commands" data-jump="commands">Commands</a>
+      <a href="#dashboard/boards" data-jump="boards">Boards</a>
+      <a href="#dashboard/faults" data-jump="faults">Faults</a>
+    </nav>
+
     <div class="two-col">
-      <section class="block">
+      <section class="block" id="dash-vehicle">
         <h2>Vehicle</h2>
         <dl id="facts-vehicle" class="facts"></dl>
       </section>
-      <section class="block">
+      <section class="block" id="dash-connectivity">
         <h2>Connectivity</h2>
         <dl id="facts-conn" class="facts"></dl>
       </section>
     </div>
 
-    <section class="block" id="commands">
+    <section class="block" id="dash-commands">
       <h2>Commands</h2>
       <p id="cmd-offline" class="notice notice-warn" hidden>Not connected to the scooter.</p>
 
@@ -124,20 +132,20 @@
         <div class="cmd-label">Service mode</div>
         <div>
           <div class="cmd-row">
-            <button type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="The scooter stays awake with the USB link up; the alarm and the handlebar auto-lock are off. Ends when disabled or on reboot.">Enable</button>
+            <button type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="The scooter stays awake with the USB link up, alarm and handlebar auto-lock off, until you disable service mode or reboot.">Enable</button>
             <button type="button" class="cmd cmd-small" data-cmd="service-mode-off">Disable</button>
           </div>
-          <p class="cmd-hint">For working on the scooter: stays awake, USB link up, alarm and handlebar auto-lock off. Ends when disabled or on reboot.</p>
+          <p class="cmd-hint">For working on the scooter: it stays awake with the USB link up, alarm and handlebar auto-lock off. Ends when disabled or on reboot.</p>
         </div>
       </div>
     </section>
 
     <div class="two-col">
-      <section class="block">
+      <section class="block" id="dash-boards">
         <h2>Boards and firmware</h2>
         <table id="boards" class="data"><tbody></tbody></table>
       </section>
-      <section class="block">
+      <section class="block" id="dash-faults">
         <h2>Faults</h2>
         <div id="faults" class="faults"></div>
         <h3>Recent fault events</h3>
@@ -161,7 +169,7 @@
 
   <section id="view-navigation" class="view" hidden>
     <div class="page-head"><h1>Navigation</h1></div>
-    <p class="lede">The dashboard routes to the destination set here. Saved locations are the ones the dashboard offers in its menu.</p>
+    <p class="lede">The display navigates to the destination set here. Saved locations are the ones offered in the display's menu.</p>
 
     <section class="block nav-dest">
       <h2>Destination</h2>
@@ -284,7 +292,7 @@
 
     <details class="block advanced">
       <summary><h2>Install a config file</h2></summary>
-      <p>For uplink-service, or a radio-gaga config downloaded from Sunshine. Written where the service reads it, then the service restarts.</p>
+      <p>For uplink-service, or a radio-gaga config downloaded from Sunshine. The service restarts with it.</p>
       <form id="cloud-config-form">
         <div class="inline-form">
           <select id="cloud-service" aria-label="Service">
@@ -304,14 +312,14 @@
 
   <section id="view-updates" class="view" hidden>
     <div class="page-head"><h1>Updates</h1></div>
-    <p class="lede">Each board runs its own update-service. Channels are stable, testing and nightly; a channel switch downloads a full image, later updates on the same channel come as deltas.</p>
+    <p class="lede">Each board updates itself. Pick another channel to see what it would install. Switching downloads a full image; later updates on the same channel are small.</p>
     <div class="two-col" id="upd-boards"></div>
 
     <section class="block">
       <h2>Install a file</h2>
-      <p>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. MDB files install from where they land. DBC files are staged on the MDB and copied to the dashboard when you install; the dashboard is powered on for that if needed.</p>
+      <p>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. Files for the display are copied over when you install them; the display is switched on for that if needed.</p>
       <form id="upd-upload-form" class="inline-form">
-        <select id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option value="dbc">Dashboard (DBC)</option></select>
+        <select id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option value="dbc">Display (DBC)</option></select>
         <input type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
         <button type="submit" class="btn btn-primary">Upload</button>
       </form>
@@ -326,7 +334,7 @@
     <div class="two-col">
       <section class="block">
         <h2>Log bundles</h2>
-        <p>An archive of service journals, the kernel log, Redis snapshots and the fault history, for support. Built with <span class="mono">lsc logs</span>; takes a moment.</p>
+        <p>A snapshot of the scooter's logs and state, for troubleshooting. Takes a moment to build.</p>
         <form id="log-bundle-form" class="inline-form">
           <select id="log-since" aria-label="Time range">
             <option value="1h">Last hour</option>
@@ -351,7 +359,7 @@
     <section class="block">
       <h2>Journal</h2>
       <form id="journal-form" class="inline-form">
-        <select id="journal-unit" aria-label="Unit"><option value="">All units</option><option value="dmesg">Kernel (dmesg)</option></select>
+        <select id="journal-unit" aria-label="Unit"><option value="">All services</option><option value="dmesg">Kernel</option></select>
         <select id="journal-lines" aria-label="Lines"><option value="100">100 lines</option><option value="200" selected>200 lines</option><option value="500">500 lines</option><option value="2000">2000 lines</option></select>
         <button type="submit" class="btn">Show</button>
         <a id="journal-download" class="btn" href="#" download hidden>Download</a>
@@ -362,7 +370,7 @@
 
   <section id="view-services" class="view" hidden>
     <div class="page-head">
-      <h1>Services</h1>
+      <h1>Services <button type="button" id="services-refresh" class="icon-btn icon-btn-page" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></h1>
       <div class="page-tools">
         <div class="chips" role="group" aria-label="Filter">
           <button type="button" class="chip is-active" data-filter="all">All</button>
@@ -371,10 +379,16 @@
           <button type="button" class="chip" data-filter="failed">Failed</button>
           <button type="button" class="chip" data-filter="masked">Masked</button>
         </div>
-        <button type="button" id="services-refresh" class="btn">Refresh</button>
+        <select id="services-filter-select" class="filter-select" aria-label="Filter">
+          <option value="all">All</option>
+          <option value="active">Running</option>
+          <option value="inactive">Stopped</option>
+          <option value="failed">Failed</option>
+          <option value="masked">Masked</option>
+        </select>
       </div>
     </div>
-    <p class="lede">The Librescoot systemd units on this board.</p>
+    <p class="lede">The services running on the scooter.</p>
     <table id="services-table" class="data services">
       <thead><tr><th>Unit</th><th>State</th><th class="actions"></th></tr></thead>
       <tbody></tbody>
