@@ -97,8 +97,10 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
   max-width: var(--content); margin: 0 auto; padding: 0 24px;
   display: flex; align-items: center; gap: 2rem; height: 56px;
 }
-.brand { display: flex; align-items: center; }
-.brand img { height: 30px; width: auto; display: block; }
+.brand { display: flex; align-items: center; gap: 0.5rem; color: var(--on-dark); }
+.brand:hover { text-decoration: none; }
+.brand img { height: 32px; width: 32px; display: block; }
+.brand-name { font-family: var(--display); font-size: 1.55rem; line-height: 1; letter-spacing: 0.02em; margin-top: 2px; }
 .tabs { display: flex; gap: 0.25rem; height: 100%; margin-left: 0.5rem; }
 .tabs a {
   display: flex; align-items: center; padding: 0 0.75rem; height: 100%;

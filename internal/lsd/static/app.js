@@ -278,7 +278,7 @@ function renderDashboard() {
     const temps = [0, 1, 2, 3].map(i => num(b["temperature:" + i])).filter(t => t !== null);
     const meta = [fmtV(b.voltage), temps.length ? `${Math.max(...temps)} °C` : null,
       has(b["state-of-health"]) ? `health ${b["state-of-health"]} %` : null, has(b["cycle-count"]) ? `${b["cycle-count"]} cycles` : null];
-    batts.push(battRow(`Battery ${Number(id) + 1}`, present ? num(b.charge) : null, present ? b.state : "not present", meta, !present));
+    batts.push(battRow(`Battery ${Number(id) + 1}`, present ? num(b.charge) : null, present ? b.state : "not present", present ? meta : [], !present));
   }
   const aux = H("aux-battery");
   if (Object.keys(aux).length) {
@@ -288,7 +288,7 @@ function renderDashboard() {
   if (Object.keys(cbb).length) {
     const present = cbb.present !== "false";
     batts.push(battRow("Connectivity box", present ? num(cbb.charge) : null, present ? cbb["charge-status"] : "not present",
-      [fmtTemp(cbb.temperature), has(cbb["state-of-health"]) ? `health ${cbb["state-of-health"]} %` : null], !present));
+      present ? [fmtTemp(cbb.temperature), has(cbb["state-of-health"]) ? `health ${cbb["state-of-health"]} %` : null] : [], !present));
   }
   $("#hero-batteries").innerHTML = batts.join("") || `<div class="muted">No battery data.</div>`;
 
