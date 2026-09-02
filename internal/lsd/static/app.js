@@ -52,7 +52,7 @@ let tokenPrompting = false;
 async function askToken() {
   if (tokenPrompting) return;
   tokenPrompting = true;
-  const t = await promptDialog({ title: "Access token", body: "This scooter requires a token to manage it. It is the value passed to lsd with -token.", placeholder: "Token", password: true });
+  const t = await promptDialog({ title: "Access token", body: "This lsd requires a token (its -token flag).", placeholder: "Token", password: true });
   tokenPrompting = false;
   if (t === null) return;
   API.token = t.trim();
@@ -312,15 +312,16 @@ function renderDashboard() {
   const gpsState = gps.state === "fix-established" ? `Fix (${gps.fix || "3d"})` : human(gps.state);
   renderFacts($("#facts-conn"), [
     ["USB link", status(sys["usb0-gate"], sys["usb0-gate"] === "open" ? "Held open" : sys["usb0-gate"] === "closed" ? "Follows dashboard" : null),
-      sys["usb0-gate"] === "closed" ? "this page drops when the dashboard turns off" : null],
+      sys["usb0-gate"] === "closed" ? "this page drops when the dashboard is off" : null],
     ["Internet", status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `signal ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
     ["Mobile network", has(modem["operator-name"]) ? esc(modem["operator-name"]) : status(modem["power-state"]),
       [modem.registration, modem["error-state"] && modem["error-state"] !== "ok" ? modem["error-state"] : null].filter(Boolean).map(human).join(", ")],
     ["SIM", status(modem["sim-state"]), has(net["sim-iccid"]) ? `ICCID ${net["sim-iccid"]}` : null],
     ["IP address", has(net["ip-address"]) ? `<span class="mono">${esc(net["ip-address"])}</span>` : null],
-    ["GPS", status(gps.state, gpsState), has(gps["satellites-used"]) ? `${gps["satellites-used"]} of ${gps["satellites-visible"] || "?"} satellites` : null],
+    ["GPS", status(gps.state, gpsState),
+      [has(gps["satellites-used"]) ? `${gps["satellites-used"]} of ${gps["satellites-visible"] || "?"} satellites` : null, has(gps.updated) ? `updated ${ago(gps.updated)}` : null].filter(Boolean).join(", ")],
     ["Position", coord ? `<span class="mono">${esc(coord)}</span>` : null,
-      [has(gps.altitude) ? `${Math.round(num(gps.altitude))} m` : null, has(gps.speed) && num(gps.speed) >= 1 ? `${num(gps.speed).toFixed(0)} km/h` : null, has(gps.updated) ? ago(gps.updated) : null].filter(Boolean).join(", ")],
+      [has(gps.altitude) ? `altitude ${Math.round(num(gps.altitude))} m` : null, has(gps.speed) && num(gps.speed) >= 1 ? `${num(gps.speed).toFixed(0)} km/h` : null].filter(Boolean).join(", ")],
     ["Bluetooth", has(sys["nrf-fw-version"]) ? "Module present" : null],
   ]);
 
@@ -333,7 +334,7 @@ function renderDashboard() {
   ].filter(r => has(r[1]));
   $("#boards tbody").innerHTML = boards.map(([n, ver, sn]) =>
     `<tr><td>${esc(n)}</td><td>${esc(ver)}${sn ? `<div class="serial">${esc(sn)}</div>` : ""}</td></tr>`).join("")
-    || `<tr><td class="muted">No version information yet.</td></tr>`;
+    || `<tr><td class="muted">Not reported yet.</td></tr>`;
 
   // Faults.
   const SRC = { "vehicle": "Vehicle", "engine-ecu": "Motor controller", "battery:0": "Battery 1", "battery:1": "Battery 2" };
@@ -341,7 +342,7 @@ function renderDashboard() {
   for (const [src, list] of Object.entries(state.faults)) for (const f of list) rows.push([SRC[src] || src, f]);
   $("#faults").innerHTML = rows.length
     ? rows.map(([s, f]) => `<div class="fault"><span class="src">${esc(s)}</span><code>${esc(f)}</code></div>`).join("")
-    : `<div class="none">No active faults.</div>`;
+    : `<div class="none">None.</div>`;
 
   syncCommandAvailability();
 }
@@ -366,7 +367,7 @@ async function loadEvents() {
       const ms = Number(String(ev.id).split("-")[0]);
       const t = isFinite(ms) ? new Date(ms).toLocaleString() : ev.id;
       return `<tr><td>${esc(t)}</td><td><code>${esc(ev.code || "")}</code><div class="sub">${esc(ev.group || "")}${ev.description ? ": " + esc(ev.description) : ""}</div></td></tr>`;
-    }).join("") || `<tr><td class="muted" colspan="2">No fault events recorded since boot.</td></tr>`;
+    }).join("") || `<tr><td class="muted" colspan="2">None since boot.</td></tr>`;
   } catch (err) {
     tb.innerHTML = `<tr><td class="muted" colspan="2">${esc(err.message)}</td></tr>`;
   }
@@ -379,12 +380,12 @@ async function loadEvents() {
 // a second time, so clicks on hold buttons are always swallowed.
 
 const CMD_LABEL = {
-  "unlock": "Unlocked", "lock": "Locked", "seatbox-open": "Seatbox opened", "honk": "Honked",
-  "alarm-arm": "Alarm armed", "alarm-disarm": "Alarm disarmed", "alarm-stop": "Alarm stopped", "alarm-trigger": "Alarm sounding for 5 s",
+  "unlock": "Unlocking", "lock": "Locking", "seatbox-open": "Opening seatbox", "honk": "Honk",
+  "alarm-arm": "Arming alarm", "alarm-disarm": "Disarming alarm", "alarm-stop": "Stopping alarm", "alarm-trigger": "Sounding alarm",
   "blinkers-left": "Blinking left", "blinkers-right": "Blinking right", "blinkers-both": "Hazards on", "blinkers-off": "Blinkers off",
   "power-run": "Power-off cancelled", "power-hibernate-manual": "Hibernating", "power-reboot": "Rebooting",
-  "power-hibernate-for": "Sleeping, wake timer armed", "power-hibernate-cancel": "Wake timer cancelled, staying awake",
-  "service-mode-on": "Service mode enabled", "service-mode-off": "Service mode disabled",
+  "power-hibernate-for": "Sleeping, wake timer set", "power-hibernate-cancel": "Wake timer cancelled",
+  "service-mode-on": "Service mode on", "service-mode-off": "Service mode off",
 };
 
 async function sendCommand(btn) {
@@ -454,7 +455,7 @@ $$("[data-cmd]").forEach(btn => {
   }
   btn.addEventListener("click", async () => {
     if (btn.dataset.confirm) {
-      const ok = await confirmDialog({ title: btn.textContent.trim(), body: btn.dataset.confirm, ok: btn.textContent.trim() });
+      const ok = await confirmDialog({ title: btn.dataset.title || btn.textContent.trim(), body: btn.dataset.confirm, ok: btn.textContent.trim() });
       if (!ok) return;
     }
     sendCommand(btn);
@@ -557,7 +558,7 @@ function renderSettings() {
   container.innerHTML = "";
   $("#settings-jump").innerHTML = [...groups.keys()].map(s => `<a href="#settings/${esc(s)}" data-jump="${esc(s)}">${esc(s)}</a>`).join("");
   if (!groups.size) {
-    container.innerHTML = `<div class="settings-empty">No settings match${advanced ? "" : ". Advanced settings are hidden"}.</div>`;
+    container.innerHTML = `<div class="settings-empty">Nothing matches.${advanced ? "" : " Advanced settings are hidden."}</div>`;
   }
   for (const [svc, keys] of groups) {
     const g = document.createElement("section");
@@ -668,7 +669,7 @@ $("#settings-save").addEventListener("click", async () => {
     for (const [k, v] of Object.entries(res.applied || {})) { if (v === "") delete values[k]; else values[k] = v; dirty.delete(k); }
     failures = res.failures || {};
     const nf = Object.keys(failures).length, na = Object.keys(res.applied || {}).length;
-    if (nf) notify(`${na} saved, ${nf} rejected. See the marked rows.`, true);
+    if (nf) notify(`${na} saved, ${nf} rejected`, true);
     else notify(na === 1 ? "Saved 1 setting" : `Saved ${na} settings`);
     renderSettings();
   } catch (err) { notify(err.message, true); }
@@ -699,20 +700,20 @@ const fmtUID = (u) => u.replace(/(..)(?=.)/g, "$1 ");
 
 function renderKeycards() {
   const row = (uid, kind, extra = "") => `<div class="kc-row ${extra}"><span class="uid">${esc(fmtUID(uid))}</span>${kind ? `<span class="tag">${esc(kind)}</span>` : ""}
-    ${kind === "master" ? "" : `<button type="button" class="btn btn-small btn-quiet" data-kc-remove="${esc(uid)}" ${kc.authorized.length <= 1 ? 'disabled title="The last card cannot be removed"' : ""}>Remove</button>`}</div>`;
+    ${kind === "master" ? "" : `<button type="button" class="btn btn-small btn-quiet" data-kc-remove="${esc(uid)}" ${kc.authorized.length <= 1 ? 'disabled title="The last card stays"' : ""}>Remove</button>`}</div>`;
   const learned = kc.learned.filter(u => !kc.authorized.includes(u));
   $("#kc-authorized").innerHTML = [
     ...kc.authorized.map(u => row(u, "")),
     ...learned.map(u => row(u, "tapped, unsaved", "is-new")),
-  ].join("") || `<div class="kc-empty">No authorized cards. Tap a master card at the reader, or authorize one below.</div>`;
-  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">No master card. The next card tapped at the reader becomes the master.</div>`;
+  ].join("") || `<div class="kc-empty">No authorized cards yet.</div>`;
+  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">No master card. The next card tapped at the reader becomes one.</div>`;
 
   const learn = $("#kc-learn-start").closest(".kc-learn");
   learn.classList.toggle("is-active", kc.learning === "cards");
   $("#kc-learn-start").hidden = kc.learning === "cards";
   $("#kc-learn-stop").hidden = kc.learning !== "cards";
   $("#kc-learn-hint").textContent = kc.learning === "cards"
-    ? `Tap each card to authorize at the reader${learned.length ? `, ${learned.length} tapped so far` : ""}. Finish to save.`
+    ? `Tap cards at the reader${learned.length ? `, ${learned.length} so far` : ""}.`
     : "";
   $("#kc-master-start").hidden = kc.learning === "master";
   $("#kc-master-stop").hidden = kc.learning !== "master";
@@ -736,13 +737,13 @@ function onKeycardEvent(ev, ts) {
   const [kind, ...rest] = ev.split(":");
   const uid = rest[rest.length - 1];
   switch (kind) {
-    case "card-learned": if (!kc.learned.includes(uid)) kc.learned.push(uid); kc.learning = kc.learning || "cards"; notify(`Card ${fmtUID(uid)} tapped`); break;
-    case "card-duplicate": notify(`Card ${fmtUID(uid)} is already authorized`); break;
+    case "card-learned": if (!kc.learned.includes(uid)) kc.learned.push(uid); kc.learning = kc.learning || "cards"; notify(`Tapped ${fmtUID(uid)}`); break;
+    case "card-duplicate": notify(`${fmtUID(uid)} is already authorized`); break;
     case "mode-entered": if (rest[0] === "master") kc.learning = "master"; break;
     case "mode-exited": if (kc.learning === "master") kc.learning = null; break;
-    case "master-learned": notify(`Master card ${fmtUID(uid)} added`); kc.learning = null; Views.keycards(); return;
-    case "rejected": notify(`Card ${fmtUID(uid)} is already authorized and cannot become a master`, true); break;
-    case "error": notify(`Saving ${fmtUID(uid)} failed`, true); break;
+    case "master-learned": notify(`Master ${fmtUID(uid)} added`); kc.learning = null; Views.keycards(); return;
+    case "rejected": notify(`${fmtUID(uid)} is already authorized, so it cannot be a master`, true); break;
+    case "error": notify(`Could not save ${fmtUID(uid)}`, true); break;
     case "reset": kc.learning = null; kc.learned = []; Views.keycards(); return;
   }
   if (currentView === "keycards") renderKeycards();
@@ -771,7 +772,7 @@ $("#view-keycards").addEventListener("click", async e => {
   const rm = e.target.closest("[data-kc-remove]");
   if (rm) {
     const uid = rm.dataset.kcRemove;
-    const ok = await confirmDialog({ title: "Remove card", body: `Card ${fmtUID(uid)} will no longer unlock the scooter.`, ok: "Remove", danger: true });
+    const ok = await confirmDialog({ title: "Remove card", body: `${fmtUID(uid)} will no longer unlock the scooter.`, ok: "Remove", danger: true });
     if (!ok) return;
     try { await keycardCommand("remove", uid, rm); notify("Card removed"); } catch (err) { notify(err.message, true); }
   }
@@ -793,7 +794,7 @@ $("#kc-master-stop").addEventListener("click", async e => {
   try { await keycardCommand("learn:master:stop", "", e.target); kc.learning = null; renderKeycards(); } catch (err) { notify(err.message, true); }
 });
 $("#kc-reset").addEventListener("click", async e => {
-  const ok = await confirmDialog({ title: "Forget all cards", body: "Every master and authorized card is removed. The scooter cannot be unlocked with a card until a new master has been taught in at the reader.", ok: "Forget all cards", danger: true });
+  const ok = await confirmDialog({ title: "Forget all cards", body: "Removes all cards. Until a new master is taught in at the reader, no card unlocks the scooter.", ok: "Forget all cards", danger: true });
   if (!ok) return;
   try { await keycardCommand("reset", "", e.target); kc.learning = null; kc.learned = []; notify("All cards forgotten"); Views.keycards(); } catch (err) { notify(err.message, true); }
 });
@@ -837,7 +838,7 @@ async function renderFiles() {
         </span></td>
       </tr>`);
     }
-    tb.innerHTML = rows.join("") || `<tr class="files-empty"><td colspan="4">This folder is empty. Upload files or drop them here.</td></tr>`;
+    tb.innerHTML = rows.join("") || `<tr class="files-empty"><td colspan="4">Empty folder.</td></tr>`;
   } catch (err) { notify(err.message, true); }
 }
 
@@ -904,7 +905,7 @@ dz.addEventListener("dragleave", () => dz.classList.remove("is-drag"));
 dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("is-drag"); await uploadFiles([...e.dataTransfer.files]); });
 
 $("#files-mkdir").addEventListener("click", async () => {
-  const name = await promptDialog({ title: "New folder", body: `Created inside /data${filesPath ? "/" + filesPath : ""}.`, placeholder: "Folder name", ok: "Create" });
+  const name = await promptDialog({ title: "New folder", body: `In /data${filesPath ? "/" + filesPath : ""}`, placeholder: "Folder name", ok: "Create" });
   if (!name || !name.trim()) return;
   const target = filesPath ? `${filesPath}/${name.trim()}` : name.trim();
   try {
@@ -924,7 +925,7 @@ function renderCloud(data) {
   const sunshine = data["sunshine-url"] || "https://sunshine.rescoot.org";
   $("#cloud-sunshine-link").href = sunshine + "/settings";
   renderFacts($("#cloud-identity"), [
-    ["Identifier", has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">not assigned yet</span>`],
+    ["Identifier", has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">none yet</span>`],
     ["IMEI", has(id.imei) ? `<span class="mono">${esc(id.imei)}</span>` : `<span class="muted">modem not ready</span>`],
     ["MDB serial", has(id["mdb-serial"]) ? `<span class="mono">${esc(id["mdb-serial"])}</span>` : null],
     ["Dashboard serial", has(id["dbc-serial"]) ? `<span class="mono">${esc(id["dbc-serial"])}</span>` : null],
@@ -936,10 +937,10 @@ function renderCloud(data) {
   $("#cloud-services").innerHTML = order.filter(n => services[n]).map(n => {
     const s = services[n];
     const lines = [];
-    if (!s.installed) lines.push(`<span class="muted">Not installed on this board</span>`);
+    if (!s.installed) lines.push(`<span class="muted">Not installed</span>`);
     else lines.push(status(s.active, s.active === "active" ? "Running" : human(s.active)));
     if (s.configured) {
-      lines.push(`${s.backend === "sunshine" ? "Connected to Sunshine" : "Custom backend"} as <span class="mono">${esc(s.identifier)}</span>`);
+      lines.push(`${s.backend === "sunshine" ? "Connected to Sunshine as" : "Custom backend,"} <span class="mono">${esc(s.identifier)}</span>`);
       if (s.backend === "custom") lines.push(`<span class="muted">${esc(s["server-url"])}</span>`);
     } else {
       lines.push(`<span class="muted">Not configured</span>`);
@@ -952,7 +953,7 @@ function renderCloud(data) {
   const box = $("#cloud-connected");
   if (connected.length) {
     box.hidden = false;
-    box.textContent = `This scooter is already connected to Sunshine as ${connected[0].identifier}. Connecting again moves it to the account that owns the token and replaces the current configuration.`;
+    box.textContent = `Already connected to Sunshine as ${connected[0].identifier}. Connecting again moves the scooter to the token owner's account and replaces the config.`;
     $("#cloud-bootstrap-form button").textContent = "Reconnect";
   } else {
     box.hidden = true;
@@ -977,7 +978,7 @@ $("#cloud-bootstrap-form").addEventListener("submit", async e => {
     const res = await API.post("/api/cloud/bootstrap", { token });
     const problems = [res.error, res["restart-error"], res["enable-error"]].filter(Boolean);
     showResult(out, res, problems.length > 0);
-    if (problems.length) notify("Configuration written, but: " + problems.join("; "), true);
+    if (problems.length) notify("Config written, but " + problems.join("; "), true);
     else notify(`Connected to Sunshine as ${res.identifier || "this scooter"}`);
     $("#cloud-token").value = "";
     Views.cloud();
@@ -990,7 +991,7 @@ $("#cloud-bootstrap-form").addEventListener("submit", async e => {
 $("#cloud-config-form").addEventListener("submit", async e => {
   e.preventDefault();
   const yaml = $("#cloud-yaml").value;
-  if (!yaml.trim()) return notify("Paste a configuration first", true);
+  if (!yaml.trim()) return notify("Paste a config first", true);
   const btn = $("button[type=submit]", e.target);
   const out = $("#cloud-config-out");
   btn.classList.add("is-busy");
@@ -998,7 +999,7 @@ $("#cloud-config-form").addEventListener("submit", async e => {
     const res = await API.post("/api/cloud/config", { service: $("#cloud-service").value, yaml, "config-path": $("#cloud-path").value.trim() });
     const problems = [res.error, res["restart-error"], res["enable-error"]].filter(Boolean);
     showResult(out, res, problems.length > 0);
-    notify(problems.length ? "Configuration written, but: " + problems.join("; ") : `Configuration written, ${res.service} restarted`, problems.length > 0);
+    notify(problems.length ? "Config written, but " + problems.join("; ") : `Config installed, ${res.service} restarted`, problems.length > 0);
     Views.cloud();
   } catch (err) {
     showResult(out, err.message, true);
@@ -1055,7 +1056,7 @@ function renderServices() {
                   : `<button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="start">Start</button>`}
       </span></td>
     </tr>`;
-  }).join("") || `<tr><td colspan="3" class="muted">No units match this filter.</td></tr>`;
+  }).join("") || `<tr><td colspan="3" class="muted">Nothing matches this filter.</td></tr>`;
 }
 
 $$(".chip").forEach(btn => btn.addEventListener("click", () => {
@@ -1072,13 +1073,13 @@ $("#services-table").addEventListener("click", async e => {
   const name = svc.replace(/\.service$/, "");
   const critical = ["valkey.service", "redis.service", "librescoot-vehicle.service", "librescoot-pm.service"].includes(svc);
   if (act !== "start" && critical) {
-    const ok = await confirmDialog({ title: `${human(act)} ${name}`, body: `${name} is essential. Stopping or restarting it disrupts the whole scooter for a moment, and this page may lose its connection.`, ok: human(act), danger: true });
+    const ok = await confirmDialog({ title: `${human(act)} ${name}`, body: `${name} is a core service. Stopping or restarting it interrupts the whole scooter briefly and may disconnect this page.`, ok: human(act), danger: true });
     if (!ok) return;
   }
   btn.classList.add("is-busy");
   try {
     await API.post("/api/services/action", { unit: svc, action: act });
-    notify(`${human(act)} ${name}: done`);
+    notify(`${ {restart: "Restarted", stop: "Stopped", start: "Started"}[act] || human(act)} ${name}`);
     Views.services();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }

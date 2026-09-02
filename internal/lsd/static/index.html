@@ -56,7 +56,7 @@
 
     <section class="block" id="commands">
       <h2>Commands</h2>
-      <p id="cmd-offline" class="notice notice-warn" hidden>Not connected to the scooter. Commands are unavailable until the live connection is back.</p>
+      <p id="cmd-offline" class="notice notice-warn" hidden>Not connected to the scooter.</p>
 
       <div class="cmd-primary">
         <button type="button" class="cmd cmd-tone-green" data-cmd="unlock" data-hold="1500">
@@ -113,17 +113,17 @@
             <button type="button" class="cmd cmd-small" data-cmd="power-run" id="cmd-cancel-power" hidden>Cancel power-off</button>
             <button type="button" class="cmd cmd-small" data-cmd="power-hibernate-cancel" id="cmd-cancel-wake" hidden>Cancel wake timer</button>
           </div>
-          <p class="cmd-hint">Hibernate powers off until a keycard or button wakes the scooter. Sleep for does the same and wakes on a timer. Reboot takes about a minute; this page comes back on its own.</p>
+          <p class="cmd-hint">Hibernate powers the scooter off until a keycard or button wakes it. Sleep for wakes it on a timer instead. A reboot takes about a minute.</p>
           <p class="cmd-hint" id="power-hint"></p>
         </div>
 
         <div class="cmd-label">Service mode</div>
         <div>
           <div class="cmd-row">
-            <button type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-confirm="Service mode disables auto-standby, auto-hibernate, the alarm and the handlebar auto-lock, and keeps the USB link up, until you disable it again or reboot. Continue?">Enable</button>
+            <button type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="The scooter stays awake with the USB link up; the alarm and the handlebar auto-lock are off. Ends when disabled or on reboot.">Enable</button>
             <button type="button" class="cmd cmd-small" data-cmd="service-mode-off">Disable</button>
           </div>
-          <p class="cmd-hint">Keeps the scooter awake and the USB link up, with alarm and handlebar auto-lock off, until disabled or rebooted.</p>
+          <p class="cmd-hint">For working on the scooter: stays awake, USB link up, alarm and handlebar auto-lock off. Ends when disabled or on reboot.</p>
         </div>
       </div>
     </section>
@@ -150,26 +150,26 @@
         <label class="check"><input id="settings-advanced" type="checkbox"> Show advanced</label>
       </div>
     </div>
-    <p class="lede">Values live in the settings hash on the scooter and take effect immediately. Clearing a field restores the built-in default.</p>
+    <p class="lede">Changes apply when saved. An empty field means the default.</p>
     <nav id="settings-jump" class="jump" aria-label="Services"></nav>
     <div id="settings-groups"></div>
   </section>
 
   <section id="view-keycards" class="view" hidden>
     <div class="page-head"><h1>Keycards</h1></div>
-    <p class="lede">Authorized cards unlock the scooter. Master cards additionally open the teach-in mode at the reader: tap a master, then tap the cards to authorize. Everything here talks to keycard-service, so changes apply immediately.</p>
+    <p class="lede">Authorized cards unlock the scooter. A master card also starts teach-in at the reader: tap the master, then tap the cards to add.</p>
 
     <div class="two-col">
       <section class="block">
         <h2>Authorized cards</h2>
         <div id="kc-authorized" class="kc-list"></div>
         <form id="kc-add-form" class="inline-form">
-          <input id="kc-add-uid" placeholder="Card UID, e.g. 04A1B2C3D4E5F6" aria-label="Card UID" spellcheck="false" autocomplete="off">
+          <input id="kc-add-uid" placeholder="Card UID" aria-label="Card UID" spellcheck="false" autocomplete="off">
           <button type="submit" class="btn">Authorize</button>
         </form>
         <div class="kc-learn">
-          <button type="button" class="btn" id="kc-learn-start">Authorize by tapping</button>
-          <button type="button" class="btn btn-primary" id="kc-learn-stop" hidden>Finish, save cards</button>
+          <button type="button" class="btn" id="kc-learn-start">Add by tapping</button>
+          <button type="button" class="btn btn-primary" id="kc-learn-stop" hidden>Save tapped cards</button>
           <span class="kc-learn-hint" id="kc-learn-hint"></span>
         </div>
       </section>
@@ -181,16 +181,16 @@
           <button type="button" class="btn" id="kc-master-start">Add a master by tapping</button>
           <button type="button" class="btn" id="kc-master-stop" hidden>Cancel</button>
         </div>
-        <p class="cmd-hint">A new master is added, existing masters stay. Replacing the master list with a single card clears all authorized cards; that is what the reset below is for.</p>
+        <p class="cmd-hint">Adds another master. Existing masters stay.</p>
 
         <h2 class="kc-sub">Last card at the reader</h2>
-        <div id="kc-last" class="kc-last muted">No card seen since this page opened.</div>
+        <div id="kc-last" class="kc-last muted">Nothing tapped yet.</div>
       </section>
     </div>
 
     <details class="block advanced">
       <summary><h2>Start over</h2></summary>
-      <p>Removes every master and authorized card and leaves the reader in the state a fresh installation starts in: the next card tapped becomes the master. The scooter cannot be unlocked with a card until then.</p>
+      <p>Removes all cards. The next card tapped at the reader becomes the new master; until then no card unlocks the scooter.</p>
       <button type="button" class="btn btn-danger" id="kc-reset">Forget all cards</button>
     </details>
   </section>
@@ -210,13 +210,13 @@
         <thead><tr><th>Name</th><th class="num">Size</th><th>Modified</th><th class="actions"></th></tr></thead>
         <tbody></tbody>
       </table>
-      <p class="drop-hint">Drop files anywhere in this list to upload them into the current folder.</p>
+      <p class="drop-hint">Drop files here to upload them to this folder.</p>
     </div>
   </section>
 
   <section id="view-cloud" class="view" hidden>
     <div class="page-head"><h1>Cloud</h1></div>
-    <p class="lede">Sunshine is the cloud service run by rescoot.org: remote lock and unlock, location, telemetry and the companion app. The scooter connects to it through radio-gaga. uplink-service connects to a backend of your own instead.</p>
+    <p class="lede">Sunshine, run by rescoot.org, gives you remote lock and unlock, location, telemetry and the companion app. radio-gaga connects the scooter to it. uplink-service connects to a backend of your own.</p>
 
     <div class="two-col">
       <section class="block">
@@ -232,7 +232,7 @@
     <section class="block" id="cloud-connect">
       <h2>Connect to Sunshine</h2>
       <div id="cloud-connected" class="notice notice-ok" hidden></div>
-      <p>Open <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/settings" target="_blank" rel="noopener">your Sunshine settings</a>, create a bootstrap token, and paste it here. The scooter identifies itself with its IMEI and board serials, Sunshine adds it to your account and sends back the radio-gaga configuration, which is installed and started right away.</p>
+      <p>Create a bootstrap token in <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/settings" target="_blank" rel="noopener">your Sunshine settings</a> and paste it here. The scooter registers with its IMEI and board serials, Sunshine adds it to your account, and radio-gaga is configured and started.</p>
       <form id="cloud-bootstrap-form" class="inline-form">
         <input id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="Bootstrap token" aria-label="Bootstrap token" required>
         <button type="submit" class="btn btn-primary">Connect</button>
@@ -241,19 +241,19 @@
     </section>
 
     <details class="block advanced">
-      <summary><h2>Install a configuration file by hand</h2></summary>
-      <p>For uplink-service, or for a radio-gaga config downloaded from the Sunshine scooter page. The file is written to the path the service reads and the service is restarted.</p>
+      <summary><h2>Install a config file</h2></summary>
+      <p>For uplink-service, or a radio-gaga config downloaded from Sunshine. Written where the service reads it, then the service restarts.</p>
       <form id="cloud-config-form">
         <div class="inline-form">
           <select id="cloud-service" aria-label="Service">
             <option value="radio-gaga">radio-gaga</option>
             <option value="uplink">uplink-service</option>
           </select>
-          <input id="cloud-path" placeholder="Config path (leave empty for the service default)" aria-label="Config path">
+          <input id="cloud-path" placeholder="Config path (optional)" aria-label="Config path">
         </div>
-        <textarea id="cloud-yaml" rows="10" spellcheck="false" placeholder="Paste the YAML configuration here" aria-label="Configuration"></textarea>
+        <textarea id="cloud-yaml" rows="10" spellcheck="false" placeholder="YAML config" aria-label="Configuration"></textarea>
         <div class="inline-form">
-          <button type="submit" class="btn">Write config and restart service</button>
+          <button type="submit" class="btn">Install and restart</button>
         </div>
       </form>
       <pre id="cloud-config-out" class="result" hidden></pre>
