@@ -40,6 +40,13 @@ contracts.
   the scooter to that account and returns the radio-gaga config, which lsd
   writes and starts. A pasted config file can be installed for either
   service instead.
+- **Updates**: per-board update status, progress and errors from
+  update-service, channel look-up and switch, check now, and installing an
+  uploaded `.mender` or `.delta`. MDB files install in place; DBC files are
+  staged on the MDB and copied to the dashboard over usb0 on install.
+- **System**: log bundles (created with `lsc logs`, downloadable), a
+  journal viewer per unit, installed map and routing tiles, and modem
+  details.
 - **Navigation**: the dashboard's current destination (set from
   coordinates, the scooter's own position, or a saved location; clear), and
   the saved locations the dashboard menu offers, with add, edit and delete.
@@ -106,6 +113,11 @@ and service actions only reach systemd for Librescoot unit names.
 | `POST /api/files/mkdir` | Create a folder. |
 | `GET /files/<path>?download=1` | Download a file, or a folder as tar. |
 | `GET /api/services`, `POST /api/services/action` | Units and start/stop/restart/enable/disable. |
+| `GET /api/updates` | The `ota` hash, board versions, `updates.*` settings and staged update files. |
+| `PUT /api/updates/upload?board=&name=` | Store a `.mender` or `.delta` under `/data/ota/<board>/`, returns its SHA-256. |
+| `POST /api/updates/action` | `{board, action}`: `check`, `preview`/`channel` with `channel`, `install`/`delete` with `file`. DBC installs copy the file to the dashboard's data-server first. |
+| `GET/POST /api/system/logs` | List log bundles; create one with `{since}` via `lsc logs`. |
+| `GET /api/system/journal?unit=&lines=` | Journal tail for a known unit, all units, or `dmesg`. |
 | `GET /api/navigation`, `POST /api/navigation` | Current destination and saved locations; set `{latitude, longitude, address?, location-id?}` or `{clear: true}`. |
 | `PUT/DELETE /api/navigation/locations` | Create or update `{id?, label, latitude, longitude}`; delete by `?id=`. Stored as `dashboard.saved-locations.<id>.*` in settings. |
 | `GET /api/keycards` | Authorized and master card UIDs from keycard-service's files, plus the last card seen. |

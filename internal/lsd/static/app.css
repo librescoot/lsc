@@ -255,7 +255,8 @@ input[type="search"] { min-width: 16rem; }
 .check { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--text-2); cursor: pointer; user-select: none; }
 .inline-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0.5rem 0; }
 .inline-form input, .inline-form select { flex: 1 1 18rem; }
-.inline-form .btn { flex: none; }
+.inline-form .btn, .inline-form select.narrow { flex: none; }
+a.btn, a.btn:hover { text-decoration: none; }
 
 /* switch */
 .switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; }
@@ -384,6 +385,24 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
 .loc-edit { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
 .loc-edit input { flex: 1 1 8rem; }
 .loc-edit input.label { flex: 2 1 12rem; }
+
+/* ---- updates, system ---- */
+.board { padding-bottom: 0.5rem; }
+.board .facts { margin-bottom: 0.75rem; }
+.progress { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin: 0.35rem 0 0.75rem; }
+.progress span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+.progress.is-warn span { background: var(--yellow-dot); }
+.upd-row { display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 1rem; padding: 0.55rem 0; border-bottom: 1px solid var(--border-subtle); align-items: center; }
+.upd-row:last-child { border-bottom: 0; }
+.upd-row .fname { font-family: var(--mono); font-size: 0.88rem; overflow-wrap: anywhere; }
+.upd-row .fmeta { color: var(--text-3); font-size: 0.82rem; grid-column: 1; }
+.upd-row .row-actions { grid-column: 2; grid-row: 1 / span 2; opacity: 1; }
+.upd-group { margin-top: 1rem; }
+.upd-group h3 { margin: 0.5rem 0 0.25rem; }
+.journal { font-family: var(--mono); font-size: 0.78rem; line-height: 1.45; background: var(--code-bg, #111); color: #E0E0E0; border-radius: var(--radius); padding: 0.75rem 0.9rem; margin: 0.75rem 0 0; white-space: pre; overflow: auto; max-height: 34rem; }
+:root[data-theme="dark"] .journal { background: var(--surface); border: 1px solid var(--border); }
+.tabs { gap: 0; }
+.tabs a { padding: 0 0.65rem; font-size: 0.88rem; }
 
 /* ---- keycards ---- */
 .kc-list { margin-bottom: 0.75rem; }

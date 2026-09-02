@@ -29,6 +29,8 @@ var statusHashes = []string{
 	"dashboard",
 	"keycard",
 	"navigation",
+	"ota",
+	"maps",
 	"settings",
 	"version:mdb",
 	"version:dbc",

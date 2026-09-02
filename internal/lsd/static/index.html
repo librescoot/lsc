@@ -21,7 +21,9 @@
       <a href="#keycards" data-view="keycards">Keycards</a>
       <a href="#files" data-view="files">Files</a>
       <a href="#cloud" data-view="cloud">Cloud</a>
+      <a href="#updates" data-view="updates">Updates</a>
       <a href="#services" data-view="services">Services</a>
+      <a href="#system" data-view="system">System</a>
     </nav>
     <div class="topbar-tools">
       <span id="conn" class="conn" data-state="connecting"><span class="dot"></span><span class="conn-text">connecting</span></span>
@@ -297,6 +299,64 @@
       </form>
       <pre id="cloud-config-out" class="result" hidden></pre>
     </details>
+  </section>
+
+  <section id="view-updates" class="view" hidden>
+    <div class="page-head"><h1>Updates</h1></div>
+    <p class="lede">Each board runs its own update-service. Channels are stable, testing and nightly; a channel switch downloads a full image, later updates on the same channel come as deltas.</p>
+    <div class="two-col" id="upd-boards"></div>
+
+    <section class="block">
+      <h2>Install a file</h2>
+      <p>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. MDB files install from where they land. DBC files are staged on the MDB and copied to the dashboard when you install; the dashboard is powered on for that if needed.</p>
+      <form id="upd-upload-form" class="inline-form">
+        <select id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option value="dbc">Dashboard (DBC)</option></select>
+        <input type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
+        <button type="submit" class="btn btn-primary">Upload</button>
+      </form>
+      <div id="upd-upload-progress" class="progress" hidden><span></span></div>
+      <div id="upd-files"></div>
+    </section>
+  </section>
+
+  <section id="view-system" class="view" hidden>
+    <div class="page-head"><h1>System</h1></div>
+
+    <div class="two-col">
+      <section class="block">
+        <h2>Log bundles</h2>
+        <p>An archive of service journals, the kernel log, Redis snapshots and the fault history, for support. Built with <span class="mono">lsc logs</span>; takes a moment.</p>
+        <form id="log-bundle-form" class="inline-form">
+          <select id="log-since" aria-label="Time range">
+            <option value="1h">Last hour</option>
+            <option value="6h">Last 6 hours</option>
+            <option value="24h" selected>Last 24 hours</option>
+            <option value="3d">Last 3 days</option>
+            <option value="7d">Last 7 days</option>
+          </select>
+          <button type="submit" class="btn btn-primary">Create bundle</button>
+        </form>
+        <div id="log-bundles"></div>
+      </section>
+
+      <section class="block">
+        <h2>Maps</h2>
+        <dl id="sys-maps" class="facts"></dl>
+        <h2 class="kc-sub">Modem</h2>
+        <dl id="sys-modem" class="facts"></dl>
+      </section>
+    </div>
+
+    <section class="block">
+      <h2>Journal</h2>
+      <form id="journal-form" class="inline-form">
+        <select id="journal-unit" aria-label="Unit"><option value="">All units</option><option value="dmesg">Kernel (dmesg)</option></select>
+        <select id="journal-lines" aria-label="Lines"><option value="100">100 lines</option><option value="200" selected>200 lines</option><option value="500">500 lines</option><option value="2000">2000 lines</option></select>
+        <button type="submit" class="btn">Show</button>
+        <a id="journal-download" class="btn" href="#" download hidden>Download</a>
+      </form>
+      <pre id="journal-out" class="journal" hidden></pre>
+    </section>
   </section>
 
   <section id="view-services" class="view" hidden>

@@ -239,6 +239,12 @@ func (s *Server) routes() http.Handler {
 	api("/api/services", s.handleServices)
 	api("/api/services/action", s.handleServiceAction)
 
+	api("/api/updates", s.handleUpdates)
+	api("/api/updates/upload", s.handleUpdatesUpload)
+	api("/api/updates/action", s.handleUpdatesAction)
+	api("/api/system/logs", s.handleLogBundles)
+	api("/api/system/journal", s.handleJournal)
+
 	api("/api/navigation", s.handleNavigation)
 	api("/api/navigation/locations", s.handleLocations)
 

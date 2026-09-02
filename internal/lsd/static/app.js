@@ -188,6 +188,8 @@ function scheduleRender() {
     if (currentView === "dashboard") renderDashboard();
     if (currentView === "keycards") renderLastCard();
     if (currentView === "navigation") renderDestination();
+    if (currentView === "updates") renderUpdates();
+    if (currentView === "system") renderSystemFacts();
   });
 }
 
@@ -682,6 +684,221 @@ $("#settings-filter").addEventListener("input", debounce(renderSettings, 150));
 $("#settings-advanced").addEventListener("change", renderSettings);
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ---------- updates ----------
+
+const upd = { data: null };
+
+Views.updates = async function () {
+  try { upd.data = await API.get("/api/updates"); renderUpdates(); } catch (err) { notify(err.message, true); }
+};
+
+const OTA_STATUS = { idle: ["Idle", ""], downloading: ["Downloading", "is-info"], preparing: ["Preparing", "is-info"], installing: ["Installing", "is-info"], "pending-reboot": ["Installed, waiting for reboot", "is-warn"], error: ["Error", "is-bad"] };
+
+function channelOf(board) {
+  const st = upd.data.settings[`updates.${board}.channel`];
+  if (st) return st;
+  const v = (upd.data.versions[board] || {}).version_id || "";
+  const m = v.match(/^(stable|testing|nightly)/);
+  return m ? m[1] : "";
+}
+
+function renderUpdates() {
+  const d = upd.data; if (!d) return;
+  const ota = state.hashes.ota || d.ota || {};
+  const NAMES = { mdb: "MDB", dbc: "Dashboard (DBC)" };
+  $("#upd-boards").innerHTML = ["mdb", "dbc"].map(b => {
+    const v = d.versions[b] || {};
+    const st = ota[`status:${b}`] || "";
+    const [label, tone] = OTA_STATUS[st] || [human(st) || "Unknown", ""];
+    const busy = ["downloading", "preparing", "installing"].includes(st);
+    const dl = busy && has(ota[`download-progress:${b}`]) ? num(ota[`download-progress:${b}`]) : null;
+    const inst = busy && has(ota[`install-progress:${b}`]) ? num(ota[`install-progress:${b}`]) : null;
+    const err = ota[`error:${b}`];
+    const preview = ota[`preview-status:${b}`];
+    const ch = channelOf(b);
+    const lastCheck = d.settings[`updates.${b}.last-check-time`];
+    const rows = [
+      ["Installed", has(v.version) ? esc(v.version) : `<span class="muted">unknown</span>`],
+      ["Status", `<span class="status ${tone}">${esc(label)}</span>`, has(ota[`update-version:${b}`]) && st !== "idle" ? `${ota[`update-version:${b}`]}${has(ota[`update-method:${b}`]) ? `, ${ota[`update-method:${b}`]}` : ""}` : null],
+      err ? ["Error", `<span class="status is-bad">${esc(human(err))}</span>`, ota[`error-message:${b}`] || null] : null,
+      has(ota[`download-abort-reason:${b}`]) ? ["Download", `<span class="muted">paused: ${esc(human(ota[`download-abort-reason:${b}`]))}</span>`, has(ota[`download-skip-checks:${b}`]) ? `retries after ${ota[`download-skip-checks:${b}`]} more checks` : null] : null,
+      ["Last check", has(lastCheck) ? esc(ago(lastCheck)) : `<span class="muted">never</span>`, d.settings[`updates.${b}.check-interval`] === "0s" ? "automatic checks off" : has(d.settings[`updates.${b}.check-interval`]) ? `every ${d.settings[`updates.${b}.check-interval`]}` : null],
+    ];
+    const bar = (label, p, warn) => p === null ? "" : `<div class="muted" style="font-size:.85rem">${label} ${p} %</div><div class="progress ${warn ? "is-warn" : ""}"><span style="width:${p}%"></span></div>`;
+    const previewLine = preview === "checking" ? `<span class="muted">Looking up ${esc(ota[`preview-channel:${b}`] || "")}</span>`
+      : preview === "ready" ? `${esc(ota[`preview-channel:${b}`])} has <span class="mono">${esc(ota[`preview-version:${b}`])}</span>${has(ota[`preview-size:${b}`]) ? `, ${esc(humanSize(num(ota[`preview-size:${b}`])))} download` : ""}`
+      : preview === "unavailable" ? `<span class="muted">${esc(ota[`preview-channel:${b}`])} has nothing for this board</span>`
+      : preview === "error" ? `<span class="status is-bad">Could not read the ${esc(ota[`preview-channel:${b}`])} channel</span>` : "";
+    return `<section class="block board" data-board="${b}">
+      <h2>${NAMES[b]}</h2>
+      <dl class="facts">${rows.filter(r => r && has(r[1])).map(([l, val, aside]) => `<dt>${esc(l)}</dt><dd>${val}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`).join("")}</dl>
+      ${bar("Download", dl, false)}${bar("Install", inst, false)}
+      <div class="cmd-row">
+        <button type="button" class="btn" data-upd="check" data-board="${b}">Check now</button>
+        <div class="cmd-combo">
+          <select data-upd-channel="${b}" aria-label="Channel">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === ch ? "selected" : ""}>${c}${c === ch ? " (current)" : ""}</option>`).join("")}</select>
+          <button type="button" class="btn" data-upd="preview" data-board="${b}">Look up</button>
+          <button type="button" class="btn" data-upd="channel" data-board="${b}">Switch</button>
+        </div>
+      </div>
+      ${previewLine ? `<p class="cmd-hint">${previewLine}</p>` : ""}
+    </section>`;
+  }).join("");
+
+  const files = d.files || {};
+  $("#upd-files").innerHTML = ["mdb", "dbc"].map(b => {
+    const list = files[b] || [];
+    if (!list.length) return "";
+    return `<div class="upd-group"><h3>${NAMES[b]}</h3>${list.map(f => `<div class="upd-row">
+      <span class="fname">${esc(f.name)}</span>
+      <span class="row-actions">
+        <button type="button" class="btn btn-small" data-upd="install" data-board="${b}" data-file="${esc(f.name)}">Install</button>
+        <button type="button" class="btn btn-small btn-quiet" data-upd="delete" data-board="${b}" data-file="${esc(f.name)}">Delete</button>
+      </span>
+      <span class="fmeta">${esc(humanSize(f.size))}, ${esc(new Date(f.mtime * 1000).toLocaleString())}</span>
+    </div>`).join("")}</div>`;
+  }).join("") || `<p class="cmd-hint">No update files on the scooter.</p>`;
+}
+
+$("#view-updates").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-upd]");
+  if (!btn) return;
+  const { upd: action, board, file } = btn.dataset;
+  const body = { board, action };
+  if (action === "preview" || action === "channel") body.channel = $(`[data-upd-channel="${board}"]`).value;
+  if (action === "install" || action === "delete") body.file = file;
+  if (action === "channel") {
+    const ok = await confirmDialog({ title: `Switch ${board.toUpperCase()} to ${body.channel}`, body: `The next check downloads a full ${body.channel} image for this board and installs it.`, ok: "Switch" });
+    if (!ok) return;
+  }
+  if (action === "install") {
+    const ok = await confirmDialog({ title: `Install on ${board.toUpperCase()}`, body: board === "dbc"
+      ? `${file} is copied to the dashboard (it is powered on if needed) and installed. The dashboard applies it on its next power cycle.`
+      : `${file} is installed now. The MDB reboots when the installation is done and this page comes back after that.`, ok: "Install", danger: board === "mdb" });
+    if (!ok) return;
+  }
+  if (action === "delete") {
+    const ok = await confirmDialog({ title: "Delete file", body: `Delete ${file}?`, ok: "Delete", danger: true });
+    if (!ok) return;
+  }
+  btn.classList.add("is-busy");
+  try {
+    const res = await API.post("/api/updates/action", body);
+    notify({ check: "Checking for updates", preview: "Looking up channel", channel: `Channel set to ${body.channel}`, install: "Update queued", delete: "File deleted" }[action]);
+    if (res && res.status) Views.updates();
+  } catch (err) { notify(err.message, true); }
+  finally { btn.classList.remove("is-busy"); }
+});
+
+$("#upd-upload-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const file = $("#upd-upload-file").files[0];
+  if (!file) return notify("Choose a file first", true);
+  if (!/\.(mender|delta)$/.test(file.name)) return notify("Only .mender and .delta files", true);
+  const board = $("#upd-upload-board").value;
+  const prog = $("#upd-upload-progress"), bar = $("span", prog);
+  prog.hidden = false; bar.style.width = "0%";
+  const xhr = new XMLHttpRequest();
+  xhr.open("PUT", `/api/updates/upload?board=${board}&name=${encodeURIComponent(file.name)}`);
+  for (const [k, v] of Object.entries(API.headers(false))) xhr.setRequestHeader(k, v);
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) bar.style.width = `${Math.round(ev.loaded / ev.total * 100)}%`; };
+  xhr.onload = () => {
+    prog.hidden = true;
+    let data = {}; try { data = JSON.parse(xhr.responseText); } catch { /* not json */ }
+    if (xhr.status >= 200 && xhr.status < 300) { notify(`Uploaded ${file.name}`); $("#upd-upload-file").value = ""; Views.updates(); }
+    else notify(data.error || `Upload failed (HTTP ${xhr.status})`, true);
+  };
+  xhr.onerror = () => { prog.hidden = true; notify("Upload failed", true); };
+  xhr.send(file);
+});
+
+// ---------- system ----------
+
+Views.system = async function () {
+  renderSystemFacts();
+  try {
+    const data = await API.get("/api/system/logs");
+    renderBundles(data.bundles || []);
+  } catch (err) { notify(err.message, true); }
+  const sel = $("#journal-unit");
+  if (sel.options.length <= 2) {
+    try {
+      const units = (await API.get("/api/services")).units || [];
+      for (const u of units) sel.insertAdjacentHTML("beforeend", `<option value="${esc(u.unit)}">${esc(u.unit.replace(/\.service$/, ""))}</option>`);
+    } catch { /* services list is optional here */ }
+  }
+};
+
+function renderSystemFacts() {
+  const m = H("maps"), mo = H("modem"), net = H("internet");
+  const art = (p) => has(m[`${p}:size`])
+    ? `${esc(humanSize(num(m[`${p}:size`])))}${has(m[`${p}:published-at`]) ? `, published ${esc(m[`${p}:published-at`].slice(0, 10))}` : ""}`
+    : `<span class="muted">not installed</span>`;
+  renderFacts($("#sys-maps"), [
+    ["Region", has(m["region-name"]) ? esc(m["region-name"]) : has(m.region) ? esc(m.region) : null],
+    ["Map tiles", art("map"), has(m["map:mtime"]) ? `written ${m["map:mtime"].slice(0, 10)}` : null],
+    ["Routing tiles", art("routing"), has(m["routing:mtime"]) ? `written ${m["routing:mtime"].slice(0, 10)}` : null],
+    ["Update", has(m["update-available"]) ? (m["update-available"] === "true" ? `<span class="status is-info">Available</span>` : "Up to date") : null, has(m["last-update-check"]) ? `checked ${ago(m["last-update-check"])}` : null],
+  ]);
+  renderFacts($("#sys-modem"), [
+    ["Modem", status(mo["power-state"], mo["power-state"] === "on" ? "On" : human(mo["power-state"])), has(mo["error-state"]) && mo["error-state"] !== "ok" ? human(mo["error-state"]) : null],
+    ["Network", has(mo["operator-name"]) ? esc(mo["operator-name"]) : null, [mo["operator-code"], human(mo.registration), mo["is-roaming"] === "true" ? "roaming" : null].filter(Boolean).join(", ")],
+    ["Connection", status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `signal ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
+    ["IP address", has(net["ip-address"]) ? `<span class="mono">${esc(net["ip-address"])}</span>` : null],
+    ["SIM", status(mo["sim-state"]), [mo["sim-lock"] && mo["sim-lock"] !== "disabled" ? `lock ${mo["sim-lock"]}` : null, mo["pin-action"] && mo["pin-action"] !== "unconfigured" ? `PIN ${human(mo["pin-action"]).toLowerCase()}` : null].filter(Boolean).join(", ")],
+    ["IMEI", has(net["sim-imei"]) ? `<span class="mono">${esc(net["sim-imei"])}</span>` : null],
+    ["ICCID", has(net["sim-iccid"]) ? `<span class="mono">${esc(net["sim-iccid"])}</span>` : null],
+    ["IMSI", has(net["sim-imsi"]) ? `<span class="mono">${esc(net["sim-imsi"])}</span>` : null],
+    ["Health", has(net["modem-health"]) ? esc(human(net["modem-health"])) : null, [net.reachability ? `reachability ${net.reachability}` : null, net["link-layer"] ? `link ${net["link-layer"]}` : null].filter(Boolean).join(", ")],
+  ]);
+}
+
+function renderBundles(list) {
+  $("#log-bundles").innerHTML = list.length ? list.map(b => `<div class="upd-row">
+    <a class="fname" href="${esc(API.url(`/files/log-bundles/${encodeURIComponent(b.name)}`, { download: "1" }))}">${esc(b.name)}</a>
+    <span class="row-actions"><a class="btn btn-small" href="${esc(API.url(`/files/log-bundles/${encodeURIComponent(b.name)}`, { download: "1" }))}">Download</a>
+      <button type="button" class="btn btn-small btn-quiet" data-bundle-del="${esc(b.name)}">Delete</button></span>
+    <span class="fmeta">${esc(humanSize(b.size))}, ${esc(new Date(b.mtime * 1000).toLocaleString())}</span>
+  </div>`).join("") : `<p class="cmd-hint">No bundles yet.</p>`;
+}
+
+$("#log-bundle-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("button", e.target);
+  btn.classList.add("is-busy");
+  try {
+    const res = await API.post("/api/system/logs", { since: $("#log-since").value });
+    renderBundles(res.bundles || []);
+    notify(res.bundle ? `Created ${res.bundle}` : "Bundle created");
+  } catch (err) { notify(err.message, true); }
+  finally { btn.classList.remove("is-busy"); }
+});
+$("#log-bundles").addEventListener("click", async e => {
+  const del = e.target.closest("[data-bundle-del]");
+  if (!del) return;
+  const ok = await confirmDialog({ title: "Delete bundle", body: `Delete ${del.dataset.bundleDel}?`, ok: "Delete", danger: true });
+  if (!ok) return;
+  try { await API.del(`/api/files?path=${encodeURIComponent("log-bundles/" + del.dataset.bundleDel)}`); Views.system(); }
+  catch (err) { notify(err.message, true); }
+});
+$("#journal-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const unit = $("#journal-unit").value, lines = $("#journal-lines").value;
+  const out = $("#journal-out");
+  const btn = $("button", e.target);
+  btn.classList.add("is-busy");
+  try {
+    const resp = await fetch(API.url("/api/system/journal", { unit, lines }), { headers: API.headers(false) });
+    const text = await resp.text();
+    if (!resp.ok) throw new Error(text || `HTTP ${resp.status}`);
+    out.hidden = false; out.textContent = text || "(empty)";
+    out.scrollTop = out.scrollHeight;
+    const dl = $("#journal-download");
+    dl.hidden = false; dl.href = API.url("/api/system/journal", { unit, lines }); dl.download = `${unit || "journal"}.log`;
+  } catch (err) { notify(err.message, true); }
+  finally { btn.classList.remove("is-busy"); }
+});
 
 // ---------- navigation ----------
 
