@@ -27,6 +27,7 @@ var statusHashes = []string{
 	"modem",
 	"alarm",
 	"dashboard",
+	"keycard",
 	"settings",
 	"version:mdb",
 	"version:dbc",

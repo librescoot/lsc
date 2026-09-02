@@ -156,6 +156,7 @@ function connectStream() {
   });
   es.onmessage = e => {
     const ev = JSON.parse(e.data);
+    if (ev.h === "keycard:events") { onKeycardEvent(ev.f, ev.ts); scheduleRender(); return; }
     if (ev.set !== undefined) {
       if (ev.set.length) state.faults[ev.h] = ev.set; else delete state.faults[ev.h];
       if (currentView === "dashboard") loadEvents();
@@ -163,6 +164,7 @@ function connectStream() {
       const h = state.hashes[ev.h] || (state.hashes[ev.h] = {});
       if (ev.v === undefined || ev.v === null) delete h[ev.f]; else h[ev.f] = ev.v;
       if (ev.h === "settings") onSettingChanged(ev.f, ev.v);
+      if (ev.h === "keycard" && ev.f === "uid") kc.lastSeenAt = Date.now();
     }
     scheduleRender();
   };
@@ -181,7 +183,11 @@ let renderQueued = false;
 function scheduleRender() {
   if (renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(() => { renderQueued = false; if (currentView === "dashboard") renderDashboard(); });
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    if (currentView === "dashboard") renderDashboard();
+    if (currentView === "keycards") renderLastCard();
+  });
 }
 
 // ---------- formatting helpers ----------
@@ -673,6 +679,124 @@ $("#settings-filter").addEventListener("input", debounce(renderSettings, 150));
 $("#settings-advanced").addEventListener("change", renderSettings);
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ---------- keycards ----------
+
+const kc = { authorized: [], master: [], learning: null, learned: [], lastSeenAt: 0 };
+
+Views.keycards = async function () {
+  try {
+    const data = await API.get("/api/keycards");
+    kc.authorized = data.authorized || [];
+    kc.master = data.master || [];
+    if (data.last) { state.hashes.keycard = data.last; kc.lastSeenAt = Date.now(); }
+    renderKeycards();
+    renderLastCard();
+  } catch (err) { notify(err.message, true); }
+};
+
+const fmtUID = (u) => u.replace(/(..)(?=.)/g, "$1 ");
+
+function renderKeycards() {
+  const row = (uid, kind, extra = "") => `<div class="kc-row ${extra}"><span class="uid">${esc(fmtUID(uid))}</span>${kind ? `<span class="tag">${esc(kind)}</span>` : ""}
+    ${kind === "master" ? "" : `<button type="button" class="btn btn-small btn-quiet" data-kc-remove="${esc(uid)}" ${kc.authorized.length <= 1 ? 'disabled title="The last card cannot be removed"' : ""}>Remove</button>`}</div>`;
+  const learned = kc.learned.filter(u => !kc.authorized.includes(u));
+  $("#kc-authorized").innerHTML = [
+    ...kc.authorized.map(u => row(u, "")),
+    ...learned.map(u => row(u, "tapped, unsaved", "is-new")),
+  ].join("") || `<div class="kc-empty">No authorized cards. Tap a master card at the reader, or authorize one below.</div>`;
+  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">No master card. The next card tapped at the reader becomes the master.</div>`;
+
+  const learn = $("#kc-learn-start").closest(".kc-learn");
+  learn.classList.toggle("is-active", kc.learning === "cards");
+  $("#kc-learn-start").hidden = kc.learning === "cards";
+  $("#kc-learn-stop").hidden = kc.learning !== "cards";
+  $("#kc-learn-hint").textContent = kc.learning === "cards"
+    ? `Tap each card to authorize at the reader${learned.length ? `, ${learned.length} tapped so far` : ""}. Finish to save.`
+    : "";
+  $("#kc-master-start").hidden = kc.learning === "master";
+  $("#kc-master-stop").hidden = kc.learning !== "master";
+  $("#kc-master-start").closest(".kc-learn").classList.toggle("is-active", kc.learning === "master");
+  if (kc.learning === "master") $("#kc-master-start").insertAdjacentHTML("afterend", "");
+}
+
+function renderLastCard() {
+  const k = H("keycard");
+  const el = $("#kc-last");
+  if (!has(k.uid)) return;
+  const known = kc.authorized.includes(k.uid) || kc.master.includes(k.uid);
+  const verdict = k.authentication === "passed" ? `<span class="status is-good">Accepted</span>` : `<span class="status is-bad">Rejected</span>`;
+  const when = kc.lastSeenAt ? ago(new Date(kc.lastSeenAt).toISOString()) : "";
+  el.classList.remove("muted");
+  el.innerHTML = `<span class="uid">${esc(fmtUID(k.uid))}</span>${verdict}${has(k.type) ? `<span class="muted">${esc(k.type)} card</span>` : ""}<span class="muted">${esc(when)}</span>
+    ${known ? "" : `<button type="button" class="btn btn-small" data-kc-authorize="${esc(k.uid)}">Authorize this card</button>`}`;
+}
+
+function onKeycardEvent(ev, ts) {
+  const [kind, ...rest] = ev.split(":");
+  const uid = rest[rest.length - 1];
+  switch (kind) {
+    case "card-learned": if (!kc.learned.includes(uid)) kc.learned.push(uid); kc.learning = kc.learning || "cards"; notify(`Card ${fmtUID(uid)} tapped`); break;
+    case "card-duplicate": notify(`Card ${fmtUID(uid)} is already authorized`); break;
+    case "mode-entered": if (rest[0] === "master") kc.learning = "master"; break;
+    case "mode-exited": if (kc.learning === "master") kc.learning = null; break;
+    case "master-learned": notify(`Master card ${fmtUID(uid)} added`); kc.learning = null; Views.keycards(); return;
+    case "rejected": notify(`Card ${fmtUID(uid)} is already authorized and cannot become a master`, true); break;
+    case "error": notify(`Saving ${fmtUID(uid)} failed`, true); break;
+    case "reset": kc.learning = null; kc.learned = []; Views.keycards(); return;
+  }
+  if (currentView === "keycards") renderKeycards();
+}
+
+async function keycardCommand(command, uid, btn) {
+  if (btn) btn.classList.add("is-busy");
+  try {
+    const resp = await fetch("/api/keycards/command", { method: "POST", headers: API.headers(), body: JSON.stringify({ command, uid }) });
+    const data = await resp.json().catch(() => ({}));
+    if (data.authorized) kc.authorized = data.authorized;
+    if (data.master) kc.master = data.master;
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    return data;
+  } finally { if (btn) btn.classList.remove("is-busy"); renderKeycards(); }
+}
+
+$("#kc-add-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const uid = $("#kc-add-uid").value;
+  if (!uid.trim()) return;
+  try { await keycardCommand("add", uid, $("button", e.target)); $("#kc-add-uid").value = ""; notify("Card authorized"); }
+  catch (err) { notify(err.message, true); }
+});
+$("#view-keycards").addEventListener("click", async e => {
+  const rm = e.target.closest("[data-kc-remove]");
+  if (rm) {
+    const uid = rm.dataset.kcRemove;
+    const ok = await confirmDialog({ title: "Remove card", body: `Card ${fmtUID(uid)} will no longer unlock the scooter.`, ok: "Remove", danger: true });
+    if (!ok) return;
+    try { await keycardCommand("remove", uid, rm); notify("Card removed"); } catch (err) { notify(err.message, true); }
+  }
+  const au = e.target.closest("[data-kc-authorize]");
+  if (au) {
+    try { await keycardCommand("add", au.dataset.kcAuthorize, au); notify("Card authorized"); renderLastCard(); } catch (err) { notify(err.message, true); }
+  }
+});
+$("#kc-learn-start").addEventListener("click", async e => {
+  try { await keycardCommand("learn:start", "", e.target); kc.learning = "cards"; kc.learned = []; renderKeycards(); } catch (err) { notify(err.message, true); }
+});
+$("#kc-learn-stop").addEventListener("click", async e => {
+  try { await keycardCommand("learn:stop", "", e.target); kc.learning = null; kc.learned = []; notify("Cards saved"); Views.keycards(); } catch (err) { notify(err.message, true); }
+});
+$("#kc-master-start").addEventListener("click", async e => {
+  try { await keycardCommand("learn:master:start", "", e.target); kc.learning = "master"; renderKeycards(); } catch (err) { notify(err.message, true); }
+});
+$("#kc-master-stop").addEventListener("click", async e => {
+  try { await keycardCommand("learn:master:stop", "", e.target); kc.learning = null; renderKeycards(); } catch (err) { notify(err.message, true); }
+});
+$("#kc-reset").addEventListener("click", async e => {
+  const ok = await confirmDialog({ title: "Forget all cards", body: "Every master and authorized card is removed. The scooter cannot be unlocked with a card until a new master has been taught in at the reader.", ok: "Forget all cards", danger: true });
+  if (!ok) return;
+  try { await keycardCommand("reset", "", e.target); kc.learning = null; kc.learned = []; notify("All cards forgotten"); Views.keycards(); } catch (err) { notify(err.message, true); }
+});
 
 // ---------- files ----------
 

@@ -29,6 +29,8 @@ var streamChannels = []string{
 	"system",
 	"scooter",
 	"dashboard",
+	"keycard",
+	"keycard:events",
 	"version:mdb",
 	"version:dbc",
 }
@@ -206,8 +208,14 @@ func (s *Server) runStreamBridge() {
 
 // patchEvent turns a pub/sub notification into an SSE frame carrying the
 // new value. A payload of "fault" on hash H means the set H:fault changed.
+// keycard:events is not a hash: its payload is the event itself and is
+// forwarded as the field with no value.
 func (s *Server) patchEvent(hash, field string) []byte {
 	ev := streamEvent{Hash: hash, Field: field, TS: time.Now().Unix()}
+	if hash == "keycard:events" {
+		b, _ := json.Marshal(ev)
+		return []byte("data: " + string(b) + "\n\n")
+	}
 	if client := s.getRedis(); client != nil {
 		if field == "fault" {
 			members, err := client.SMembers(hash + ":fault")

@@ -40,6 +40,10 @@ contracts.
   the scooter to that account and returns the radio-gaga config, which lsd
   writes and starts. A pasted config file can be installed for either
   service instead.
+- **Keycards**: the authorized and master card lists, authorizing by UID or
+  by tapping cards at the reader (keycard-service's learn mode, with per-tap
+  events streamed live), adding a master by teach-in, and the last card the
+  reader saw with a one-click authorize for unknown cards.
 - **Services**: Librescoot's systemd units with their state, filters, and
   start, stop and restart.
 
@@ -99,6 +103,8 @@ and service actions only reach systemd for Librescoot unit names.
 | `POST /api/files/mkdir` | Create a folder. |
 | `GET /files/<path>?download=1` | Download a file, or a folder as tar. |
 | `GET /api/services`, `POST /api/services/action` | Units and start/stop/restart/enable/disable. |
+| `GET /api/keycards` | Authorized and master card UIDs from keycard-service's files, plus the last card seen. |
+| `POST /api/keycards/command` | `{command, uid?}`: add, remove, set-master, learn:start/stop, learn:master:start/stop, reset via `scooter:keycard`; waits for `command-result`. |
 | `GET /api/cloud` | Identity, connectivity service states, Sunshine URL. |
 | `POST /api/cloud/bootstrap` | `{token}`: claim the scooter in Sunshine and install the returned radio-gaga config. |
 | `POST /api/cloud/config` | `{service, yaml, config-path?}`: write a pasted config and restart the service. |

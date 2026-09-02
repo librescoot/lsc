@@ -17,6 +17,7 @@
     <nav class="tabs" aria-label="Sections">
       <a href="#dashboard" data-view="dashboard">Dashboard</a>
       <a href="#settings" data-view="settings">Settings</a>
+      <a href="#keycards" data-view="keycards">Keycards</a>
       <a href="#files" data-view="files">Files</a>
       <a href="#cloud" data-view="cloud">Cloud</a>
       <a href="#services" data-view="services">Services</a>
@@ -152,6 +153,46 @@
     <p class="lede">Values live in the settings hash on the scooter and take effect immediately. Clearing a field restores the built-in default.</p>
     <nav id="settings-jump" class="jump" aria-label="Services"></nav>
     <div id="settings-groups"></div>
+  </section>
+
+  <section id="view-keycards" class="view" hidden>
+    <div class="page-head"><h1>Keycards</h1></div>
+    <p class="lede">Authorized cards unlock the scooter. Master cards additionally open the teach-in mode at the reader: tap a master, then tap the cards to authorize. Everything here talks to keycard-service, so changes apply immediately.</p>
+
+    <div class="two-col">
+      <section class="block">
+        <h2>Authorized cards</h2>
+        <div id="kc-authorized" class="kc-list"></div>
+        <form id="kc-add-form" class="inline-form">
+          <input id="kc-add-uid" placeholder="Card UID, e.g. 04A1B2C3D4E5F6" aria-label="Card UID" spellcheck="false" autocomplete="off">
+          <button type="submit" class="btn">Authorize</button>
+        </form>
+        <div class="kc-learn">
+          <button type="button" class="btn" id="kc-learn-start">Authorize by tapping</button>
+          <button type="button" class="btn btn-primary" id="kc-learn-stop" hidden>Finish, save cards</button>
+          <span class="kc-learn-hint" id="kc-learn-hint"></span>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Master cards</h2>
+        <div id="kc-master" class="kc-list"></div>
+        <div class="kc-learn">
+          <button type="button" class="btn" id="kc-master-start">Add a master by tapping</button>
+          <button type="button" class="btn" id="kc-master-stop" hidden>Cancel</button>
+        </div>
+        <p class="cmd-hint">A new master is added, existing masters stay. Replacing the master list with a single card clears all authorized cards; that is what the reset below is for.</p>
+
+        <h2 class="kc-sub">Last card at the reader</h2>
+        <div id="kc-last" class="kc-last muted">No card seen since this page opened.</div>
+      </section>
+    </div>
+
+    <details class="block advanced">
+      <summary><h2>Start over</h2></summary>
+      <p>Removes every master and authorized card and leaves the reader in the state a fresh installation starts in: the next card tapped becomes the master. The scooter cannot be unlocked with a card until then.</p>
+      <button type="button" class="btn btn-danger" id="kc-reset">Forget all cards</button>
+    </details>
   </section>
 
   <section id="view-files" class="view" hidden>
