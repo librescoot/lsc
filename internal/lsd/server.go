@@ -9,8 +9,10 @@ package lsd
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -261,9 +263,10 @@ func (s *Server) routes() http.Handler {
 // cacheable adds validators to the embedded assets. Files in an embed.FS
 // carry no modification time, so without this browsers would either refetch
 // everything or, worse, keep a stale UI across a firmware update. The ETag
-// is the daemon version: a new build invalidates every asset at once.
+// is a digest of the embedded files: any change to the UI invalidates every
+// asset at once, including between dev builds that share a version string.
 func (s *Server) cacheable(next http.Handler) http.Handler {
-	etag := `"` + s.version + `"`
+	etag := `"` + staticDigest() + `"`
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("If-None-Match") == etag {
 			w.WriteHeader(http.StatusNotModified)
@@ -273,6 +276,24 @@ func (s *Server) cacheable(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// staticDigest hashes every embedded asset in path order.
+func staticDigest() string {
+	h := sha256.New()
+	_ = fs.WalkDir(staticFiles, "static", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := staticFiles.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		h.Write([]byte(path))
+		h.Write(b)
+		return nil
+	})
+	return hex.EncodeToString(h.Sum(nil))[:16]
 }
 
 // handleInfo answers GET /api/info with daemon metadata.
