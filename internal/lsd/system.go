@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// logBundleDir is where lsc logs writes its archives.
-const logBundleDir = "/data/log-bundles"
+// lsc logs writes its archives to <data>/log-bundles.
+func (s *Server) logBundleDir() string { return filepath.Join(s.dataDir, "log-bundles") }
 
 // handleLogBundles lists bundles (GET) or creates one (POST) by running
 // lsc logs, which already knows the services, the Redis snapshots and the
@@ -21,7 +22,7 @@ const logBundleDir = "/data/log-bundles"
 func (s *Server) handleLogBundles(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, http.StatusOK, map[string]interface{}{"bundles": listBundles()})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"bundles": s.listBundles()})
 	case http.MethodPost:
 		var req struct {
 			Since string `json:"since"`
@@ -41,29 +42,29 @@ func (s *Server) handleLogBundles(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
 		before := map[string]bool{}
-		for _, b := range listBundles() {
+		for _, b := range s.listBundles() {
 			before[b.Name] = true
 		}
-		out, err := exec.CommandContext(ctx, "lsc", "logs", "all", "--since", since, "--output", logBundleDir).CombinedOutput()
+		out, err := exec.CommandContext(ctx, "lsc", "logs", "all", "--since", since, "--output", s.logBundleDir()).CombinedOutput()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "lsc logs failed: " + err.Error(), "output": tail(string(out), 2000)})
 			return
 		}
 		created := ""
-		for _, b := range listBundles() {
+		for _, b := range s.listBundles() {
 			if !before[b.Name] {
 				created = b.Name
 				break
 			}
 		}
-		writeJSON(w, http.StatusOK, map[string]interface{}{"status": "created", "bundle": created, "bundles": listBundles()})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"status": "created", "bundle": created, "bundles": s.listBundles()})
 	default:
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
-func listBundles() []otaFile {
-	entries, err := os.ReadDir(logBundleDir)
+func (s *Server) listBundles() []otaFile {
+	entries, err := os.ReadDir(s.logBundleDir())
 	if err != nil {
 		return []otaFile{}
 	}

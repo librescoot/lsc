@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -189,6 +190,11 @@ func (s *Server) serviceStatuses() map[string]cloudServiceStatus {
 
 	for _, c := range cloudServices {
 		st := cloudServiceStatus{cloudService: c.cloudService}
+		// Config defaults live under /data; follow -data so a daemon run
+		// against a copied data tree reads the copy.
+		if rel, ok := strings.CutPrefix(st.ConfigPath, "/data/"); ok {
+			st.ConfigPath = filepath.Join(s.dataDir, rel)
+		}
 		if u, ok := byUnit[c.Unit]; ok {
 			st.Installed = true
 			st.Active = u.Active

@@ -18,11 +18,10 @@ import (
 	"librescoot/lsc/internal/redis"
 )
 
-// otaDir is update-service's download directory; each board has its own
-// subdirectory. The DBC's update-service runs on the DBC with its own
-// /data, so files for it are staged here first and pushed over usb0 when
-// an install is requested.
-const otaDir = "/data/ota"
+// update-service downloads into <data>/ota/<board>. The DBC's update-service
+// runs on the DBC with its own /data, so files for it are staged here first
+// and pushed over usb0 when an install is requested.
+func (s *Server) otaDir() string { return filepath.Join(s.dataDir, "ota") }
 
 // dbcDataServer is the DBC's data-server, which accepts PUT uploads into
 // its /data. Only reachable while the dashboard is powered.
@@ -37,8 +36,8 @@ type otaFile struct {
 	MTime int64  `json:"mtime"`
 }
 
-func listOTAFiles(board string) []otaFile {
-	entries, err := os.ReadDir(filepath.Join(otaDir, board))
+func (s *Server) listOTAFiles(board string) []otaFile {
+	entries, err := os.ReadDir(filepath.Join(s.otaDir(), board))
 	if err != nil {
 		return []otaFile{}
 	}
@@ -84,7 +83,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 		"ota":      ota,
 		"settings": upd,
 		"versions": versions,
-		"files":    map[string][]otaFile{"mdb": listOTAFiles("mdb"), "dbc": listOTAFiles("dbc")},
+		"files":    map[string][]otaFile{"mdb": s.listOTAFiles("mdb"), "dbc": s.listOTAFiles("dbc")},
 	})
 }
 
@@ -105,7 +104,7 @@ func (s *Server) handleUpdatesUpload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "file must be a .mender or .delta artifact")
 		return
 	}
-	dst := filepath.Join(otaDir, board, name)
+	dst := filepath.Join(s.otaDir(), board, name)
 	h := sha256.New()
 	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 	if err := writeFileAtomic(dst, io.TeeReader(r.Body, h), 0o644); err != nil {
@@ -179,7 +178,7 @@ func (s *Server) handleUpdatesAction(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "not an update file")
 			return
 		}
-		if err := os.Remove(filepath.Join(otaDir, req.Board, name)); err != nil {
+		if err := os.Remove(filepath.Join(s.otaDir(), req.Board, name)); err != nil {
 			writeErr(w, http.StatusNotFound, err.Error())
 			return
 		}
@@ -214,7 +213,7 @@ func (s *Server) installUpdate(w http.ResponseWriter, r *http.Request, client *r
 		writeErr(w, http.StatusBadRequest, "not an update file")
 		return
 	}
-	local := filepath.Join(otaDir, board, name)
+	local := filepath.Join(s.otaDir(), board, name)
 	if _, err := os.Stat(local); err != nil {
 		writeErr(w, http.StatusNotFound, "no such staged file")
 		return

@@ -14,9 +14,10 @@ import (
 	rdb "github.com/redis/go-redis/v9"
 )
 
-// keycardDataDir is keycard-service's -data-dir default; the unit file passes
-// no override. The files hold one uppercase hex UID per line.
-const keycardDataDir = "/data/keycard"
+// keycard-service keeps its UID files under <data>/keycard (its -data-dir
+// default; the unit file passes no override), one uppercase hex UID per
+// line.
+func (s *Server) keycardDir() string { return filepath.Join(s.dataDir, "keycard") }
 
 var uidRe = regexp.MustCompile(`^[0-9A-F]{2,20}$`)
 
@@ -30,8 +31,8 @@ func normalizeUID(s string) (string, error) {
 	return u, nil
 }
 
-func readUIDFile(name string) []string {
-	data, err := os.ReadFile(filepath.Join(keycardDataDir, name))
+func (s *Server) readUIDFile(name string) []string {
+	data, err := os.ReadFile(filepath.Join(s.keycardDir(), name))
 	if err != nil {
 		return []string{}
 	}
@@ -55,8 +56,8 @@ func (s *Server) handleKeycards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]interface{}{
-		"authorized": readUIDFile("authorized_uids.txt"),
-		"master":     readUIDFile("master_uids.txt"),
+		"authorized": s.readUIDFile("authorized_uids.txt"),
+		"master":     s.readUIDFile("master_uids.txt"),
 	}
 	if client := s.getRedis(); client != nil {
 		if m, err := client.HGetAll("keycard"); err == nil && len(m) > 0 {
@@ -128,8 +129,8 @@ func (s *Server) handleKeycardCommand(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"command":    payload,
 		"result":     result,
-		"authorized": readUIDFile("authorized_uids.txt"),
-		"master":     readUIDFile("master_uids.txt"),
+		"authorized": s.readUIDFile("authorized_uids.txt"),
+		"master":     s.readUIDFile("master_uids.txt"),
 	}
 	switch {
 	case err != nil:
