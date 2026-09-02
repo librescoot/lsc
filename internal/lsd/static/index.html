@@ -17,6 +17,7 @@
     <nav class="tabs" aria-label="Sections">
       <a href="#dashboard" data-view="dashboard">Dashboard</a>
       <a href="#settings" data-view="settings">Settings</a>
+      <a href="#navigation" data-view="navigation">Navigation</a>
       <a href="#keycards" data-view="keycards">Keycards</a>
       <a href="#files" data-view="files">Files</a>
       <a href="#cloud" data-view="cloud">Cloud</a>
@@ -153,6 +154,44 @@
     <p class="lede">Changes apply when saved. An empty field means the default.</p>
     <nav id="settings-jump" class="jump" aria-label="Services"></nav>
     <div id="settings-groups"></div>
+  </section>
+
+  <section id="view-navigation" class="view" hidden>
+    <div class="page-head"><h1>Navigation</h1></div>
+    <p class="lede">The dashboard routes to the destination set here. Saved locations are the ones the dashboard offers in its menu.</p>
+
+    <section class="block nav-dest">
+      <h2>Destination</h2>
+      <div class="nav-dest-row">
+        <div id="nav-current" class="nav-current muted">None.</div>
+        <div class="cmd-row" id="nav-current-actions" hidden>
+          <button type="button" class="btn" id="nav-clear">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="two-col">
+      <section class="block">
+        <h2>Saved locations</h2>
+        <div id="nav-locations" class="nav-locations"></div>
+      </section>
+
+      <section class="block">
+        <h2>New destination</h2>
+        <form id="nav-form" class="nav-form">
+          <input id="nav-label" placeholder="Name (optional)" aria-label="Name" autocomplete="off">
+          <div class="inline-form">
+            <input id="nav-lat" placeholder="Latitude" aria-label="Latitude" inputmode="decimal" required>
+            <input id="nav-lon" placeholder="Longitude" aria-label="Longitude" inputmode="decimal" required>
+            <button type="button" class="btn" id="nav-use-gps" title="Fill in the scooter's current position">Current position</button>
+          </div>
+          <div class="inline-form">
+            <button type="submit" class="btn btn-primary">Navigate</button>
+            <button type="button" class="btn" id="nav-save">Save as location</button>
+          </div>
+        </form>
+      </section>
+    </div>
   </section>
 
   <section id="view-keycards" class="view" hidden>

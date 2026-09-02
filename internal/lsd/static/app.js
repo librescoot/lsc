@@ -187,6 +187,7 @@ function scheduleRender() {
     renderQueued = false;
     if (currentView === "dashboard") renderDashboard();
     if (currentView === "keycards") renderLastCard();
+    if (currentView === "navigation") renderDestination();
   });
 }
 
@@ -534,6 +535,7 @@ Views.settings = async function () {
 // Live settings changes from other writers (lsc, the dashboard) update the
 // form unless the user is editing that very key.
 function onSettingChanged(key, value) {
+  if (key.startsWith("dashboard.saved-locations.") && currentView === "navigation" && nav.editing === null) { Views.navigation(); return; }
   if (!schema) return;
   if (value === null || value === undefined) delete values[key]; else values[key] = value;
   if (dirty.has(key)) return;
@@ -680,6 +682,126 @@ $("#settings-filter").addEventListener("input", debounce(renderSettings, 150));
 $("#settings-advanced").addEventListener("change", renderSettings);
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ---------- navigation ----------
+
+const nav = { locations: [], editing: null };
+const fmtCoord = (lat, lon) => `${Number(lat).toFixed(5)}, ${Number(lon).toFixed(5)}`;
+
+Views.navigation = async function () {
+  try {
+    const data = await API.get("/api/navigation");
+    state.hashes.navigation = data.destination || {};
+    nav.locations = data.locations || [];
+    renderDestination();
+    renderLocations();
+  } catch (err) { notify(err.message, true); }
+};
+
+function renderDestination() {
+  const d = H("navigation");
+  const el = $("#nav-current");
+  const set = has(d.latitude) && has(d.longitude);
+  $("#nav-current-actions").hidden = !set;
+  if (!set) { el.className = "nav-current muted"; el.textContent = "None."; return; }
+  el.className = "nav-current";
+  el.innerHTML = `${has(d.address) ? `<div class="name">${esc(d.address)}</div>` : ""}<div class="coords">${esc(fmtCoord(d.latitude, d.longitude))}</div>${has(d.timestamp) ? `<div class="when">set ${esc(ago(d.timestamp))}</div>` : ""}`;
+}
+
+function renderLocations() {
+  const el = $("#nav-locations");
+  if (!nav.locations.length) { el.innerHTML = `<div class="kc-empty">None saved.</div>`; return; }
+  el.innerHTML = nav.locations.map(l => {
+    const editing = nav.editing === l.id;
+    return `<div class="loc" data-id="${l.id}">
+      <div><span class="name">${esc(l.label || "Unnamed")}</span>${l["last-used-at"] ? `<span class="when">used ${esc(ago(l["last-used-at"]))}</span>` : ""}</div>
+      <span class="row-actions">
+        <button type="button" class="btn btn-small btn-quiet" data-loc-go="${l.id}">Navigate</button>
+        <button type="button" class="btn btn-small btn-quiet" data-loc-edit="${l.id}">${editing ? "Cancel" : "Edit"}</button>
+        <button type="button" class="btn btn-small btn-quiet" data-loc-del="${l.id}">Delete</button>
+      </span>
+      <div class="coords">${esc(fmtCoord(l.latitude, l.longitude))}</div>
+      ${editing ? `<form class="loc-edit" data-loc-form="${l.id}">
+        <input class="label" value="${esc(l.label)}" placeholder="Name" aria-label="Name" required>
+        <input value="${l.latitude.toFixed(6)}" placeholder="Latitude" aria-label="Latitude" inputmode="decimal" required>
+        <input value="${l.longitude.toFixed(6)}" placeholder="Longitude" aria-label="Longitude" inputmode="decimal" required>
+        <button type="submit" class="btn btn-small btn-primary">Save</button>
+      </form>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function readCoords(latEl, lonEl) {
+  const lat = Number(latEl.value.trim().replace(",", ".")), lon = Number(lonEl.value.trim().replace(",", "."));
+  if (!isFinite(lat) || !isFinite(lon) || latEl.value.trim() === "" || lonEl.value.trim() === "") throw new Error("Latitude and longitude are needed, as decimal degrees");
+  return { latitude: lat, longitude: lon };
+}
+
+async function navigateTo(latitude, longitude, address, locationId) {
+  await API.post("/api/navigation", { latitude, longitude, address: address || "", "location-id": locationId ?? null });
+  notify(address ? `Navigating to ${address}` : "Destination set");
+  Views.navigation();
+}
+
+$("#nav-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  try {
+    const c = readCoords($("#nav-lat"), $("#nav-lon"));
+    await navigateTo(c.latitude, c.longitude, $("#nav-label").value.trim(), null);
+  } catch (err) { notify(err.message, true); }
+});
+$("#nav-save").addEventListener("click", async () => {
+  try {
+    const c = readCoords($("#nav-lat"), $("#nav-lon"));
+    const label = $("#nav-label").value.trim();
+    if (!label) return notify("Give the location a name first", true);
+    await API.put("/api/navigation/locations", { label, ...c });
+    notify(`Saved ${label}`);
+    $("#nav-form").reset();
+    Views.navigation();
+  } catch (err) { notify(err.message, true); }
+});
+$("#nav-use-gps").addEventListener("click", () => {
+  const g = H("gps");
+  if (!has(g.latitude) || !has(g.longitude) || g.fix === "none") return notify("No GPS fix right now", true);
+  $("#nav-lat").value = Number(g.latitude).toFixed(6);
+  $("#nav-lon").value = Number(g.longitude).toFixed(6);
+});
+$("#nav-clear").addEventListener("click", async () => {
+  try { await API.post("/api/navigation", { clear: true }); notify("Destination cleared"); Views.navigation(); }
+  catch (err) { notify(err.message, true); }
+});
+$("#nav-locations").addEventListener("click", async e => {
+  const go = e.target.closest("[data-loc-go]"), ed = e.target.closest("[data-loc-edit]"), del = e.target.closest("[data-loc-del]");
+  if (go) {
+    const l = nav.locations.find(x => x.id === Number(go.dataset.locGo));
+    try { await navigateTo(l.latitude, l.longitude, l.label, l.id); } catch (err) { notify(err.message, true); }
+  } else if (ed) {
+    const id = Number(ed.dataset.locEdit);
+    nav.editing = nav.editing === id ? null : id;
+    renderLocations();
+    if (nav.editing !== null) $(`[data-loc-form="${id}"] input`)?.focus();
+  } else if (del) {
+    const l = nav.locations.find(x => x.id === Number(del.dataset.locDel));
+    const ok = await confirmDialog({ title: "Delete location", body: `Remove ${l.label || "this location"} from the saved locations?`, ok: "Delete", danger: true });
+    if (!ok) return;
+    try { await API.del(`/api/navigation/locations?id=${l.id}`); notify(`Deleted ${l.label}`); Views.navigation(); }
+    catch (err) { notify(err.message, true); }
+  }
+});
+$("#nav-locations").addEventListener("submit", async e => {
+  const form = e.target.closest("[data-loc-form]");
+  if (!form) return;
+  e.preventDefault();
+  const [labelEl, latEl, lonEl] = $$("input", form);
+  try {
+    const c = readCoords(latEl, lonEl);
+    await API.put("/api/navigation/locations", { id: Number(form.dataset.locForm), label: labelEl.value.trim(), ...c });
+    nav.editing = null;
+    notify("Location saved");
+    Views.navigation();
+  } catch (err) { notify(err.message, true); }
+});
 
 // ---------- keycards ----------
 

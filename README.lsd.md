@@ -40,6 +40,9 @@ contracts.
   the scooter to that account and returns the radio-gaga config, which lsd
   writes and starts. A pasted config file can be installed for either
   service instead.
+- **Navigation**: the dashboard's current destination (set from
+  coordinates, the scooter's own position, or a saved location; clear), and
+  the saved locations the dashboard menu offers, with add, edit and delete.
 - **Keycards**: the authorized and master card lists, authorizing by UID or
   by tapping cards at the reader (keycard-service's learn mode, with per-tap
   events streamed live), adding a master by teach-in, and the last card the
@@ -103,6 +106,8 @@ and service actions only reach systemd for Librescoot unit names.
 | `POST /api/files/mkdir` | Create a folder. |
 | `GET /files/<path>?download=1` | Download a file, or a folder as tar. |
 | `GET /api/services`, `POST /api/services/action` | Units and start/stop/restart/enable/disable. |
+| `GET /api/navigation`, `POST /api/navigation` | Current destination and saved locations; set `{latitude, longitude, address?, location-id?}` or `{clear: true}`. |
+| `PUT/DELETE /api/navigation/locations` | Create or update `{id?, label, latitude, longitude}`; delete by `?id=`. Stored as `dashboard.saved-locations.<id>.*` in settings. |
 | `GET /api/keycards` | Authorized and master card UIDs from keycard-service's files, plus the last card seen. |
 | `POST /api/keycards/command` | `{command, uid?}`: add, remove, set-master, learn:start/stop, learn:master:start/stop, reset via `scooter:keycard`; waits for `command-result`. |
 | `GET /api/cloud` | Identity, connectivity service states, Sunshine URL. |

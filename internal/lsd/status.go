@@ -28,6 +28,7 @@ var statusHashes = []string{
 	"alarm",
 	"dashboard",
 	"keycard",
+	"navigation",
 	"settings",
 	"version:mdb",
 	"version:dbc",

@@ -31,6 +31,7 @@ var streamChannels = []string{
 	"dashboard",
 	"keycard",
 	"keycard:events",
+	"navigation",
 	"version:mdb",
 	"version:dbc",
 }

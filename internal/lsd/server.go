@@ -239,6 +239,9 @@ func (s *Server) routes() http.Handler {
 	api("/api/services", s.handleServices)
 	api("/api/services/action", s.handleServiceAction)
 
+	api("/api/navigation", s.handleNavigation)
+	api("/api/navigation/locations", s.handleLocations)
+
 	api("/api/keycards", s.handleKeycards)
 	api("/api/keycards/command", s.handleKeycardCommand)
 
