@@ -126,9 +126,14 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
   width: 32px; height: 32px; border-radius: var(--radius); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .icon-btn:hover { color: var(--on-dark); border-color: rgba(255, 255, 255, 0.4); }
+.icon-btn.is-on { color: var(--accent-bright); border-color: var(--accent-bright); }
 :root[data-theme="dark"] .icon-sun { display: block; }
 :root[data-theme="dark"] .icon-moon { display: none; }
 :root:not([data-theme="dark"]) .icon-sun { display: none; }
+
+/* Advanced mode hides; it never grants. Every endpoint behind these keeps
+   its own checks. */
+:root:not([data-advanced]) .adv-only { display: none !important; }
 
 /* ---- layout ---- */
 main { max-width: var(--content); margin: 0 auto; padding: 1.75rem 24px 6rem; }
@@ -456,6 +461,11 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
 .upd-group h3 { margin: 0.5rem 0 0.25rem; }
 .journal { font-family: var(--mono); font-size: 0.78rem; line-height: 1.45; background: var(--code-bg, #111); color: #E0E0E0; border-radius: var(--radius); padding: 0.75rem 0.9rem; margin: 0.75rem 0 0; white-space: pre; overflow: auto; max-height: 34rem; }
 :root[data-theme="dark"] .journal { background: var(--surface); border: 1px solid var(--border); }
+
+#raw-hashes { max-height: 40rem; overflow: auto; }
+.raw td { font-size: 0.8rem; }
+.raw td:first-child { color: var(--text-2); width: 40%; }
+.raw .raw-hash th { text-align: left; font-family: var(--display); font-size: 0.95rem; font-weight: 400; padding-top: 1rem; color: var(--text); }
 
 /* ---- shell ---- */
 .term { background: var(--code-bg, #111); border-radius: var(--radius); overflow: hidden; }

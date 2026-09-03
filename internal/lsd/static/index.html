@@ -27,6 +27,7 @@
     </nav>
     <div class="topbar-tools">
       <span id="conn" class="conn" data-state="connecting"><span class="dot"></span><span class="conn-text">connecting</span></span>
+      <button data-i18n-attr="title aria-label" type="button" id="adv-toggle" class="icon-btn" aria-pressed="false" aria-label="Advanced mode" title="Advanced mode"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg></button>
       <select id="lang-select" class="lang-select" aria-label="Language" data-i18n-attr="aria-label">
         <option value="">Auto</option>
         <option value="en">English</option>
@@ -56,6 +57,7 @@
       <a data-i18n href="#dashboard/vehicle" data-jump="vehicle">Vehicle</a>
       <a data-i18n href="#dashboard/connectivity" data-jump="connectivity">Connectivity</a>
       <a data-i18n href="#dashboard/faults" data-jump="faults">Faults</a>
+      <a data-i18n class="adv-only" href="#dashboard/raw" data-jump="raw">Live data</a>
     </nav>
 
     <section class="block" id="dash-commands">
@@ -154,6 +156,16 @@
         </div>
       </div>
     </section>
+    <section class="block adv-only" id="dash-raw">
+      <div class="page-head">
+        <h2 data-i18n>Live data</h2>
+        <div class="page-tools">
+          <input data-i18n-attr="placeholder aria-label" id="raw-filter" type="search" placeholder="Filter fields" aria-label="Filter fields">
+        </div>
+      </div>
+      <p data-i18n class="lede">Every hash the daemon watches, as the services wrote it. Field names and values are raw.</p>
+      <div id="raw-hashes"></div>
+    </section>
   </section>
 
   <section id="view-settings" class="view" hidden>
@@ -161,7 +173,7 @@
       <h1 data-i18n>Settings</h1>
       <div class="page-tools">
         <input data-i18n-attr="placeholder aria-label" id="settings-filter" type="search" placeholder="Filter settings" aria-label="Filter settings">
-        <label class="check" data-i18n><input id="settings-advanced" type="checkbox"> Show advanced</label>
+        <label class="check" data-i18n><input id="settings-advanced" type="checkbox"> Advanced mode</label>
       </div>
     </div>
     <p data-i18n class="lede">Changes apply when saved. An empty field means the default.</p>
@@ -240,7 +252,7 @@
       </section>
     </div>
 
-    <details class="block advanced">
+    <details class="block advanced adv-only">
       <summary><h2 data-i18n>Start over</h2></summary>
       <p data-i18n>Removes all cards. The next card tapped at the reader becomes the new master; until then no card unlocks the scooter.</p>
       <button data-i18n type="button" class="btn btn-danger" id="kc-reset">Forget all cards</button>
@@ -292,7 +304,7 @@
       <pre id="cloud-bootstrap-out" class="result" hidden></pre>
     </section>
 
-    <details class="block advanced">
+    <details class="block advanced adv-only">
       <summary><h2 data-i18n>Install a config file</h2></summary>
       <p data-i18n>For uplink-service, or a radio-gaga config downloaded from Sunshine. The service restarts with it.</p>
       <form id="cloud-config-form">
@@ -339,7 +351,7 @@
       <a data-i18n href="#system/logs" data-jump="logs">Logs</a>
       <a data-i18n href="#system/journal" data-jump="journal">Journal</a>
       <a data-i18n href="#system/services" data-jump="services">Services</a>
-      <a data-i18n href="#system/shell" data-jump="shell" id="jump-shell" hidden>Shell</a>
+      <a data-i18n class="adv-only" href="#system/shell" data-jump="shell" id="jump-shell" hidden>Shell</a>
     </nav>
 
     <div class="two-col">
@@ -411,7 +423,7 @@
       </table>
     </section>
 
-    <details id="sys-shell" class="block advanced" hidden>
+    <details id="sys-shell" class="block advanced adv-only" hidden>
       <summary><h2 data-i18n>Shell</h2></summary>
       <p data-i18n class="lede">Runs as root on the MDB. Every command gets its own shell, so only the working directory carries over, and nothing here is interactive: no editors, no prompts, no password entry.</p>
       <div class="term">

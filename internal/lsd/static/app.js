@@ -143,6 +143,33 @@ $$(".jump").forEach(j => new ResizeObserver(measureSticky).observe(j));
 
 // ---------- routing ----------
 
+// ---------- advanced mode ----------
+
+// One switch for everything that is debug or foot-gun material: the shell,
+// the destructive disclosures, raw Redis values, and the settings the schema
+// does not mark user-visible. It hides things; it grants nothing. The
+// endpoints keep their own checks, since a localStorage flag is not a
+// security boundary.
+let advancedMode = false;
+try { advancedMode = localStorage.getItem("lsd-advanced") === "1"; } catch { /* private mode */ }
+
+function applyAdvanced() {
+  document.documentElement.toggleAttribute("data-advanced", advancedMode);
+  const btn = $("#adv-toggle");
+  btn.setAttribute("aria-pressed", advancedMode ? "true" : "false");
+  btn.classList.toggle("is-on", advancedMode);
+  $("#settings-advanced").checked = advancedMode;
+}
+
+function setAdvanced(on) {
+  if (on === advancedMode) return;
+  advancedMode = on;
+  try { on ? localStorage.setItem("lsd-advanced", "1") : localStorage.removeItem("lsd-advanced"); } catch { /* private mode */ }
+  applyAdvanced();
+  if (schema) renderSettings();
+  Views[currentView]();
+}
+
 const Views = {};
 let currentView = "";
 function route() {
@@ -307,6 +334,7 @@ function renderDashboard() {
     const rem = fmtAh(b["remaining-capacity"]), full = fmtAh(b["full-capacity"]);
     const meta = [fmtV(b.voltage), temps.length ? `${Math.max(...temps)} °C` : null,
       rem && full ? `${rem} / ${full} Ah` : null,
+      advancedMode && has(b["fault-code"]) && b["fault-code"] !== "0" ? `${t("fault code")} ${b["fault-code"]}` : null,
       has(b["state-of-health"]) ? `${t("health")} ${b["state-of-health"]} %` : null, has(b["cycle-count"]) ? t("{n} cycles", { n: b["cycle-count"] }) : null];
     batts.push(battRow(t("Battery {n}", { n: Number(id) + 1 }), present ? num(b.charge) : null, present ? b.state : "not present", present ? meta : [], !present,
       false, present && b["low-soc"] === "true"));
@@ -365,7 +393,26 @@ function renderDashboard() {
     ? rows.map(([s, f]) => `<div class="fault"><span class="src">${esc(s)}</span><code>${esc(f)}</code></div>`).join("")
     : `<div class="none">${t("None.")}</div>`;
 
+  renderRawHashes();
   syncCommandAvailability();
+}
+
+// Every watched hash, straight from the stream: the last resort when a
+// formatted row is not enough, and the only place raw field names appear.
+function renderRawHashes() {
+  const box = $("#raw-hashes");
+  if (!advancedMode || !box) return;
+  const filter = $("#raw-filter").value.trim().toLowerCase();
+  const out = [];
+  for (const name of Object.keys(state.hashes).sort()) {
+    const h = state.hashes[name];
+    const fields = Object.keys(h).sort().filter(f => !filter || `${name} ${f} ${h[f]}`.toLowerCase().includes(filter));
+    if (!fields.length) continue;
+    out.push(`<tbody><tr class="raw-hash"><th colspan="2">${esc(name)}</th></tr>` +
+      fields.map(f => `<tr><td class="mono">${esc(f)}</td><td class="mono">${esc(h[f])}</td></tr>`).join("") +
+      "</tbody>");
+  }
+  box.innerHTML = out.length ? `<table class="data raw">${out.join("")}</table>` : `<div class="empty">${t("Nothing matches.")}</div>`;
 }
 
 function battRow(name, pct, stateText, meta, absent = false, coarse = false, low = false) {
@@ -548,7 +595,7 @@ Views.settings = async function () {
     if (target && !document.getElementById("group-" + target)) {
       // The linked service only has advanced settings; reveal them.
       const advanced = Object.values(schema).some(m => m.service === target && !m["user-visible"]);
-      if (advanced) $("#settings-advanced").checked = true;
+      if (advanced && !advancedMode) { setAdvanced(true); return; }
     }
     renderSettings();
     if (target) document.getElementById("group-" + target)?.scrollIntoView({ block: "start" });
@@ -569,7 +616,7 @@ function onSettingChanged(key, value) {
 
 function renderSettings() {
   const filter = $("#settings-filter").value.trim().toLowerCase();
-  const advanced = $("#settings-advanced").checked;
+  const advanced = advancedMode;
   const groups = new Map();
   for (const key of Object.keys(schema).sort()) {
     const m = schema[key];
@@ -718,7 +765,9 @@ $("#settings-save").addEventListener("click", async () => {
 });
 $("#settings-revert").addEventListener("click", () => { dirty.clear(); failures = {}; renderSettings(); });
 $("#settings-filter").addEventListener("input", debounce(renderSettings, 150));
-$("#settings-advanced").addEventListener("change", renderSettings);
+$("#settings-advanced").addEventListener("change", e => setAdvanced(e.target.checked));
+$("#adv-toggle").addEventListener("click", () => setAdvanced(!advancedMode));
+$("#raw-filter").addEventListener("input", renderRawHashes);
 
 function debounce(fn, ms) { let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), ms); }; }
 
@@ -1460,7 +1509,7 @@ function renderServices() {
     const st = unitStateLabel(u);
     const running = u.active === "active" && u.sub !== "exited";
     return `<tr>
-      <td><span class="unit">${esc(u.unit.replace(/\.service$/, ""))}</span><div class="sub">${esc(u.description || "")}</div></td>
+      <td><span class="unit">${esc(advancedMode ? u.unit : u.unit.replace(/\.service$/, ""))}</span><div class="sub">${esc(u.description || "")}</div></td>
       <td><span class="status ${unitTone(u)}">${st}</span>${u.sub && !["running", "dead", "exited"].includes(u.sub) ? `<span class="sub">${esc(u.sub)}</span>` : ""}</td>
       <td class="actions"><span class="row-actions">
         <button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="restart">${t("Restart")}</button>
@@ -1658,6 +1707,7 @@ $("#shell-presets").addEventListener("click", e => {
 
 // Static markup is translated now; the scooter's dashboard.language may switch it later.
 I18N.apply();
+applyAdvanced();
 $("#lang-select").value = localStorage.getItem("lsd-lang") || "";
 $("#lang-select").addEventListener("change", e => {
   if (e.target.value) localStorage.setItem("lsd-lang", e.target.value); else localStorage.removeItem("lsd-lang");
