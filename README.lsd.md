@@ -57,6 +57,11 @@ contracts.
 - **Services**: Librescoot's systemd units with their state, filters, and
   start, stop and restart.
 
+The interface is available in English and German. It follows the scooter's
+`dashboard.language` setting, so the display and the web page speak the same
+language; the selector in the top bar overrides that per browser. Strings
+live in `internal/lsd/static/de.js`, keyed by the English text.
+
 ## Running it
 
 ```sh

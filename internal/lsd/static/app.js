@@ -4,6 +4,7 @@
  * event is a full snapshot; every later event patches one field, so the
  * page never polls while the stream is up. */
 "use strict";
+I18N.lang = I18N.pick();
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -52,10 +53,10 @@ let tokenPrompting = false;
 async function askToken() {
   if (tokenPrompting) return;
   tokenPrompting = true;
-  const t = await promptDialog({ title: "Access token", body: "This lsd requires a token (its -token flag).", placeholder: "Token", password: true });
+  const tok = await promptDialog({ title: t("Access token"), body: t("This lsd requires a token (its -token flag)."), placeholder: t("Token"), password: true });
   tokenPrompting = false;
-  if (t === null) return;
-  API.token = t.trim();
+  if (tok === null) return;
+  API.token = tok.trim();
   localStorage.setItem("lsd-token", API.token);
   connectStream();
   route();
@@ -167,6 +168,7 @@ function connectStream() {
     state.hashes = snap.hashes || {};
     state.faults = snap.faults || {};
     setConn("live");
+    setLanguage(I18N.pick(H("settings")["dashboard.language"]));
     scheduleRender();
   });
   es.onmessage = e => {
@@ -190,7 +192,7 @@ function setConn(s) {
   state.live = s === "live";
   const el = $("#conn");
   el.dataset.state = s;
-  $(".conn-text", el).textContent = s;
+  $(".conn-text", el).textContent = t(s);
   if (currentView === "dashboard") syncCommandAvailability();
 }
 
@@ -215,22 +217,22 @@ const num = (v) => { const n = Number(v); return isFinite(n) ? n : null; };
 function human(s) {
   if (!has(s)) return "";
   s = String(s).replace(/[-_]/g, " ").replace(/\bsim\b/i, "SIM").replace(/\busb\b/i, "USB");
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return t(s.charAt(0).toUpperCase() + s.slice(1));
 }
 const fmtV = (mv) => { const n = num(mv); return n === null ? null : (n / 1000).toFixed(2) + " V"; };
 const fmtKm = (m) => { const n = num(m); return n === null ? null : (n / 1000).toFixed(1) + " km"; };
 const fmtTemp = (c) => { const n = num(c); return n === null ? null : `${Math.round(n)} °C`; };
 const fmtPct = (p) => { const n = num(p); return n === null ? null : `${Math.round(n)} %`; };
 function ago(iso) {
-  const t = Date.parse(iso);
-  if (!isFinite(t)) return "";
-  const s = Math.round((Date.now() - t) / 1000);
-  if (s < 5) return "just now";
-  if (s < 90) return `${s} s ago`;
-  if (s < 5400) return `${Math.round(s / 60)} min ago`;
-  if (s < 48 * 3600) return `${Math.round(s / 3600)} h ago`;
-  if (s < 30 * 86400) return `${Math.round(s / 86400)} d ago`;
-  return new Date(t).toLocaleDateString();
+  const ts = Date.parse(iso);
+  if (!isFinite(ts)) return "";
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 5) return t("just now");
+  if (s < 90) return t("{n} s ago", { n: s });
+  if (s < 5400) return t("{n} min ago", { n: Math.round(s / 60) });
+  if (s < 48 * 3600) return t("{n} h ago", { n: Math.round(s / 3600) });
+  if (s < 30 * 86400) return t("{n} d ago", { n: Math.round(s / 86400) });
+  return new Date(ts).toLocaleDateString();
 }
 
 const GOOD = new Set(["ok", "ideal", "active", "running", "run", "connected", "on", "home", "present", "fix-established", "open", "normal", "closed", "enabled", "ready-to-drive", "parked", "float-charge", "charging", "locked", "down", "idle"]);
@@ -243,13 +245,15 @@ function tone(v) {
   if (WARN.has(s)) return "is-warn";
   return "";
 }
+// SIM states share words with the handlebar lock; keep them apart for translation.
+const simState = (v) => v === "locked" ? t("SIM locked") : v === "ready" ? t("SIM ready") : v === "missing" ? t("SIM missing") : undefined;
 const status = (v, label) => has(v) ? `<span class="status ${tone(v)}">${esc(label ?? human(v))}</span>` : null;
 
 // Facts: array of [label, valueHTML|null, asideText?]; null values are skipped.
 function renderFacts(el, rows) {
   const out = rows.filter(r => r && has(r[1])).map(([label, value, aside]) =>
     `<dt>${esc(label)}</dt><dd>${value}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`);
-  el.innerHTML = out.join("") || `<div class="empty">No data yet.</div>`;
+  el.innerHTML = out.join("") || `<div class="empty">${t("No data yet.")}</div>`;
 }
 
 // ---------- dashboard ----------
@@ -271,7 +275,7 @@ function renderDashboard() {
     sw.textContent = human(v.state);
     sw.className = "state-word " + (VEHICLE_TONE[v.state] ?? "");
   } else if (!state.live) {
-    sw.textContent = "Not connected";
+    sw.textContent = t("Not connected");
     sw.className = "state-word is-bad";
   }
   // Under the state word: the firmware line, then status chips that only
@@ -279,13 +283,13 @@ function renderDashboard() {
   const chips = [];
   if (has(alarm.status)) {
     const st = alarm.status;
-    const t = /trigger/.test(st) ? "is-bad" : /armed$/.test(st) ? "is-good" : "";
-    chips.push(`<span class="status ${t}">Alarm ${esc(human(st).toLowerCase())}</span>`);
+    const tone = /trigger/.test(st) ? "is-bad" : /armed$/.test(st) ? "is-good" : "";
+    chips.push(`<span class="status ${tone}">${t("Alarm")} ${esc(human(st).toLowerCase())}</span>`);
   }
-  if (has(pm.state) && pm.state !== "running") chips.push(`<span class="status is-warn">Power manager ${esc(human(pm.state).toLowerCase())}</span>`);
-  if (sys["usb0-gate"] === "open") chips.push(`<span class="status is-good">USB link held on</span>`);
+  if (has(pm.state) && pm.state !== "running") chips.push(`<span class="status is-warn">${t("Power manager")} ${esc(human(pm.state).toLowerCase())}</span>`);
+  if (sys["usb0-gate"] === "open") chips.push(`<span class="status is-good">${t("USB link held on")}</span>`);
   const nFaults = Object.values(state.faults).reduce((n, l) => n + l.length, 0);
-  if (nFaults) chips.push(`<a class="status is-bad" href="#dashboard/faults">${nFaults === 1 ? "1 fault" : `${nFaults} faults`}</a>`);
+  if (nFaults) chips.push(`<a class="status is-bad" href="#dashboard/faults">${nFaults === 1 ? t("1 fault") : t("{n} faults", { n: nFaults })}</a>`);
   $("#hero-sub").innerHTML = `${has(vmdb.pretty_name) ? `<div class="hero-version">${esc(vmdb.pretty_name)}</div>` : ""}${chips.length ? `<div class="hero-chips">${chips.join("")}</div>` : ""}`;
 
   // Batteries.
@@ -296,62 +300,62 @@ function renderDashboard() {
     const present = b.present !== "false";
     const temps = [0, 1, 2, 3].map(i => num(b["temperature:" + i])).filter(t => t !== null);
     const meta = [fmtV(b.voltage), temps.length ? `${Math.max(...temps)} °C` : null,
-      has(b["state-of-health"]) ? `health ${b["state-of-health"]} %` : null, has(b["cycle-count"]) ? `${b["cycle-count"]} cycles` : null];
-    batts.push(battRow(`Battery ${Number(id) + 1}`, present ? num(b.charge) : null, present ? b.state : "not present", present ? meta : [], !present));
+      has(b["state-of-health"]) ? `${t("health")} ${b["state-of-health"]} %` : null, has(b["cycle-count"]) ? t("{n} cycles", { n: b["cycle-count"] }) : null];
+    batts.push(battRow(t("Battery {n}", { n: Number(id) + 1 }), present ? num(b.charge) : null, present ? b.state : "not present", present ? meta : [], !present));
   }
   const aux = H("aux-battery");
   if (Object.keys(aux).length) {
-    batts.push(battRow("AUX (12V)", num(aux.charge), aux["charge-status"], [fmtV(aux.voltage)], false, true));
+    batts.push(battRow(t("AUX (12V)"), num(aux.charge), aux["charge-status"], [fmtV(aux.voltage)], false, true));
   }
   const cbb = H("cb-battery");
   if (Object.keys(cbb).length) {
     const present = cbb.present !== "false";
-    batts.push(battRow("Connectivity (CBB)", present ? num(cbb.charge) : null, present ? cbb["charge-status"] : "not present",
-      present ? [fmtTemp(cbb.temperature), has(cbb["state-of-health"]) ? `health ${cbb["state-of-health"]} %` : null] : [], !present));
+    batts.push(battRow(t("Connectivity (CBB)"), present ? num(cbb.charge) : null, present ? cbb["charge-status"] : "not present",
+      present ? [fmtTemp(cbb.temperature), has(cbb["state-of-health"]) ? `${t("health")} ${cbb["state-of-health"]} %` : null] : [], !present));
   }
-  $("#hero-batteries").innerHTML = batts.join("") || `<div class="muted">No battery data.</div>`;
+  $("#hero-batteries").innerHTML = batts.join("") || `<div class="muted">${t("No battery data.")}</div>`;
 
   // Vehicle facts.
   const ecuTemp = fmtTemp(ecu.temperature);
   renderFacts($("#facts-vehicle"), [
-    ["Odometer", esc(fmtKm(ecu.odometer))],
-    ["Speed", has(ecu.speed) ? `${esc(ecu.speed)} km/h` : null, has(ecu.rpm) && num(ecu.rpm) > 0 ? `${ecu.rpm} rpm` : null],
-    ["Motor", status(ecu["ecu-status"]), has(ecu["motor:voltage"]) ? fmtV(ecu["motor:voltage"]) : null],
-    ["Controller temperature", ecuTemp ? esc(ecuTemp) : null],
-    ["Handlebar", status(v["handlebar:lock-state"]), has(v["handlebar:position"]) ? human(v["handlebar:position"]) : null],
-    ["Seatbox", status(v["seatbox:lock"])],
-    ["Kickstand", status(v.kickstand)],
-    ["Display", status(v["dashboard:power"], v["dashboard:power"] === "on" ? "On" : "Off")],
-    ["Blinkers", has(v["blinker:state"]) ? esc(human(v["blinker:state"])) : null],
-    ["Keycards", has(sys["keycard-authorized-count"]) ? `${esc(sys["keycard-authorized-count"])} authorized` : null,
-      has(sys["keycard-master-count"]) ? `${sys["keycard-master-count"]} master` : null],
-    ["Energy", has(ecu["energy:consumed"]) ? `${(num(ecu["energy:consumed"]) / 1000).toFixed(1)} kWh used` : null,
-      has(ecu["energy:recovered"]) ? `${(num(ecu["energy:recovered"]) / 1000).toFixed(1)} kWh recovered` : null],
+    [t("Odometer"), esc(fmtKm(ecu.odometer))],
+    [t("Speed"), has(ecu.speed) ? `${esc(ecu.speed)} km/h` : null, has(ecu.rpm) && num(ecu.rpm) > 0 ? `${ecu.rpm} rpm` : null],
+    [t("Motor"), status(ecu["ecu-status"]), has(ecu["motor:voltage"]) ? fmtV(ecu["motor:voltage"]) : null],
+    [t("Controller temperature"), ecuTemp ? esc(ecuTemp) : null],
+    [t("Handlebar"), status(v["handlebar:lock-state"]), has(v["handlebar:position"]) ? human(v["handlebar:position"]) : null],
+    [t("Seatbox"), status(v["seatbox:lock"])],
+    [t("Kickstand"), status(v.kickstand)],
+    [t("Display"), status(v["dashboard:power"], v["dashboard:power"] === "on" ? t("On") : t("Off"))],
+    [t("Blinkers"), has(v["blinker:state"]) ? esc(human(v["blinker:state"])) : null],
+    [t("Keycards"), has(sys["keycard-authorized-count"]) ? `${esc(sys["keycard-authorized-count"])} ${t("authorized")}` : null,
+      has(sys["keycard-master-count"]) ? `${sys["keycard-master-count"]} ${t("master")}` : null],
+    [t("Energy"), has(ecu["energy:consumed"]) ? `${(num(ecu["energy:consumed"]) / 1000).toFixed(1)} kWh ${t("used")}` : null,
+      has(ecu["energy:recovered"]) ? `${(num(ecu["energy:recovered"]) / 1000).toFixed(1)} kWh ${t("recovered")}` : null],
   ]);
 
   // Connectivity.
   const coord = (has(gps.latitude) && has(gps.longitude)) ? `${num(gps.latitude).toFixed(5)}, ${num(gps.longitude).toFixed(5)}` : null;
-  const gpsState = gps.state === "fix-established" ? `Fix (${gps.fix || "3d"})` : human(gps.state);
+  const gpsState = gps.state === "fix-established" ? `${t("Fix")} (${gps.fix || "3d"})` : human(gps.state);
   renderFacts($("#facts-conn"), [
-    ["Internet", status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `signal ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
-    ["Mobile network", has(modem["operator-name"]) ? esc(modem["operator-name"]) : status(modem["power-state"]),
+    [t("Internet"), status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `${t("signal")} ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
+    [t("Mobile network"), has(modem["operator-name"]) ? esc(modem["operator-name"]) : status(modem["power-state"]),
       [modem.registration, modem["error-state"] && modem["error-state"] !== "ok" ? modem["error-state"] : null].filter(Boolean).map(human).join(", ")],
-    ["SIM", status(modem["sim-state"]), has(net["sim-iccid"]) ? `ICCID ${net["sim-iccid"]}` : null],
-    ["IP address", has(net["ip-address"]) ? `<span class="mono">${esc(net["ip-address"])}</span>` : null],
-    ["GPS", status(gps.state, gpsState),
-      [has(gps["satellites-used"]) ? `${gps["satellites-used"]} of ${gps["satellites-visible"] || "?"} satellites` : null, has(gps.updated) ? `updated ${ago(gps.updated)}` : null].filter(Boolean).join(", ")],
-    ["Position", coord ? `<span class="mono">${esc(coord)}</span>` : null,
-      [has(gps.altitude) ? `altitude ${Math.round(num(gps.altitude))} m` : null, has(gps.speed) && num(gps.speed) >= 1 ? `${num(gps.speed).toFixed(0)} km/h` : null].filter(Boolean).join(", ")],
-    ["Bluetooth", has(sys["nrf-fw-version"]) ? "Module present" : null],
+    [t("SIM"), status(modem["sim-state"], simState(modem["sim-state"])), has(net["sim-iccid"]) ? `ICCID ${net["sim-iccid"]}` : null],
+    [t("IP address"), has(net["ip-address"]) ? `<span class="mono">${esc(net["ip-address"])}</span>` : null],
+    [t("GPS"), status(gps.state, gpsState),
+      [has(gps["satellites-used"]) ? t("{used} of {visible} satellites", { used: gps["satellites-used"], visible: gps["satellites-visible"] || "?" }) : null, has(gps.updated) ? `${t("updated")} ${ago(gps.updated)}` : null].filter(Boolean).join(", ")],
+    [t("Position"), coord ? `<span class="mono">${esc(coord)}</span>` : null,
+      [has(gps.altitude) ? `${t("altitude")} ${Math.round(num(gps.altitude))} m` : null, has(gps.speed) && num(gps.speed) >= 1 ? `${num(gps.speed).toFixed(0)} km/h` : null].filter(Boolean).join(", ")],
+    [t("Bluetooth"), has(sys["nrf-fw-version"]) ? t("Module present") : null],
   ]);
 
   // Faults.
-  const SRC = { "vehicle": "Vehicle", "engine-ecu": "Motor controller", "battery:0": "Battery 1", "battery:1": "Battery 2" };
+  const SRC = { "vehicle": t("Vehicle"), "engine-ecu": t("Motor controller"), "battery:0": t("Battery {n}", { n: 1 }), "battery:1": t("Battery {n}", { n: 2 }) };
   const rows = [];
   for (const [src, list] of Object.entries(state.faults)) for (const f of list) rows.push([SRC[src] || src, f]);
   $("#faults").innerHTML = rows.length
     ? rows.map(([s, f]) => `<div class="fault"><span class="src">${esc(s)}</span><code>${esc(f)}</code></div>`).join("")
-    : `<div class="none">None.</div>`;
+    : `<div class="none">${t("None.")}</div>`;
 
   syncCommandAvailability();
 }
@@ -359,7 +363,7 @@ function renderDashboard() {
 function battRow(name, pct, stateText, meta, absent = false, coarse = false) {
   const p = pct === null ? null : Math.max(0, Math.min(100, pct));
   const barTone = p === null ? "" : p <= 10 ? "is-bad" : p <= 25 ? "is-warn" : "";
-  const val = p === null ? esc(human(stateText)) : `${Math.round(p)}<small>%${coarse ? " approx." : ""}</small>`;
+  const val = p === null ? esc(human(stateText)) : `${Math.round(p)}<small>%${coarse ? ` ${t("approx.")}` : ""}</small>`;
   return `<div class="batt ${absent ? "is-absent" : ""}">
     <div class="batt-name">${esc(name)}</div>
     <div class="batt-value">${val}${p !== null && has(stateText) ? `<small>${esc(human(stateText))}</small>` : ""}</div>
@@ -374,9 +378,9 @@ async function loadEvents() {
     const evs = await API.get("/api/events");
     tb.innerHTML = (evs || []).slice(0, 10).map(ev => {
       const ms = Number(String(ev.id).split("-")[0]);
-      const t = isFinite(ms) ? new Date(ms).toLocaleString() : ev.id;
-      return `<tr><td>${esc(t)}</td><td><code>${esc(ev.code || "")}</code><div class="sub">${esc(ev.group || "")}${ev.description ? ": " + esc(ev.description) : ""}</div></td></tr>`;
-    }).join("") || `<tr><td class="muted" colspan="2">None since boot.</td></tr>`;
+      const when = isFinite(ms) ? new Date(ms).toLocaleString() : ev.id;
+      return `<tr><td>${esc(when)}</td><td><code>${esc(ev.code || "")}</code><div class="sub">${esc(ev.group || "")}${ev.description ? ": " + esc(ev.description) : ""}</div></td></tr>`;
+    }).join("") || `<tr><td class="muted" colspan="2">${t("None since boot.")}</td></tr>`;
   } catch (err) {
     tb.innerHTML = `<tr><td class="muted" colspan="2">${esc(err.message)}</td></tr>`;
   }
@@ -404,16 +408,16 @@ async function sendCommand(btn) {
   btn.disabled = true;
   try {
     await API.post("/api/control", body);
-    notify(CMD_LABEL[cmd] || `${cmd}: sent`);
+    notify(CMD_LABEL[cmd] ? t(CMD_LABEL[cmd]) : t("{cmd}: sent", { cmd }));
   } catch (err) { notify(err.message, true); }
   finally { btn.disabled = false; syncCommandAvailability(); }
 }
 
 function attachHold(btn, duration) {
   const bar = document.createElement("span"); bar.className = "hold-bar"; bar.setAttribute("aria-hidden", "true");
-  const tip = document.createElement("span"); tip.className = "hold-tip"; tip.setAttribute("aria-hidden", "true"); tip.textContent = "Hold to confirm";
+  const tip = document.createElement("span"); tip.className = "hold-tip"; tip.setAttribute("aria-hidden", "true"); tip.textContent = t("Hold to confirm");
   btn.append(bar, tip);
-  btn.setAttribute("aria-description", `Hold for ${(duration / 1000).toFixed(1).replace(/\.0$/, "")} seconds to confirm`);
+  btn.setAttribute("aria-description", t("Hold for {n} seconds to confirm", { n: (duration / 1000).toFixed(1).replace(/\.0$/, "") }));
   let startedAt = null, frame = null, done = false;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -427,7 +431,7 @@ function attachHold(btn, duration) {
     if (startedAt === null) return;
     const p = Math.min((performance.now() - startedAt) / duration, 1);
     btn.style.setProperty("--hold", p.toFixed(3));
-    tip.textContent = p >= 1 ? "Sending" : p >= 0.5 ? "Keep holding" : "Hold to confirm";
+    tip.textContent = p >= 1 ? t("Sending") : p >= 0.5 ? t("Keep holding") : t("Hold to confirm");
     if (p >= 1) { done = true; reset(); sendCommand(btn); return; }
     frame = requestAnimationFrame(tick);
   };
@@ -441,7 +445,7 @@ function attachHold(btn, duration) {
     if (reduced) btn.style.setProperty("--hold", "1");
     frame = requestAnimationFrame(tick);
   };
-  const stop = () => { if (startedAt !== null) { reset(); tip.textContent = "Hold to confirm"; } };
+  const stop = () => { if (startedAt !== null) { reset(); tip.textContent = t("Hold to confirm"); } };
 
   btn.addEventListener("pointerdown", start);
   btn.addEventListener("pointerup", stop);
@@ -496,12 +500,12 @@ function syncCommandAvailability() {
   const idle = num(settings["pm.hibernation-timer"]);
   const sched = settings["pm.scheduled-hibernate-enabled"] === "true";
   const parts = [];
-  parts.push(`Idle target: ${settings["pm.default-state"] || "suspend"}.`);
-  if (idle !== null) parts.push(idle > 0 ? `Inactivity hibernation after ${humanDuration(idle)}.` : "Inactivity hibernation off.");
-  parts.push(sched ? `Scheduled hibernation on (${settings["pm.scheduled-hibernate-cron"] || "?"}, wake after ${settings["pm.scheduled-hibernate-duration"] || "?"}).` : "Scheduled hibernation off.");
-  if (armed) parts.push(`A wake timer is armed${wakeSecs ? ` for ${humanDuration(wakeSecs)}` : ""}.`);
-  if (has(pm.state) && pm.state !== "running") parts.unshift(`Power manager: ${human(pm.state)}.`);
-  $("#power-hint").innerHTML = `${esc(parts.join(" "))} <a href="#settings/pm-service">Change in Settings</a>`;
+  parts.push(t("Idle target: {state}.", { state: settings["pm.default-state"] || "suspend" }));
+  if (idle !== null) parts.push(idle > 0 ? t("Inactivity hibernation after {d}.", { d: humanDuration(idle) }) : t("Inactivity hibernation off."));
+  parts.push(sched ? t("Scheduled hibernation on ({cron}, wake after {d}).", { cron: settings["pm.scheduled-hibernate-cron"] || "?", d: settings["pm.scheduled-hibernate-duration"] || "?" }) : t("Scheduled hibernation off."));
+  if (armed) parts.push(wakeSecs ? t("A wake timer is armed for {d}.", { d: humanDuration(wakeSecs) }) : t("A wake timer is armed."));
+  if (has(pm.state) && pm.state !== "running") parts.unshift(`${t("Power manager")}: ${human(pm.state)}.`);
+  $("#power-hint").innerHTML = `${esc(parts.join(" "))} <a href="#settings/pm-service">${t("Change in Settings")}</a>`;
 }
 
 function humanDuration(secs) {
@@ -537,7 +541,7 @@ Views.settings = async function () {
     }
     renderSettings();
     if (target) document.getElementById("group-" + target)?.scrollIntoView({ block: "start" });
-  } catch (err) { notify("Settings unavailable: " + err.message, true); }
+  } catch (err) { notify(t("Settings unavailable: {error}", { error: err.message }), true); }
 };
 
 // Live settings changes from other writers (lsc, the dashboard) update the
@@ -568,7 +572,7 @@ function renderSettings() {
   container.innerHTML = "";
   $("#settings-jump").innerHTML = [...groups.keys()].map(s => `<a href="#settings/${esc(s)}" data-jump="${esc(s)}">${esc(s)}</a>`).join("");
   if (!groups.size) {
-    container.innerHTML = `<div class="settings-empty">Nothing matches.${advanced ? "" : " Advanced settings are hidden."}</div>`;
+    container.innerHTML = `<div class="settings-empty">${t("Nothing matches.")}${advanced ? "" : " " + t("Advanced settings are hidden.")}</div>`;
   }
   for (const [svc, keys] of groups) {
     const g = document.createElement("section");
@@ -622,28 +626,28 @@ function settingRowEl(key, m) {
   row.dataset.key = key;
   const cur = currentValue(key);
   const def = m.default === null || m.default === undefined ? "" : String(m.default);
-  const tags = [m.transient ? `<span class="tag" title="Kept in memory only, reset on reboot">until reboot</span>` : "",
-    m["read-only"] ? `<span class="tag">read only</span>` : ""].join("");
+  const tags = [m.transient ? `<span class="tag" title="${t("Kept in memory only, reset on reboot")}">${t("until reboot")}</span>` : "",
+    m["read-only"] ? `<span class="tag">${t("read only")}</span>` : ""].join("");
   let control;
   const id = "s-" + key.replace(/[^a-z0-9]/gi, "-");
   if (m["read-only"]) {
-    control = `<div class="setting-ro">${esc(cur || def || "(not set)")}</div>`;
+    control = `<div class="setting-ro">${esc(cur || def || t("(not set)"))}</div>`;
   } else if (m.type === "bool") {
     const on = cur === "" ? def === "true" : cur === "true";
-    control = `<div class="row"><label class="switch"><input type="checkbox" id="${id}" data-key="${esc(key)}" ${on ? "checked" : ""}><span class="track"></span></label><label for="${id}" class="muted">${on ? "On" : "Off"}</label></div>`;
+    control = `<div class="row"><label class="switch"><input type="checkbox" id="${id}" data-key="${esc(key)}" ${on ? "checked" : ""}><span class="track"></span></label><label for="${id}" class="muted">${on ? t("On") : t("Off")}</label></div>`;
   } else if (m.type === "enum") {
     const opts = (m.values || []).map(v => `<option value="${esc(v.value)}" ${v.value === cur ? "selected" : ""}>${esc(v.label || v.value)}</option>`).join("");
     const defLabel = (m.values || []).find(v => v.value === def);
-    control = `<div class="row"><select id="${id}" data-key="${esc(key)}"><option value="" ${cur === "" ? "selected" : ""}>${esc(def !== "" ? `Default (${defLabel ? defLabel.label || defLabel.value : def})` : "Not set")}</option>${opts}</select></div>`;
+    control = `<div class="row"><select id="${id}" data-key="${esc(key)}"><option value="" ${cur === "" ? "selected" : ""}>${esc(def !== "" ? t("Default ({value})", { value: defLabel ? defLabel.label || defLabel.value : def }) : t("Not set"))}</option>${opts}</select></div>`;
   } else if (m.type === "int" || m.type === "float") {
     const attrs = [has(m.min) ? `min="${m.min}"` : "", has(m.max) ? `max="${m.max}"` : "", `step="${m.type === "int" ? 1 : "any"}"`].join(" ");
     control = `<div class="row"><input type="number" id="${id}" data-key="${esc(key)}" value="${esc(cur)}" placeholder="${esc(def)}" ${attrs}>${m.unit ? `<span class="unit">${esc(m.unit)}</span>` : ""}</div>`;
   } else {
     control = `<div class="row"><input type="text" id="${id}" data-key="${esc(key)}" value="${esc(cur)}" placeholder="${esc(def || m.example || "")}" spellcheck="false"></div>`;
   }
-  const range = (m.type === "int" || m.type === "float") && (has(m.min) || has(m.max)) ? ` (${has(m.min) ? m.min : "any"} to ${has(m.max) ? m.max : "any"})` : "";
+  const range = (m.type === "int" || m.type === "float") && (has(m.min) || has(m.max)) ? ` (${has(m.min) ? m.min : t("any")} ${t("to")} ${has(m.max) ? m.max : t("any")})` : "";
   const defLine = m["read-only"] ? "" :
-    `<div class="setting-default">${def !== "" ? `Default ${esc(def)}${esc(range)}` : `No default${esc(range)}`}${(cur !== "" && !m["read-only"]) ? ` <a href="#" data-reset="${esc(key)}">Reset</a>` : ""}</div>`;
+    `<div class="setting-default">${def !== "" ? `${t("Default")} ${esc(def)}${esc(range)}` : `${t("No default")}${esc(range)}`}${(cur !== "" && !m["read-only"]) ? ` <a href="#" data-reset="${esc(key)}">${t("Reset")}</a>` : ""}</div>`;
   row.innerHTML = `
     <div>
       <div><label class="setting-label" for="${id}">${esc(m.label || key)}</label><span class="setting-key">${esc(key)}</span></div>
@@ -659,7 +663,7 @@ function settingRowEl(key, m) {
       delete failures[key];
       row.classList.toggle("is-changed", dirty.has(key));
       row.classList.remove("is-failed");
-      if (input.type === "checkbox") $(`label[for="${id}"].muted`, row).textContent = input.checked ? "On" : "Off";
+      if (input.type === "checkbox") $(`label[for="${id}"].muted`, row).textContent = input.checked ? t("On") : t("Off");
       updateSavebar();
     };
     input.addEventListener(input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input", handler);
@@ -677,7 +681,7 @@ function settingRowEl(key, m) {
 function updateSavebar() {
   const n = dirty.size;
   $("#savebar").hidden = n === 0 || currentView !== "settings";
-  $("#savebar-text").textContent = n === 1 ? "1 change" : `${n} changes`;
+  $("#savebar-text").textContent = n === 1 ? t("1 change") : t("{n} changes", { n });
 }
 
 $("#settings-save").addEventListener("click", async () => {
@@ -689,8 +693,8 @@ $("#settings-save").addEventListener("click", async () => {
     for (const [k, v] of Object.entries(res.applied || {})) { if (v === "") delete values[k]; else values[k] = v; dirty.delete(k); }
     failures = res.failures || {};
     const nf = Object.keys(failures).length, na = Object.keys(res.applied || {}).length;
-    if (nf) notify(`${na} saved, ${nf} rejected`, true);
-    else notify(na === 1 ? "Saved 1 setting" : `Saved ${na} settings`);
+    if (nf) notify(t("{saved} saved, {rejected} rejected", { saved: na, rejected: nf }), true);
+    else notify(na === 1 ? t("Saved 1 setting") : t("Saved {n} settings", { n: na }));
     renderSettings();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
@@ -699,7 +703,7 @@ $("#settings-revert").addEventListener("click", () => { dirty.clear(); failures 
 $("#settings-filter").addEventListener("input", debounce(renderSettings, 150));
 $("#settings-advanced").addEventListener("change", renderSettings);
 
-function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function debounce(fn, ms) { let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), ms); }; }
 
 // ---------- updates ----------
 
@@ -722,11 +726,11 @@ function channelOf(board) {
 function renderUpdates() {
   const d = upd.data; if (!d) return;
   const ota = state.hashes.ota || d.ota || {};
-  const NAMES = { mdb: "MDB", dbc: "Display (DBC)" };
+  const NAMES = { mdb: "MDB", dbc: t("Display (DBC)") };
   $("#upd-boards").innerHTML = ["mdb", "dbc"].map(b => {
     const v = d.versions[b] || {};
     const st = ota[`status:${b}`] || "";
-    const [label, tone] = OTA_STATUS[st] || [human(st) || "Unknown", ""];
+    const [label, tone] = OTA_STATUS[st] ? [t(OTA_STATUS[st][0]), OTA_STATUS[st][1]] : [human(st) || t("Unknown"), ""];
     const busy = ["downloading", "preparing", "installing"].includes(st);
     const dl = busy && has(ota[`download-progress:${b}`]) ? num(ota[`download-progress:${b}`]) : null;
     const inst = busy && has(ota[`install-progress:${b}`]) ? num(ota[`install-progress:${b}`]) : null;
@@ -735,32 +739,32 @@ function renderUpdates() {
     const ch = channelOf(b);
     const lastCheck = d.settings[`updates.${b}.last-check-time`];
     const rows = [
-      ["Installed", has(v.version) ? esc(v.version) : `<span class="muted">unknown</span>`],
-      ["Status", `<span class="status ${tone}">${esc(label)}</span>`, has(ota[`update-version:${b}`]) && st !== "idle" ? `${ota[`update-version:${b}`]}${has(ota[`update-method:${b}`]) ? `, ${ota[`update-method:${b}`]}` : ""}` : null],
-      err ? ["Error", `<span class="status is-bad">${esc(human(err))}</span>`, ota[`error-message:${b}`] || null] : null,
-      has(ota[`download-abort-reason:${b}`]) ? ["Download", `<span class="muted">paused: ${esc(human(ota[`download-abort-reason:${b}`]))}</span>`, has(ota[`download-skip-checks:${b}`]) ? `retries after ${ota[`download-skip-checks:${b}`]} more checks` : null] : null,
-      ["Last check", has(lastCheck) ? esc(ago(lastCheck)) : `<span class="muted">never</span>`, d.settings[`updates.${b}.check-interval`] === "0s" ? "automatic checks off" : has(d.settings[`updates.${b}.check-interval`]) ? `every ${d.settings[`updates.${b}.check-interval`]}` : null],
+      [t("Installed"), has(v.version) ? esc(v.version) : `<span class="muted">${t("unknown")}</span>`],
+      [t("Status"), `<span class="status ${tone}">${esc(label)}</span>`, has(ota[`update-version:${b}`]) && st !== "idle" ? `${ota[`update-version:${b}`]}${has(ota[`update-method:${b}`]) ? `, ${ota[`update-method:${b}`]}` : ""}` : null],
+      err ? [t("Error"), `<span class="status is-bad">${esc(human(err))}</span>`, ota[`error-message:${b}`] || null] : null,
+      has(ota[`download-abort-reason:${b}`]) ? [t("Download"), `<span class="muted">${t("paused")}: ${esc(human(ota[`download-abort-reason:${b}`]))}</span>`, has(ota[`download-skip-checks:${b}`]) ? t("retries after {n} more checks", { n: ota[`download-skip-checks:${b}`] }) : null] : null,
+      [t("Last check"), has(lastCheck) ? esc(ago(lastCheck)) : `<span class="muted">${t("never")}</span>`, d.settings[`updates.${b}.check-interval`] === "0s" ? t("automatic checks off") : has(d.settings[`updates.${b}.check-interval`]) ? t("every {interval}", { interval: d.settings[`updates.${b}.check-interval`] }) : null],
     ];
     const bar = (label, p, warn) => p === null ? "" : `<div class="muted" style="font-size:.85rem">${label} ${p} %</div><div class="progress ${warn ? "is-warn" : ""}"><span style="width:${p}%"></span></div>`;
     const chosen = upd.chosen[b] || ch;
     const pc = ota[`preview-channel:${b}`];
     const previewFor = pc === chosen ? preview : "";
     const previewLine = chosen === ch ? ""
-      : previewFor === "checking" ? `<span class="muted">Looking up ${esc(chosen)}</span>`
-      : previewFor === "ready" ? `${esc(chosen)} has <span class="mono">${esc(ota[`preview-version:${b}`])}</span>${has(ota[`preview-size:${b}`]) ? `, a ${esc(humanSize(num(ota[`preview-size:${b}`])))} full download` : ""}`
-      : previewFor === "unavailable" ? `<span class="muted">${esc(chosen)} has nothing for this board</span>`
-      : previewFor === "error" ? `<span class="status is-bad">Could not read the ${esc(chosen)} channel</span>`
-      : `<span class="muted">Looking up ${esc(chosen)}</span>`;
+      : previewFor === "checking" ? `<span class="muted">${t("Looking up {channel}", { channel: esc(chosen) })}</span>`
+      : previewFor === "ready" ? t("{channel} has {version}{size}", { channel: esc(chosen), version: `<span class="mono">${esc(ota[`preview-version:${b}`])}</span>`, size: has(ota[`preview-size:${b}`]) ? t(", a {size} full download", { size: esc(humanSize(num(ota[`preview-size:${b}`]))) }) : "" })
+      : previewFor === "unavailable" ? `<span class="muted">${t("{channel} has nothing for this board", { channel: esc(chosen) })}</span>`
+      : previewFor === "error" ? `<span class="status is-bad">${t("Could not read the {channel} channel", { channel: esc(chosen) })}</span>`
+      : `<span class="muted">${t("Looking up {channel}", { channel: esc(chosen) })}</span>`;
     return `<section class="block board" data-board="${b}">
       <h2>${NAMES[b]}</h2>
       <dl class="facts">${rows.filter(r => r && has(r[1])).map(([l, val, aside]) => `<dt>${esc(l)}</dt><dd>${val}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`).join("")}</dl>
-      ${bar("Download", dl, false)}${bar("Install", inst, false)}
+      ${bar(t("Download"), dl, false)}${bar(t("Install"), inst, false)}
       <div class="cmd-row">
-        <button type="button" class="btn" data-upd="check" data-board="${b}">Check now</button>
-        <label class="channel-pick">Channel
-          <select data-upd-channel="${b}" aria-label="Release channel">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === chosen ? "selected" : ""}>${c}${c === ch ? " (current)" : ""}</option>`).join("")}</select>
+        <button type="button" class="btn" data-upd="check" data-board="${b}">${t("Check now")}</button>
+        <label class="channel-pick">${t("Channel")}
+          <select data-upd-channel="${b}" aria-label="${t("Release channel")}">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === chosen ? "selected" : ""}>${c}${c === ch ? ` (${t("current")})` : ""}</option>`).join("")}</select>
         </label>
-        ${chosen !== ch && previewFor === "ready" ? `<button type="button" class="btn btn-primary" data-upd="switch" data-board="${b}">Switch to ${esc(chosen)} and update now</button>` : ""}
+        ${chosen !== ch && previewFor === "ready" ? `<button type="button" class="btn btn-primary" data-upd="switch" data-board="${b}">${t("Switch to {channel} and update now", { channel: esc(chosen) })}</button>` : ""}
       </div>
       ${previewLine ? `<p class="cmd-hint">${previewLine}</p>` : ""}
     </section>`;
@@ -773,12 +777,12 @@ function renderUpdates() {
     return `<div class="upd-group"><h3>${NAMES[b]}</h3>${list.map(f => `<div class="upd-row">
       <span class="fname">${esc(f.name)}</span>
       <span class="row-actions">
-        <button type="button" class="btn btn-small" data-upd="install" data-board="${b}" data-file="${esc(f.name)}">Install</button>
-        <button type="button" class="btn btn-small btn-quiet" data-upd="delete" data-board="${b}" data-file="${esc(f.name)}">Delete</button>
+        <button type="button" class="btn btn-small" data-upd="install" data-board="${b}" data-file="${esc(f.name)}">${t("Install")}</button>
+        <button type="button" class="btn btn-small btn-quiet" data-upd="delete" data-board="${b}" data-file="${esc(f.name)}">${t("Delete")}</button>
       </span>
       <span class="fmeta">${esc(humanSize(f.size))}, ${esc(new Date(f.mtime * 1000).toLocaleString())}</span>
     </div>`).join("")}</div>`;
-  }).join("") || `<p class="cmd-hint">No update files on the scooter.</p>`;
+  }).join("") || `<p class="cmd-hint">${t("No update files on the scooter.")}</p>`;
 }
 
 $("#view-updates").addEventListener("change", async e => {
@@ -800,13 +804,13 @@ $("#view-updates").addEventListener("click", async e => {
   if (action === "switch") body.channel = upd.chosen[board];
   if (action === "install" || action === "delete") body.file = file;
   if (action === "switch") {
-    const ok = await confirmDialog({ title: `Switch ${board.toUpperCase()} to ${body.channel}`, body: `The full ${body.channel} image is downloaded and installed now. That takes a while and, for the MDB, ends in a reboot.`, ok: `Switch and update` });
+    const ok = await confirmDialog({ title: t("Switch {board} to {channel}", { board: board.toUpperCase(), channel: body.channel }), body: t("The full {channel} image is downloaded and installed now. That takes a while and, for the MDB, ends in a reboot.", { channel: body.channel }), ok: t("Switch and update") });
     if (!ok) return;
     btn.classList.add("is-busy");
     try {
       await API.post("/api/updates/action", { board, action: "channel", channel: body.channel });
       await API.post("/api/updates/action", { board, action: "check" });
-      notify(`${board.toUpperCase()} switching to ${body.channel}`);
+      notify(t("{board} switching to {channel}", { board: board.toUpperCase(), channel: body.channel }));
       delete upd.chosen[board];
       Views.updates();
     } catch (err) { notify(err.message, true); }
@@ -814,19 +818,19 @@ $("#view-updates").addEventListener("click", async e => {
     return;
   }
   if (action === "install") {
-    const ok = await confirmDialog({ title: `Install on ${board.toUpperCase()}`, body: board === "dbc"
-      ? `${file} is copied to the display (switched on if needed) and installed. It takes effect the next time the display powers up.`
-      : `${file} is installed now. The MDB reboots when the installation is done and this page comes back after that.`, ok: "Install", danger: board === "mdb" });
+    const ok = await confirmDialog({ title: t("Install on {board}", { board: board.toUpperCase() }), body: board === "dbc"
+      ? t("{file} is copied to the display (switched on if needed) and installed. It takes effect the next time the display powers up.", { file })
+      : t("{file} is installed now. The MDB reboots when the installation is done and this page comes back after that.", { file }), ok: t("Install"), danger: board === "mdb" });
     if (!ok) return;
   }
   if (action === "delete") {
-    const ok = await confirmDialog({ title: "Delete file", body: `Delete ${file}?`, ok: "Delete", danger: true });
+    const ok = await confirmDialog({ title: t("Delete file"), body: t("Delete {name}?", { name: file }), ok: t("Delete"), danger: true });
     if (!ok) return;
   }
   btn.classList.add("is-busy");
   try {
     const res = await API.post("/api/updates/action", body);
-    notify({ check: "Checking for updates", install: "Update queued", delete: "File deleted" }[action]);
+    notify(t({ check: "Checking for updates", install: "Update queued", delete: "File deleted" }[action]));
     if (res && res.status) Views.updates();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
@@ -835,8 +839,8 @@ $("#view-updates").addEventListener("click", async e => {
 $("#upd-upload-form").addEventListener("submit", e => {
   e.preventDefault();
   const file = $("#upd-upload-file").files[0];
-  if (!file) return notify("Choose a file first", true);
-  if (!/\.(mender|delta)$/.test(file.name)) return notify("Only .mender and .delta files", true);
+  if (!file) return notify(t("Choose a file first"), true);
+  if (!/\.(mender|delta)$/.test(file.name)) return notify(t("Only .mender and .delta files"), true);
   const board = $("#upd-upload-board").value;
   const prog = $("#upd-upload-progress"), bar = $("span", prog);
   prog.hidden = false; bar.style.width = "0%";
@@ -847,10 +851,10 @@ $("#upd-upload-form").addEventListener("submit", e => {
   xhr.onload = () => {
     prog.hidden = true;
     let data = {}; try { data = JSON.parse(xhr.responseText); } catch { /* not json */ }
-    if (xhr.status >= 200 && xhr.status < 300) { notify(`Uploaded ${file.name}`); $("#upd-upload-file").value = ""; Views.updates(); }
-    else notify(data.error || `Upload failed (HTTP ${xhr.status})`, true);
+    if (xhr.status >= 200 && xhr.status < 300) { notify(t("Uploaded {name}", { name: file.name })); $("#upd-upload-file").value = ""; Views.updates(); }
+    else notify(data.error || t("Upload failed (HTTP {status})", { status: xhr.status }), true);
   };
-  xhr.onerror = () => { prog.hidden = true; notify("Upload failed", true); };
+  xhr.onerror = () => { prog.hidden = true; notify(t("Upload failed"), true); };
   xhr.send(file);
 });
 
@@ -874,45 +878,45 @@ function renderSystemFacts() {
   const m = H("maps"), mo = H("modem"), net = H("internet");
   const vmdb = H("version:mdb"), vdbc = H("version:dbc"), ecu = H("engine-ecu"), sys = H("system");
   const boards = [
-    ["MDB", vmdb.version || vmdb.version_id, vmdb.serial_number_real],
-    ["Display", vdbc.version || vdbc.version_id, vdbc.serial_number_real],
-    ["Motor controller", has(ecu["fw-version"]) ? `firmware ${ecu["fw-version"]}` : null, null],
-    ["Bluetooth module", has(sys["nrf-fw-version"]) ? `firmware ${sys["nrf-fw-version"]}` : null, null],
+    [t("MDB"), vmdb.version || vmdb.version_id, vmdb.serial_number_real],
+    [t("Display"), vdbc.version || vdbc.version_id, vdbc.serial_number_real],
+    [t("Motor controller"), has(ecu["fw-version"]) ? `${t("firmware")} ${ecu["fw-version"]}` : null, null],
+    [t("Bluetooth module"), has(sys["nrf-fw-version"]) ? `${t("firmware")} ${sys["nrf-fw-version"]}` : null, null],
   ].filter(r => has(r[1]));
   $("#boards tbody").innerHTML = boards.map(([n, ver, sn]) =>
     `<tr><td>${esc(n)}</td><td>${esc(ver)}${sn ? `<div class="serial">${esc(sn)}</div>` : ""}</td></tr>`).join("")
-    || `<tr><td class="muted">Not reported yet.</td></tr>`;
+    || `<tr><td class="muted">${t("Not reported yet.")}</td></tr>`;
 
 
   const art = (p) => has(m[`${p}:size`])
-    ? `${esc(humanSize(num(m[`${p}:size`])))}${has(m[`${p}:published-at`]) ? `, published ${esc(m[`${p}:published-at`].slice(0, 10))}` : ""}`
-    : `<span class="muted">not installed</span>`;
+    ? `${esc(humanSize(num(m[`${p}:size`])))}${has(m[`${p}:published-at`]) ? `, ${t("published")} ${esc(m[`${p}:published-at`].slice(0, 10))}` : ""}`
+    : `<span class="muted">${t("not installed")}</span>`;
   renderFacts($("#sys-maps-facts"), [
-    ["Region", has(m["region-name"]) ? esc(m["region-name"]) : has(m.region) ? esc(m.region) : null],
-    ["Map tiles", art("map"), has(m["map:mtime"]) ? `written ${m["map:mtime"].slice(0, 10)}` : null],
-    ["Routing tiles", art("routing"), has(m["routing:mtime"]) ? `written ${m["routing:mtime"].slice(0, 10)}` : null],
-    ["Update", has(m["update-available"]) ? (m["update-available"] === "true" ? `<span class="status is-info">Available</span>` : "Up to date") : null, has(m["last-update-check"]) ? `checked ${ago(m["last-update-check"])}` : null],
+    [t("Region"), has(m["region-name"]) ? esc(m["region-name"]) : has(m.region) ? esc(m.region) : null],
+    [t("Map tiles"), art("map"), has(m["map:mtime"]) ? `${t("written")} ${m["map:mtime"].slice(0, 10)}` : null],
+    [t("Routing tiles"), art("routing"), has(m["routing:mtime"]) ? `${t("written")} ${m["routing:mtime"].slice(0, 10)}` : null],
+    [t("Update"), has(m["update-available"]) ? (m["update-available"] === "true" ? `<span class="status is-info">${t("Available")}</span>` : t("Up to date")) : null, has(m["last-update-check"]) ? `${t("checked")} ${ago(m["last-update-check"])}` : null],
   ]);
   renderFacts($("#sys-modem-facts"), [
-    ["Modem", status(mo["power-state"], mo["power-state"] === "on" ? "On" : human(mo["power-state"])), has(mo["error-state"]) && mo["error-state"] !== "ok" ? human(mo["error-state"]) : null],
-    ["Network", has(mo["operator-name"]) ? esc(mo["operator-name"]) : null, [mo["operator-code"], human(mo.registration), mo["is-roaming"] === "true" ? "roaming" : null].filter(Boolean).join(", ")],
-    ["Connection", status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `signal ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
-    ["IP address", has(net["ip-address"]) ? `<span class="mono">${esc(net["ip-address"])}</span>` : null],
-    ["SIM", status(mo["sim-state"]), [mo["sim-lock"] && mo["sim-lock"] !== "disabled" ? `lock ${mo["sim-lock"]}` : null, mo["pin-action"] && mo["pin-action"] !== "unconfigured" ? `PIN ${human(mo["pin-action"]).toLowerCase()}` : null].filter(Boolean).join(", ")],
-    ["IMEI", has(net["sim-imei"]) ? `<span class="mono">${esc(net["sim-imei"])}</span>` : null],
-    ["ICCID", has(net["sim-iccid"]) ? `<span class="mono">${esc(net["sim-iccid"])}</span>` : null],
-    ["IMSI", has(net["sim-imsi"]) ? `<span class="mono">${esc(net["sim-imsi"])}</span>` : null],
-    ["Health", has(net["modem-health"]) ? esc(human(net["modem-health"])) : null, [net.reachability ? `reachability ${net.reachability}` : null, net["link-layer"] ? `link ${net["link-layer"]}` : null].filter(Boolean).join(", ")],
+    [t("Modem"), status(mo["power-state"], mo["power-state"] === "on" ? t("On") : human(mo["power-state"])), has(mo["error-state"]) && mo["error-state"] !== "ok" ? human(mo["error-state"]) : null],
+    [t("Network"), has(mo["operator-name"]) ? esc(mo["operator-name"]) : null, [mo["operator-code"], human(mo.registration), mo["is-roaming"] === "true" ? t("roaming") : null].filter(Boolean).join(", ")],
+    [t("Connection"), status(net.status), [net["access-tech"], has(net["signal-quality"]) ? `${t("signal")} ${net["signal-quality"]} %` : null].filter(Boolean).join(", ")],
+    [t("IP address"), has(net["ip-address"]) ? `<span class="mono">${esc(net["ip-address"])}</span>` : null],
+    [t("SIM"), status(mo["sim-state"], simState(mo["sim-state"])), [mo["sim-lock"] && mo["sim-lock"] !== "disabled" ? `${t("lock")} ${mo["sim-lock"]}` : null, mo["pin-action"] && mo["pin-action"] !== "unconfigured" ? `PIN ${human(mo["pin-action"]).toLowerCase()}` : null].filter(Boolean).join(", ")],
+    [t("IMEI"), has(net["sim-imei"]) ? `<span class="mono">${esc(net["sim-imei"])}</span>` : null],
+    [t("ICCID"), has(net["sim-iccid"]) ? `<span class="mono">${esc(net["sim-iccid"])}</span>` : null],
+    [t("IMSI"), has(net["sim-imsi"]) ? `<span class="mono">${esc(net["sim-imsi"])}</span>` : null],
+    [t("Health"), has(net["modem-health"]) ? esc(human(net["modem-health"])) : null, [net.reachability ? `${t("reachability")} ${net.reachability}` : null, net["link-layer"] ? `${t("link")} ${net["link-layer"]}` : null].filter(Boolean).join(", ")],
   ]);
 }
 
 function renderBundles(list) {
   $("#log-bundles").innerHTML = list.length ? list.map(b => `<div class="upd-row">
     <a class="fname" href="${esc(API.url(`/files/log-bundles/${encodeURIComponent(b.name)}`, { download: "1" }))}">${esc(b.name)}</a>
-    <span class="row-actions"><a class="btn btn-small" href="${esc(API.url(`/files/log-bundles/${encodeURIComponent(b.name)}`, { download: "1" }))}">Download</a>
-      <button type="button" class="btn btn-small btn-quiet" data-bundle-del="${esc(b.name)}">Delete</button></span>
+    <span class="row-actions"><a class="btn btn-small" href="${esc(API.url(`/files/log-bundles/${encodeURIComponent(b.name)}`, { download: "1" }))}">${t("Download")}</a>
+      <button type="button" class="btn btn-small btn-quiet" data-bundle-del="${esc(b.name)}">${t("Delete")}</button></span>
     <span class="fmeta">${esc(humanSize(b.size))}, ${esc(new Date(b.mtime * 1000).toLocaleString())}</span>
-  </div>`).join("") : `<p class="cmd-hint">No bundles yet.</p>`;
+  </div>`).join("") : `<p class="cmd-hint">${t("No bundles yet.")}</p>`;
 }
 
 $("#log-bundle-form").addEventListener("submit", async e => {
@@ -922,14 +926,14 @@ $("#log-bundle-form").addEventListener("submit", async e => {
   try {
     const res = await API.post("/api/system/logs", { since: $("#log-since").value });
     renderBundles(res.bundles || []);
-    notify(res.bundle ? `Created ${res.bundle}` : "Bundle created");
+    notify(res.bundle ? t("Created {name}", { name: res.bundle }) : t("Bundle created"));
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
 });
 $("#log-bundles").addEventListener("click", async e => {
   const del = e.target.closest("[data-bundle-del]");
   if (!del) return;
-  const ok = await confirmDialog({ title: "Delete bundle", body: `Delete ${del.dataset.bundleDel}?`, ok: "Delete", danger: true });
+  const ok = await confirmDialog({ title: t("Delete bundle"), body: t("Delete {name}?", { name: del.dataset.bundleDel }), ok: t("Delete"), danger: true });
   if (!ok) return;
   try { await API.del(`/api/files?path=${encodeURIComponent("log-bundles/" + del.dataset.bundleDel)}`); Views.system(); }
   catch (err) { notify(err.message, true); }
@@ -944,7 +948,7 @@ $("#journal-form").addEventListener("submit", async e => {
     const resp = await fetch(API.url("/api/system/journal", { unit, lines }), { headers: API.headers(false) });
     const text = await resp.text();
     if (!resp.ok) throw new Error(text || `HTTP ${resp.status}`);
-    out.hidden = false; out.textContent = text || "(empty)";
+    out.hidden = false; out.textContent = text || t("(empty)");
     out.scrollTop = out.scrollHeight;
     const dl = $("#journal-download");
     dl.hidden = false; dl.href = API.url("/api/system/journal", { unit, lines }); dl.download = `${unit || "journal"}.log`;
@@ -972,29 +976,29 @@ function renderDestination() {
   const el = $("#nav-current");
   const set = has(d.latitude) && has(d.longitude);
   $("#nav-current-actions").hidden = !set;
-  if (!set) { el.className = "nav-current muted"; el.textContent = "None."; return; }
+  if (!set) { el.className = "nav-current muted"; el.textContent = t("None."); return; }
   el.className = "nav-current";
-  el.innerHTML = `${has(d.address) ? `<div class="name">${esc(d.address)}</div>` : ""}<div class="coords">${esc(fmtCoord(d.latitude, d.longitude))}</div>${has(d.timestamp) ? `<div class="when">set ${esc(ago(d.timestamp))}</div>` : ""}`;
+  el.innerHTML = `${has(d.address) ? `<div class="name">${esc(d.address)}</div>` : ""}<div class="coords">${esc(fmtCoord(d.latitude, d.longitude))}</div>${has(d.timestamp) ? `<div class="when">${t("set")} ${esc(ago(d.timestamp))}</div>` : ""}`;
 }
 
 function renderLocations() {
   const el = $("#nav-locations");
-  if (!nav.locations.length) { el.innerHTML = `<div class="kc-empty">None saved.</div>`; return; }
+  if (!nav.locations.length) { el.innerHTML = `<div class="kc-empty">${t("None saved.")}</div>`; return; }
   el.innerHTML = nav.locations.map(l => {
     const editing = nav.editing === l.id;
     return `<div class="loc" data-id="${l.id}">
-      <div><span class="name">${esc(l.label || "Unnamed")}</span>${l["last-used-at"] ? `<span class="when">used ${esc(ago(l["last-used-at"]))}</span>` : ""}</div>
+      <div><span class="name">${esc(l.label || t("Unnamed"))}</span>${l["last-used-at"] ? `<span class="when">${t("last used")} ${esc(ago(l["last-used-at"]))}</span>` : ""}</div>
       <span class="row-actions">
-        <button type="button" class="btn btn-small btn-quiet" data-loc-go="${l.id}">Navigate</button>
-        <button type="button" class="btn btn-small btn-quiet" data-loc-edit="${l.id}">${editing ? "Cancel" : "Edit"}</button>
-        <button type="button" class="btn btn-small btn-quiet" data-loc-del="${l.id}">Delete</button>
+        <button type="button" class="btn btn-small btn-quiet" data-loc-go="${l.id}">${t("Navigate")}</button>
+        <button type="button" class="btn btn-small btn-quiet" data-loc-edit="${l.id}">${editing ? t("Cancel") : t("Edit")}</button>
+        <button type="button" class="btn btn-small btn-quiet" data-loc-del="${l.id}">${t("Delete")}</button>
       </span>
       <div class="coords">${esc(fmtCoord(l.latitude, l.longitude))}</div>
       ${editing ? `<form class="loc-edit" data-loc-form="${l.id}">
-        <input class="label" value="${esc(l.label)}" placeholder="Name" aria-label="Name" required>
-        <input value="${l.latitude.toFixed(6)}" placeholder="Latitude" aria-label="Latitude" inputmode="decimal" required>
-        <input value="${l.longitude.toFixed(6)}" placeholder="Longitude" aria-label="Longitude" inputmode="decimal" required>
-        <button type="submit" class="btn btn-small btn-primary">Save</button>
+        <input class="label" value="${esc(l.label)}" placeholder="${t("Name")}" aria-label="${t("Name")}" required>
+        <input value="${l.latitude.toFixed(6)}" placeholder="${t("Latitude")}" aria-label="${t("Latitude")}" inputmode="decimal" required>
+        <input value="${l.longitude.toFixed(6)}" placeholder="${t("Longitude")}" aria-label="${t("Longitude")}" inputmode="decimal" required>
+        <button type="submit" class="btn btn-small btn-primary">${t("Save")}</button>
       </form>` : ""}
     </div>`;
   }).join("");
@@ -1002,13 +1006,13 @@ function renderLocations() {
 
 function readCoords(latEl, lonEl) {
   const lat = Number(latEl.value.trim().replace(",", ".")), lon = Number(lonEl.value.trim().replace(",", "."));
-  if (!isFinite(lat) || !isFinite(lon) || latEl.value.trim() === "" || lonEl.value.trim() === "") throw new Error("Latitude and longitude are needed, as decimal degrees");
+  if (!isFinite(lat) || !isFinite(lon) || latEl.value.trim() === "" || lonEl.value.trim() === "") throw new Error(t("Latitude and longitude are needed, as decimal degrees"));
   return { latitude: lat, longitude: lon };
 }
 
 async function navigateTo(latitude, longitude, address, locationId) {
   await API.post("/api/navigation", { latitude, longitude, address: address || "", "location-id": locationId ?? null });
-  notify(address ? `Navigating to ${address}` : "Destination set");
+  notify(address ? t("Navigating to {name}", { name: address }) : t("Destination set"));
   Views.navigation();
 }
 
@@ -1023,21 +1027,21 @@ $("#nav-save").addEventListener("click", async () => {
   try {
     const c = readCoords($("#nav-lat"), $("#nav-lon"));
     const label = $("#nav-label").value.trim();
-    if (!label) return notify("Give the location a name first", true);
+    if (!label) return notify(t("Give the location a name first"), true);
     await API.put("/api/navigation/locations", { label, ...c });
-    notify(`Saved ${label}`);
+    notify(t("Saved {name}", { name: label }));
     $("#nav-form").reset();
     Views.navigation();
   } catch (err) { notify(err.message, true); }
 });
 $("#nav-use-gps").addEventListener("click", () => {
   const g = H("gps");
-  if (!has(g.latitude) || !has(g.longitude) || g.fix === "none") return notify("No GPS fix right now", true);
+  if (!has(g.latitude) || !has(g.longitude) || g.fix === "none") return notify(t("No GPS fix right now"), true);
   $("#nav-lat").value = Number(g.latitude).toFixed(6);
   $("#nav-lon").value = Number(g.longitude).toFixed(6);
 });
 $("#nav-clear").addEventListener("click", async () => {
-  try { await API.post("/api/navigation", { clear: true }); notify("Destination cleared"); Views.navigation(); }
+  try { await API.post("/api/navigation", { clear: true }); notify(t("Destination cleared")); Views.navigation(); }
   catch (err) { notify(err.message, true); }
 });
 $("#nav-locations").addEventListener("click", async e => {
@@ -1052,9 +1056,9 @@ $("#nav-locations").addEventListener("click", async e => {
     if (nav.editing !== null) $(`[data-loc-form="${id}"] input`)?.focus();
   } else if (del) {
     const l = nav.locations.find(x => x.id === Number(del.dataset.locDel));
-    const ok = await confirmDialog({ title: "Delete location", body: `Remove ${l.label || "this location"} from the saved locations?`, ok: "Delete", danger: true });
+    const ok = await confirmDialog({ title: t("Delete location"), body: t("Remove {name} from the saved locations?", { name: l.label || t("this location") }), ok: t("Delete"), danger: true });
     if (!ok) return;
-    try { await API.del(`/api/navigation/locations?id=${l.id}`); notify(`Deleted ${l.label}`); Views.navigation(); }
+    try { await API.del(`/api/navigation/locations?id=${l.id}`); notify(t("Deleted {name}", { name: l.label })); Views.navigation(); }
     catch (err) { notify(err.message, true); }
   }
 });
@@ -1067,7 +1071,7 @@ $("#nav-locations").addEventListener("submit", async e => {
     const c = readCoords(latEl, lonEl);
     await API.put("/api/navigation/locations", { id: Number(form.dataset.locForm), label: labelEl.value.trim(), ...c });
     nav.editing = null;
-    notify("Location saved");
+    notify(t("Location saved"));
     Views.navigation();
   } catch (err) { notify(err.message, true); }
 });
@@ -1090,21 +1094,21 @@ Views.keycards = async function () {
 const fmtUID = (u) => u.replace(/(..)(?=.)/g, "$1 ");
 
 function renderKeycards() {
-  const row = (uid, kind, extra = "") => `<div class="kc-row ${extra}"><span class="uid">${esc(fmtUID(uid))}</span>${kind ? `<span class="tag">${esc(kind)}</span>` : ""}
-    ${kind === "master" ? "" : `<button type="button" class="btn btn-small btn-quiet" data-kc-remove="${esc(uid)}" ${kc.authorized.length <= 1 ? 'disabled title="The last card stays"' : ""}>Remove</button>`}</div>`;
+  const row = (uid, kind, extra = "") => `<div class="kc-row ${extra}"><span class="uid">${esc(fmtUID(uid))}</span>${kind ? `<span class="tag">${esc(t(kind))}</span>` : ""}
+    ${kind === "master" ? "" : `<button type="button" class="btn btn-small btn-quiet" data-kc-remove="${esc(uid)}" ${kc.authorized.length <= 1 ? `disabled title="${t("The last card stays")}"` : ""}>${t("Remove")}</button>`}</div>`;
   const learned = kc.learned.filter(u => !kc.authorized.includes(u));
   $("#kc-authorized").innerHTML = [
     ...kc.authorized.map(u => row(u, "")),
     ...learned.map(u => row(u, "tapped, unsaved", "is-new")),
-  ].join("") || `<div class="kc-empty">No authorized cards yet.</div>`;
-  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">No master card. The next card tapped at the reader becomes one.</div>`;
+  ].join("") || `<div class="kc-empty">${t("No authorized cards yet.")}</div>`;
+  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">${t("No master card. The next card tapped at the reader becomes one.")}</div>`;
 
   const learn = $("#kc-learn-start").closest(".kc-learn");
   learn.classList.toggle("is-active", kc.learning === "cards");
   $("#kc-learn-start").hidden = kc.learning === "cards";
   $("#kc-learn-stop").hidden = kc.learning !== "cards";
   $("#kc-learn-hint").textContent = kc.learning === "cards"
-    ? `Tap cards at the reader${learned.length ? `, ${learned.length} so far` : ""}.`
+    ? (learned.length ? t("Tap cards at the reader, {n} so far.", { n: learned.length }) : t("Tap cards at the reader."))
     : "";
   $("#kc-master-start").hidden = kc.learning === "master";
   $("#kc-master-stop").hidden = kc.learning !== "master";
@@ -1117,24 +1121,24 @@ function renderLastCard() {
   const el = $("#kc-last");
   if (!has(k.uid)) return;
   const known = kc.authorized.includes(k.uid) || kc.master.includes(k.uid);
-  const verdict = k.authentication === "passed" ? `<span class="status is-good">Accepted</span>` : `<span class="status is-bad">Rejected</span>`;
+  const verdict = k.authentication === "passed" ? `<span class="status is-good">${t("Accepted")}</span>` : `<span class="status is-bad">${t("Rejected")}</span>`;
   const when = kc.lastSeenAt ? ago(new Date(kc.lastSeenAt).toISOString()) : "";
   el.classList.remove("muted");
-  el.innerHTML = `<span class="uid">${esc(fmtUID(k.uid))}</span>${verdict}${has(k.type) ? `<span class="muted">${esc(k.type)} card</span>` : ""}<span class="muted">${esc(when)}</span>
-    ${known ? "" : `<button type="button" class="btn btn-small" data-kc-authorize="${esc(k.uid)}">Authorize this card</button>`}`;
+  el.innerHTML = `<span class="uid">${esc(fmtUID(k.uid))}</span>${verdict}${has(k.type) ? `<span class="muted">${esc(k.type)} ${t("card")}</span>` : ""}<span class="muted">${esc(when)}</span>
+    ${known ? "" : `<button type="button" class="btn btn-small" data-kc-authorize="${esc(k.uid)}">${t("Authorize this card")}</button>`}`;
 }
 
 function onKeycardEvent(ev, ts) {
   const [kind, ...rest] = ev.split(":");
   const uid = rest[rest.length - 1];
   switch (kind) {
-    case "card-learned": if (!kc.learned.includes(uid)) kc.learned.push(uid); kc.learning = kc.learning || "cards"; notify(`Tapped ${fmtUID(uid)}`); break;
-    case "card-duplicate": notify(`${fmtUID(uid)} is already authorized`); break;
+    case "card-learned": if (!kc.learned.includes(uid)) kc.learned.push(uid); kc.learning = kc.learning || "cards"; notify(t("Tapped {uid}", { uid: fmtUID(uid) })); break;
+    case "card-duplicate": notify(t("{uid} is already authorized", { uid: fmtUID(uid) })); break;
     case "mode-entered": if (rest[0] === "master") kc.learning = "master"; break;
     case "mode-exited": if (kc.learning === "master") kc.learning = null; break;
-    case "master-learned": notify(`Master ${fmtUID(uid)} added`); kc.learning = null; Views.keycards(); return;
-    case "rejected": notify(`${fmtUID(uid)} is already authorized, so it cannot be a master`, true); break;
-    case "error": notify(`Could not save ${fmtUID(uid)}`, true); break;
+    case "master-learned": notify(t("Master {uid} added", { uid: fmtUID(uid) })); kc.learning = null; Views.keycards(); return;
+    case "rejected": notify(t("{uid} is already authorized, so it cannot be a master", { uid: fmtUID(uid) }), true); break;
+    case "error": notify(t("Could not save {uid}", { uid: fmtUID(uid) }), true); break;
     case "reset": kc.learning = null; kc.learned = []; Views.keycards(); return;
   }
   if (currentView === "keycards") renderKeycards();
@@ -1156,27 +1160,27 @@ $("#kc-add-form").addEventListener("submit", async e => {
   e.preventDefault();
   const uid = $("#kc-add-uid").value;
   if (!uid.trim()) return;
-  try { await keycardCommand("add", uid, $("button", e.target)); $("#kc-add-uid").value = ""; notify("Card authorized"); }
+  try { await keycardCommand("add", uid, $("button", e.target)); $("#kc-add-uid").value = ""; notify(t("Card authorized")); }
   catch (err) { notify(err.message, true); }
 });
 $("#view-keycards").addEventListener("click", async e => {
   const rm = e.target.closest("[data-kc-remove]");
   if (rm) {
     const uid = rm.dataset.kcRemove;
-    const ok = await confirmDialog({ title: "Remove card", body: `${fmtUID(uid)} will no longer unlock the scooter.`, ok: "Remove", danger: true });
+    const ok = await confirmDialog({ title: t("Remove card"), body: t("{uid} will no longer unlock the scooter.", { uid: fmtUID(uid) }), ok: t("Remove"), danger: true });
     if (!ok) return;
-    try { await keycardCommand("remove", uid, rm); notify("Card removed"); } catch (err) { notify(err.message, true); }
+    try { await keycardCommand("remove", uid, rm); notify(t("Card removed")); } catch (err) { notify(err.message, true); }
   }
   const au = e.target.closest("[data-kc-authorize]");
   if (au) {
-    try { await keycardCommand("add", au.dataset.kcAuthorize, au); notify("Card authorized"); renderLastCard(); } catch (err) { notify(err.message, true); }
+    try { await keycardCommand("add", au.dataset.kcAuthorize, au); notify(t("Card authorized")); renderLastCard(); } catch (err) { notify(err.message, true); }
   }
 });
 $("#kc-learn-start").addEventListener("click", async e => {
   try { await keycardCommand("learn:start", "", e.target); kc.learning = "cards"; kc.learned = []; renderKeycards(); } catch (err) { notify(err.message, true); }
 });
 $("#kc-learn-stop").addEventListener("click", async e => {
-  try { await keycardCommand("learn:stop", "", e.target); kc.learning = null; kc.learned = []; notify("Cards saved"); Views.keycards(); } catch (err) { notify(err.message, true); }
+  try { await keycardCommand("learn:stop", "", e.target); kc.learning = null; kc.learned = []; notify(t("Cards saved")); Views.keycards(); } catch (err) { notify(err.message, true); }
 });
 $("#kc-master-start").addEventListener("click", async e => {
   try { await keycardCommand("learn:master:start", "", e.target); kc.learning = "master"; renderKeycards(); } catch (err) { notify(err.message, true); }
@@ -1185,9 +1189,9 @@ $("#kc-master-stop").addEventListener("click", async e => {
   try { await keycardCommand("learn:master:stop", "", e.target); kc.learning = null; renderKeycards(); } catch (err) { notify(err.message, true); }
 });
 $("#kc-reset").addEventListener("click", async e => {
-  const ok = await confirmDialog({ title: "Forget all cards", body: "Removes all cards. Until a new master is taught in at the reader, no card unlocks the scooter.", ok: "Forget all cards", danger: true });
+  const ok = await confirmDialog({ title: t("Forget all cards"), body: t("Removes all cards. Until a new master is taught in at the reader, no card unlocks the scooter."), ok: t("Forget all cards"), danger: true });
   if (!ok) return;
-  try { await keycardCommand("reset", "", e.target); kc.learning = null; kc.learned = []; notify("All cards forgotten"); Views.keycards(); } catch (err) { notify(err.message, true); }
+  try { await keycardCommand("reset", "", e.target); kc.learning = null; kc.learned = []; notify(t("All cards forgotten")); Views.keycards(); } catch (err) { notify(err.message, true); }
 });
 
 // ---------- files ----------
@@ -1224,12 +1228,12 @@ async function renderFiles() {
         <td class="num">${e.dir ? "" : esc(humanSize(e.size))}${e.mtime ? `<span class="m-date">${e.dir ? "" : ", "}${esc(new Date(e.mtime * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }))}</span>` : ""}</td>
         <td>${e.mtime ? esc(new Date(e.mtime * 1000).toLocaleString()) : ""}</td>
         <td class="actions"><span class="row-actions">
-          <a class="btn btn-small btn-quiet" href="${esc(dl)}">${e.dir ? "Download .tar" : "Download"}</a>
-          <button type="button" class="btn btn-small btn-quiet" data-del="${esc(full)}" data-dir="${e.dir ? 1 : 0}">Delete</button>
+          <a class="btn btn-small btn-quiet" href="${esc(dl)}">${e.dir ? t("Download .tar") : t("Download")}</a>
+          <button type="button" class="btn btn-small btn-quiet" data-del="${esc(full)}" data-dir="${e.dir ? 1 : 0}">${t("Delete")}</button>
         </span></td>
       </tr>`);
     }
-    tb.innerHTML = rows.join("") || `<tr class="files-empty"><td colspan="4">Empty folder.</td></tr>`;
+    tb.innerHTML = rows.join("") || `<tr class="files-empty"><td colspan="4">${t("Empty folder.")}</td></tr>`;
   } catch (err) { notify(err.message, true); }
 }
 
@@ -1259,14 +1263,14 @@ $("#files-table").addEventListener("click", async e => {
   const name = del.dataset.del.split("/").pop();
   const isDir = del.dataset.dir === "1";
   const ok = await confirmDialog({
-    title: isDir ? "Delete folder" : "Delete file",
-    body: isDir ? `Delete "${name}" and everything inside it? This cannot be undone.` : `Delete "${name}"? This cannot be undone.`,
-    ok: "Delete", danger: true,
+    title: isDir ? t("Delete folder") : t("Delete file"),
+    body: isDir ? t("Delete \"{name}\" and everything inside it? This cannot be undone.", { name }) : t("Delete \"{name}\"? This cannot be undone.", { name }),
+    ok: t("Delete"), danger: true,
   });
   if (!ok) return;
   try {
     await API.del(`/api/files?path=${encodeURIComponent(del.dataset.del)}${isDir ? "&recursive=1" : ""}`);
-    notify(`Deleted ${name}`);
+    notify(t("Deleted {name}", { name }));
     renderFiles();
   } catch (err) { notify(err.message, true); }
 });
@@ -1284,7 +1288,7 @@ async function uploadFiles(files) {
         try { msg = (await resp.json()).error || msg; } catch { /* keep */ }
         throw new Error(`${f.name}: ${msg}`);
       }
-      notify(`Uploaded ${f.name}`);
+      notify(t("Uploaded {name}", { name: f.name }));
     } catch (err) { notify(err.message, true); }
   }
   renderFiles();
@@ -1296,7 +1300,7 @@ dz.addEventListener("dragleave", () => dz.classList.remove("is-drag"));
 dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("is-drag"); await uploadFiles([...e.dataTransfer.files]); });
 
 $("#files-mkdir").addEventListener("click", async () => {
-  const name = await promptDialog({ title: "New folder", body: `In /data${filesPath ? "/" + filesPath : ""}`, placeholder: "Folder name", ok: "Create" });
+  const name = await promptDialog({ title: t("New folder"), body: `In /data${filesPath ? "/" + filesPath : ""}`, placeholder: t("Folder name"), ok: t("Create") });
   if (!name || !name.trim()) return;
   const target = filesPath ? `${filesPath}/${name.trim()}` : name.trim();
   try {
@@ -1316,10 +1320,10 @@ function renderCloud(data) {
   const sunshine = data["sunshine-url"] || "https://sunshine.rescoot.org";
   $("#cloud-sunshine-link").href = sunshine + "/settings";
   renderFacts($("#cloud-identity"), [
-    ["Identifier", has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">none yet</span>`],
-    ["IMEI", has(id.imei) ? `<span class="mono">${esc(id.imei)}</span>` : `<span class="muted">modem not ready</span>`],
-    ["MDB serial", has(id["mdb-serial"]) ? `<span class="mono">${esc(id["mdb-serial"])}</span>` : null],
-    ["Display serial", has(id["dbc-serial"]) ? `<span class="mono">${esc(id["dbc-serial"])}</span>` : null],
+    [t("Identifier"), has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">${t("none yet")}</span>`],
+    [t("IMEI"), has(id.imei) ? `<span class="mono">${esc(id.imei)}</span>` : `<span class="muted">${t("modem not ready")}</span>`],
+    [t("MDB serial"), has(id["mdb-serial"]) ? `<span class="mono">${esc(id["mdb-serial"])}</span>` : null],
+    [t("Display serial"), has(id["dbc-serial"]) ? `<span class="mono">${esc(id["dbc-serial"])}</span>` : null],
   ]);
 
   const services = data.services || {};
@@ -1328,13 +1332,13 @@ function renderCloud(data) {
   $("#cloud-services").innerHTML = order.filter(n => services[n]).map(n => {
     const s = services[n];
     const lines = [];
-    if (!s.installed) lines.push(`<span class="muted">Not installed</span>`);
-    else lines.push(status(s.active, s.active === "active" ? "Running" : human(s.active)));
+    if (!s.installed) lines.push(`<span class="muted">${t("Not installed")}</span>`);
+    else lines.push(status(s.active, s.active === "active" ? t("Running") : human(s.active)));
     if (s.configured) {
-      lines.push(`${s.backend === "sunshine" ? "Connected to Sunshine as" : "Custom backend,"} <span class="mono">${esc(s.identifier)}</span>`);
+      lines.push(`${s.backend === "sunshine" ? t("Connected to Sunshine as") : t("Custom backend,")} <span class="mono">${esc(s.identifier)}</span>`);
       if (s.backend === "custom") lines.push(`<span class="muted">${esc(s["server-url"])}</span>`);
     } else {
-      lines.push(`<span class="muted">Not configured</span>`);
+      lines.push(`<span class="muted">${t("Not configured")}</span>`);
     }
     lines.push(`<span class="muted mono">${esc(s["config-path"])}</span>`);
     return `<div class="svc"><div class="svc-name">${esc(NAMES[n])}<span class="svc-unit">${esc(s.unit)}</span></div><div class="svc-lines">${lines.join("")}</div></div>`;
@@ -1344,11 +1348,11 @@ function renderCloud(data) {
   const box = $("#cloud-connected");
   if (connected.length) {
     box.hidden = false;
-    box.textContent = `Already connected to Sunshine as ${connected[0].identifier}. Connecting again moves the scooter to the token owner's account and replaces the config.`;
-    $("#cloud-bootstrap-form button").textContent = "Reconnect";
+    box.textContent = t("Already connected to Sunshine as {id}. Connecting again moves the scooter to the token owner's account and replaces the config.", { id: connected[0].identifier });
+    $("#cloud-bootstrap-form button").textContent = t("Reconnect");
   } else {
     box.hidden = true;
-    $("#cloud-bootstrap-form button").textContent = "Connect";
+    $("#cloud-bootstrap-form button").textContent = t("Connect");
   }
 }
 
@@ -1369,8 +1373,8 @@ $("#cloud-bootstrap-form").addEventListener("submit", async e => {
     const res = await API.post("/api/cloud/bootstrap", { token });
     const problems = [res.error, res["restart-error"], res["enable-error"]].filter(Boolean);
     showResult(out, res, problems.length > 0);
-    if (problems.length) notify("Config written, but " + problems.join("; "), true);
-    else notify(`Connected to Sunshine as ${res.identifier || "this scooter"}`);
+    if (problems.length) notify(t("Config written, but {problems}", { problems: problems.join("; ") }), true);
+    else notify(t("Connected to Sunshine as {id}", { id: res.identifier || t("this scooter") }));
     $("#cloud-token").value = "";
     Views.cloud();
   } catch (err) {
@@ -1382,7 +1386,7 @@ $("#cloud-bootstrap-form").addEventListener("submit", async e => {
 $("#cloud-config-form").addEventListener("submit", async e => {
   e.preventDefault();
   const yaml = $("#cloud-yaml").value;
-  if (!yaml.trim()) return notify("Paste a config first", true);
+  if (!yaml.trim()) return notify(t("Paste a config first"), true);
   const btn = $("button[type=submit]", e.target);
   const out = $("#cloud-config-out");
   btn.classList.add("is-busy");
@@ -1390,7 +1394,7 @@ $("#cloud-config-form").addEventListener("submit", async e => {
     const res = await API.post("/api/cloud/config", { service: $("#cloud-service").value, yaml, "config-path": $("#cloud-path").value.trim() });
     const problems = [res.error, res["restart-error"], res["enable-error"]].filter(Boolean);
     showResult(out, res, problems.length > 0);
-    notify(problems.length ? "Config written, but " + problems.join("; ") : `Config installed, ${res.service} restarted`, problems.length > 0);
+    notify(problems.length ? t("Config written, but {problems}", { problems: problems.join("; ") }) : t("Config installed, {service} restarted", { service: res.service }), problems.length > 0);
     Views.cloud();
   } catch (err) {
     showResult(out, err.message, true);
@@ -1417,12 +1421,12 @@ function unitTone(u) {
   return "";
 }
 function unitStateLabel(u) {
-  if (u.load === "masked") return "Masked";
-  if (u.active === "failed") return "Failed";
-  if (u.active === "active") return u.sub === "exited" ? "Completed" : "Running";
-  if (u.active === "activating") return "Starting";
-  if (u.active === "deactivating") return "Stopping";
-  return "Stopped";
+  if (u.load === "masked") return t("Masked");
+  if (u.active === "failed") return t("Failed");
+  if (u.active === "active") return u.sub === "exited" ? t("Completed") : t("Running");
+  if (u.active === "activating") return t("Starting");
+  if (u.active === "deactivating") return t("Stopping");
+  return t("Stopped");
 }
 
 function renderServices() {
@@ -1442,12 +1446,12 @@ function renderServices() {
       <td><span class="unit">${esc(u.unit.replace(/\.service$/, ""))}</span><div class="sub">${esc(u.description || "")}</div></td>
       <td><span class="status ${unitTone(u)}">${st}</span>${u.sub && !["running", "dead", "exited"].includes(u.sub) ? `<span class="sub">${esc(u.sub)}</span>` : ""}</td>
       <td class="actions"><span class="row-actions">
-        <button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="restart">Restart</button>
-        ${running ? `<button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="stop">Stop</button>`
-                  : `<button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="start">Start</button>`}
+        <button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="restart">${t("Restart")}</button>
+        ${running ? `<button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="stop">${t("Stop")}</button>`
+                  : `<button type="button" class="btn btn-small btn-quiet" data-svc="${esc(u.unit)}" data-act="start">${t("Start")}</button>`}
       </span></td>
     </tr>`;
-  }).join("") || `<tr><td colspan="3" class="muted">Nothing matches this filter.</td></tr>`;
+  }).join("") || `<tr><td colspan="3" class="muted">${t("Nothing matches this filter.")}</td></tr>`;
 }
 
 function setUnitFilter(f) {
@@ -1470,19 +1474,35 @@ $("#services-table").addEventListener("click", async e => {
   const name = svc.replace(/\.service$/, "");
   const critical = ["valkey.service", "redis.service", "librescoot-vehicle.service", "librescoot-pm.service"].includes(svc);
   if (act !== "start" && critical) {
-    const ok = await confirmDialog({ title: `${human(act)} ${name}`, body: `${name} is a core service. Stopping or restarting it interrupts the whole scooter briefly and may disconnect this page.`, ok: human(act), danger: true });
+    const ok = await confirmDialog({ title: `${human(act)} ${name}`, body: t("{name} is a core service. Stopping or restarting it interrupts the whole scooter briefly and may disconnect this page.", { name }), ok: human(act), danger: true });
     if (!ok) return;
   }
   btn.classList.add("is-busy");
   try {
     await API.post("/api/services/action", { unit: svc, action: act });
-    notify(`${ {restart: "Restarted", stop: "Stopped", start: "Started"}[act] || human(act)} ${name}`);
+    notify(`${t({ restart: "Restarted", stop: "Stopped", start: "Started" }[act] || human(act))} ${name}`);
     loadServices();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
 });
 
 // ---------- boot ----------
+
+// Static markup is translated now; the scooter's dashboard.language may switch it later.
+I18N.apply();
+$("#lang-select").value = localStorage.getItem("lsd-lang") || "";
+$("#lang-select").addEventListener("change", e => {
+  if (e.target.value) localStorage.setItem("lsd-lang", e.target.value); else localStorage.removeItem("lsd-lang");
+  setLanguage(I18N.pick(H("settings")["dashboard.language"]));
+});
+function setLanguage(lang) {
+  if (lang === I18N.lang) return;
+  I18N.lang = lang;
+  I18N.apply();
+  document.querySelectorAll(".hold-tip").forEach(el => { el.textContent = t("Hold to confirm"); });
+  if (schema) renderSettings();
+  Views[currentView]();
+}
 
 connectStream();
 route();

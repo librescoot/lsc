@@ -11,23 +11,28 @@
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="#dashboard" title="Librescoot Daemon">
+    <a data-i18n-attr="title" class="brand" href="#dashboard" title="Librescoot Daemon">
       <svg class="brand-flame" viewBox="0 0 2000 2771" aria-hidden="true"><path fill="#38F8FF" d="M305.867 1318.63C221.218 1218.92 163.136 1191.05 53.1943 1158.07C191.04 1409.97 0 1492.27 0 1728.56C0 3007.79 1809.22 3179.91 1994.79 1848.97C2016.35 1694.28 1967.35 1546.77 1914.99 1398.9C1860.27 1561.39 1811.06 1558.07 1742.11 1501.11C1886.52 1162.74 1784.81 999.956 1742.11 748.139C1685.16 860.988 1649.35 971.564 1555.93 980.419C1492.81 980.419 1479.68 900.152 1502.74 860.004C1538.74 797.307 1528.96 728.617 1519.06 691C1492.81 591.336 1432.47 469.845 1303.26 428.142C1338.61 508.283 1364.85 727.543 1223.77 714.254C830.067 644.49 1138.47 146.173 1356.45 0C851.239 73.6458 542.559 586.48 649.618 1091.18C512.362 941.996 448.465 864.273 305.867 748.139C400.837 939.199 481.977 1154.18 305.867 1318.63Z"/></svg>
       <span class="brand-name">lsd</span>
     </a>
-    <nav class="tabs" aria-label="Sections">
-      <a href="#dashboard" data-view="dashboard">Dashboard</a>
-      <a href="#navigation" data-view="navigation">Navigation</a>
-      <a href="#updates" data-view="updates">Updates</a>
-      <a href="#settings" data-view="settings">Settings</a>
-      <a href="#keycards" data-view="keycards">Keycards</a>
-      <a href="#files" data-view="files">Files</a>
-      <a href="#system" data-view="system">System</a>
-      <a href="#cloud" data-view="cloud">Cloud</a>
+    <nav data-i18n-attr="aria-label" class="tabs" aria-label="Sections">
+      <a data-i18n href="#dashboard" data-view="dashboard">Dashboard</a>
+      <a data-i18n href="#navigation" data-view="navigation">Navigation</a>
+      <a data-i18n href="#updates" data-view="updates">Updates</a>
+      <a data-i18n href="#settings" data-view="settings">Settings</a>
+      <a data-i18n href="#keycards" data-view="keycards">Keycards</a>
+      <a data-i18n href="#files" data-view="files">Files</a>
+      <a data-i18n href="#system" data-view="system">System</a>
+      <a data-i18n href="#cloud" data-view="cloud">Cloud</a>
     </nav>
     <div class="topbar-tools">
       <span id="conn" class="conn" data-state="connecting"><span class="dot"></span><span class="conn-text">connecting</span></span>
-      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch theme" title="Switch theme">
+      <select id="lang-select" class="lang-select" aria-label="Language" data-i18n-attr="aria-label">
+        <option value="">Auto</option>
+        <option value="en">English</option>
+        <option value="de">Deutsch</option>
+      </select>
+      <button data-i18n-attr="title aria-label" id="theme-toggle" class="icon-btn" type="button" aria-label="Switch theme" title="Switch theme">
         <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
         <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       </button>
@@ -40,111 +45,111 @@
   <section id="view-dashboard" class="view" hidden>
     <div class="hero">
       <div class="hero-state">
-        <div id="hero-state" class="state-word">Waiting for data</div>
+        <div id="hero-state" class="state-word" data-i18n>Waiting for data</div>
         <div id="hero-sub" class="state-sub"></div>
       </div>
       <div id="hero-batteries" class="hero-batteries"></div>
     </div>
 
-    <nav class="jump" data-prefix="dash-" aria-label="Sections">
-      <a href="#dashboard/commands" data-jump="commands">Commands</a>
-      <a href="#dashboard/vehicle" data-jump="vehicle">Vehicle</a>
-      <a href="#dashboard/connectivity" data-jump="connectivity">Connectivity</a>
-      <a href="#dashboard/faults" data-jump="faults">Faults</a>
+    <nav data-i18n-attr="aria-label" class="jump" data-prefix="dash-" aria-label="Sections">
+      <a data-i18n href="#dashboard/commands" data-jump="commands">Commands</a>
+      <a data-i18n href="#dashboard/vehicle" data-jump="vehicle">Vehicle</a>
+      <a data-i18n href="#dashboard/connectivity" data-jump="connectivity">Connectivity</a>
+      <a data-i18n href="#dashboard/faults" data-jump="faults">Faults</a>
     </nav>
 
     <section class="block" id="dash-commands">
-      <h2>Commands</h2>
-      <p id="cmd-offline" class="notice notice-warn" hidden>Not connected to the scooter.</p>
+      <h2 data-i18n>Commands</h2>
+      <p data-i18n id="cmd-offline" class="notice notice-warn" hidden>Not connected to the scooter.</p>
 
       <div class="cmd-primary">
-        <button type="button" class="cmd cmd-tone-green" data-cmd="unlock" data-hold="1500">
+        <button data-i18n type="button" class="cmd cmd-tone-green" data-cmd="unlock" data-hold="1500">
           <svg viewBox="0 0 1326 1276" fill="currentColor" aria-hidden="true"><path d="M746.494 353.067L653.489 484.367L800.868 538.952L819.263 545.765L805.832 560.062L634.892 742.03L750.2 762.083L773.853 766.197L757.493 783.768L594.217 959.139L545.881 1011.06L572.644 945.364L632.595 798.211L528.974 787.849L507.083 785.66L519.547 767.531L643.21 587.657L531.684 545.17L518.403 540.111L524.612 527.327L627.416 315.672L632.03 306.173L642.275 308.734L739.032 332.923L757.493 337.538L746.494 353.067Z"/><path d="M324.879 1030.25C241.958 960.617 182.542 867.093 154.741 762.441C126.939 657.789 132.106 547.107 169.535 445.5C206.965 343.893 274.834 256.309 363.882 194.702C452.929 133.094 558.817 100.463 667.097 101.261C775.376 102.06 880.771 136.249 968.9 199.164C1057.03 262.078 1123.6 350.653 1159.53 452.801C1195.45 554.949 1198.99 665.695 1169.64 769.925C1140.3 874.156 1079.51 966.794 995.575 1035.2L929.103 953.631C996.255 898.907 1044.89 824.797 1068.36 741.412C1091.83 658.028 1089.01 569.431 1060.26 487.713C1031.52 405.994 978.267 335.134 907.764 284.803C837.26 234.471 752.944 207.12 666.321 206.481C579.697 205.842 494.987 231.947 423.749 281.233C352.511 330.519 298.215 400.586 268.271 481.872C238.328 563.158 234.195 651.703 256.436 735.424C278.677 819.146 326.21 893.966 392.547 949.674L324.879 1030.25Z"/><path d="M860.363 1100.98L929.715 857.965L1103.38 1031.63L860.363 1100.98Z"/></svg>
           Unlock
         </button>
-        <button type="button" class="cmd cmd-tone-red" data-cmd="lock" data-hold="1500">
+        <button data-i18n type="button" class="cmd cmd-tone-red" data-cmd="lock" data-hold="1500">
           <svg viewBox="0 0 1326 1276" fill="currentColor" aria-hidden="true"><path d="M324.898 1030.25C241.976 960.617 182.561 867.093 154.759 762.441C126.957 657.789 132.124 547.107 169.553 445.5C206.983 343.893 274.852 256.309 363.9 194.702C452.948 133.094 558.836 100.463 667.115 101.261C775.394 102.06 880.789 136.249 968.919 199.164C1057.05 262.078 1123.62 350.653 1159.54 452.801C1195.47 554.949 1199.01 665.695 1169.66 769.925C1140.32 874.156 1079.53 966.794 995.593 1035.2L929.121 953.631C996.273 898.907 1044.9 824.797 1068.38 741.412C1091.85 658.028 1089.02 569.431 1060.28 487.713C1031.54 405.994 978.285 335.134 907.782 284.803C837.278 234.471 752.962 207.12 666.339 206.481C579.716 205.842 495.005 231.947 423.767 281.233C352.529 330.519 298.233 400.586 268.29 481.872C238.346 563.158 234.213 651.703 256.454 735.424C278.696 819.146 326.228 893.966 392.565 949.674L324.898 1030.25Z"/><path d="M860.381 1100.98L929.733 857.965L1103.4 1031.63L860.381 1100.98Z"/><path d="M12.017 385.827L1269.79 975.677L1313.98 881.435L56.2135 291.584L12.017 385.827ZM1269.79 291.584L12.017 881.435L56.2135 975.677L1313.98 385.827L1269.79 291.584Z"/></svg>
           Lock
         </button>
-        <button type="button" class="cmd cmd-tone-accent" data-cmd="seatbox-open" data-hold="1500">
+        <button data-i18n type="button" class="cmd cmd-tone-accent" data-cmd="seatbox-open" data-hold="1500">
           <svg viewBox="0 0 1326 1276" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M804.001 145.5L221.002 1082.5C-214.072 815.533 232.81 486.355 579.345 231.094L579.35 231.091C630.664 193.292 679.777 157.115 723.501 123L804.001 145.5ZM248.452 1096.7L1273.29 880.514L1285.06 936.286L260.217 1152.47L248.452 1096.7ZM1054.62 504.805C1116.46 599.099 1153.74 707.101 1163.14 819.157L1099.76 824.373C1091.23 722.692 1057.4 624.688 1001.29 539.123C945.175 453.559 868.532 383.1 778.211 334.046L808.789 278.805C908.325 332.863 992.786 410.51 1054.62 504.805Z"/></svg>
           Open seatbox
         </button>
       </div>
 
       <div class="cmd-groups">
-        <div class="cmd-label">Alarm</div>
+        <div class="cmd-label" data-i18n>Alarm</div>
         <div class="cmd-row">
-          <button type="button" class="cmd cmd-small cmd-tone-green" data-cmd="alarm-arm" data-hold="1000" data-alarm="disarmed">Arm</button>
-          <button type="button" class="cmd cmd-small cmd-tone-red" data-cmd="alarm-disarm" data-hold="500" data-alarm="armed">Disarm</button>
-          <button type="button" class="cmd cmd-small cmd-tone-red" data-cmd="alarm-stop" data-hold="500" data-alarm="triggered">Stop alarm</button>
-          <button type="button" class="cmd cmd-small cmd-tone-amber" data-cmd="alarm-trigger" data-hold="2000"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg> Sound for 5 s</button>
-          <button type="button" class="cmd cmd-small" data-cmd="honk"><svg viewBox="0 0 1326 1276" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M104.5 263V902.5L154.5 892.5C154.5 834.664 167.47 705.492 372.769 662.345C363.319 681.196 358 702.477 358 725V737C358 814.32 420.68 877 498 877H940C1017.32 877 1080 814.32 1080 737V725C1080 687.125 1048.5 645 1040.53 627.56L1084 625C1120.57 630.105 1135.35 642.126 1160.5 665.5H1198.5V504H1160.5C1136.07 519.939 1127.2 530.889 1084 539C1040.8 547.111 529.5 519 529.5 519C189.5 519 154.5 350 154.5 280L104.5 263ZM498 663H940C974.242 663 1002 690.758 1002 725V737C1002 771.242 974.242 799 940 799H498C463.758 799 436 771.242 436 737V725C436 690.758 463.758 663 498 663Z"/></svg> Honk</button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-green" data-cmd="alarm-arm" data-hold="1000" data-alarm="disarmed">Arm</button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-red" data-cmd="alarm-disarm" data-hold="500" data-alarm="armed">Disarm</button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-red" data-cmd="alarm-stop" data-hold="500" data-alarm="triggered">Stop alarm</button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-amber" data-cmd="alarm-trigger" data-hold="2000"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg> Sound for 5 s</button>
+          <button data-i18n type="button" class="cmd cmd-small" data-cmd="honk"><svg viewBox="0 0 1326 1276" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M104.5 263V902.5L154.5 892.5C154.5 834.664 167.47 705.492 372.769 662.345C363.319 681.196 358 702.477 358 725V737C358 814.32 420.68 877 498 877H940C1017.32 877 1080 814.32 1080 737V725C1080 687.125 1048.5 645 1040.53 627.56L1084 625C1120.57 630.105 1135.35 642.126 1160.5 665.5H1198.5V504H1160.5C1136.07 519.939 1127.2 530.889 1084 539C1040.8 547.111 529.5 519 529.5 519C189.5 519 154.5 350 154.5 280L104.5 263ZM498 663H940C974.242 663 1002 690.758 1002 725V737C1002 771.242 974.242 799 940 799H498C463.758 799 436 771.242 436 737V725C436 690.758 463.758 663 498 663Z"/></svg> Honk</button>
         </div>
 
-        <div class="cmd-label">Turn signals</div>
+        <div class="cmd-label" data-i18n>Turn signals</div>
         <div class="cmd-row" id="cmd-blinkers">
-          <button type="button" class="cmd cmd-small cmd-tone-amber" data-cmd="blinkers-left" data-blinker="left"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg> Left</button>
-          <button type="button" class="cmd cmd-small cmd-tone-amber" data-cmd="blinkers-right" data-blinker="right">Right <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
-          <button type="button" class="cmd cmd-small cmd-tone-red" data-cmd="blinkers-both" data-blinker="both"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg> Hazards</button>
-          <button type="button" class="cmd cmd-small" data-cmd="blinkers-off" data-blinker="off">Off</button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-amber" data-cmd="blinkers-left" data-blinker="left"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg> Left</button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-amber" data-cmd="blinkers-right" data-blinker="right">Right <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></button>
+          <button data-i18n type="button" class="cmd cmd-small cmd-tone-red" data-cmd="blinkers-both" data-blinker="both"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg> Hazards</button>
+          <button data-i18n type="button" class="cmd cmd-small" data-cmd="blinkers-off" data-blinker="off">Off</button>
         </div>
 
-        <div class="cmd-label">Power</div>
+        <div class="cmd-label" data-i18n>Power</div>
         <div>
           <div class="cmd-row">
-            <button type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-manual" data-hold="2500"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg> Hibernate</button>
+            <button data-i18n type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-manual" data-hold="2500"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg> Hibernate</button>
             <div class="cmd-combo">
-              <button type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-for" data-hold="2500">Sleep for</button>
-              <select id="sleep-for-duration" aria-label="Sleep duration">
-                <option value="1800">30 min</option>
+              <button data-i18n type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-for" data-hold="2500">Sleep for</button>
+              <select data-i18n-attr="aria-label" id="sleep-for-duration" aria-label="Sleep duration">
+                <option data-i18n value="1800">30 min</option>
                 <option value="3600">1 h</option>
                 <option value="7200">2 h</option>
                 <option value="14400">4 h</option>
                 <option value="28800" selected>8 h</option>
                 <option value="43200">12 h</option>
                 <option value="86400">24 h</option>
-                <option value="172800">2 days</option>
-                <option value="604800">7 days</option>
+                <option data-i18n value="172800">2 days</option>
+                <option data-i18n value="604800">7 days</option>
               </select>
             </div>
-            <button type="button" class="cmd cmd-small cmd-tone-red" data-cmd="power-reboot" data-hold="2500">Reboot</button>
-            <button type="button" class="cmd cmd-small" data-cmd="power-run" id="cmd-cancel-power" hidden>Cancel power-off</button>
-            <button type="button" class="cmd cmd-small" data-cmd="power-hibernate-cancel" id="cmd-cancel-wake" hidden>Cancel wake timer</button>
+            <button data-i18n type="button" class="cmd cmd-small cmd-tone-red" data-cmd="power-reboot" data-hold="2500">Reboot</button>
+            <button data-i18n type="button" class="cmd cmd-small" data-cmd="power-run" id="cmd-cancel-power" hidden>Cancel power-off</button>
+            <button data-i18n type="button" class="cmd cmd-small" data-cmd="power-hibernate-cancel" id="cmd-cancel-wake" hidden>Cancel wake timer</button>
           </div>
-          <p class="cmd-hint">Hibernate powers the scooter off until a keycard or button wakes it. Sleep for wakes it on a timer instead. A reboot takes about a minute.</p>
+          <p data-i18n class="cmd-hint">Hibernate powers the scooter off until a keycard or button wakes it. Sleep for wakes it on a timer instead. A reboot takes about a minute.</p>
           <p class="cmd-hint" id="power-hint"></p>
         </div>
 
-        <div class="cmd-label">Service mode</div>
+        <div class="cmd-label" data-i18n>Service mode</div>
         <div>
           <div class="cmd-row">
-            <button type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="The scooter stays awake with the USB link up, alarm and handlebar auto-lock off, until you disable service mode or reboot.">Enable</button>
-            <button type="button" class="cmd cmd-small" data-cmd="service-mode-off">Disable</button>
+            <button data-i18n data-i18n-attr="data-confirm data-title" type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="The scooter stays awake with the USB link up, alarm and handlebar auto-lock off, until you disable service mode or reboot.">Enable</button>
+            <button data-i18n type="button" class="cmd cmd-small" data-cmd="service-mode-off">Disable</button>
           </div>
-          <p class="cmd-hint">For working on the scooter: it stays awake with the USB link up, alarm and handlebar auto-lock off. Ends when disabled or on reboot.</p>
+          <p data-i18n class="cmd-hint">For working on the scooter: it stays awake with the USB link up, alarm and handlebar auto-lock off. Ends when disabled or on reboot.</p>
         </div>
       </div>
     </section>
 
     <div class="two-col">
       <section class="block" id="dash-vehicle">
-        <h2>Vehicle</h2>
+        <h2 data-i18n>Vehicle</h2>
         <dl id="facts-vehicle" class="facts"></dl>
       </section>
       <section class="block" id="dash-connectivity">
-        <h2>Connectivity</h2>
+        <h2 data-i18n>Connectivity</h2>
         <dl id="facts-conn" class="facts"></dl>
       </section>
     </div>
 
 
     <section class="block" id="dash-faults">
-      <h2>Faults</h2>
+      <h2 data-i18n>Faults</h2>
       <div class="two-col faults-cols">
         <div id="faults" class="faults"></div>
         <div>
-          <h3>Recent fault events</h3>
+          <h3 data-i18n>Recent fault events</h3>
           <table id="events" class="data"><tbody></tbody></table>
         </div>
       </div>
@@ -153,49 +158,49 @@
 
   <section id="view-settings" class="view" hidden>
     <div class="page-head">
-      <h1>Settings</h1>
+      <h1 data-i18n>Settings</h1>
       <div class="page-tools">
-        <input id="settings-filter" type="search" placeholder="Filter settings" aria-label="Filter settings">
-        <label class="check"><input id="settings-advanced" type="checkbox"> Show advanced</label>
+        <input data-i18n-attr="placeholder aria-label" id="settings-filter" type="search" placeholder="Filter settings" aria-label="Filter settings">
+        <label class="check" data-i18n><input id="settings-advanced" type="checkbox"> Show advanced</label>
       </div>
     </div>
-    <p class="lede">Changes apply when saved. An empty field means the default.</p>
-    <nav id="settings-jump" class="jump" data-prefix="group-" aria-label="Services"></nav>
+    <p data-i18n class="lede">Changes apply when saved. An empty field means the default.</p>
+    <nav data-i18n-attr="aria-label" id="settings-jump" class="jump" data-prefix="group-" aria-label="Services"></nav>
     <div id="settings-groups"></div>
   </section>
 
   <section id="view-navigation" class="view" hidden>
-    <div class="page-head"><h1>Navigation</h1></div>
-    <p class="lede">The display navigates to the destination set here. Saved locations are the ones offered in the display's menu.</p>
+    <div class="page-head"><h1 data-i18n>Navigation</h1></div>
+    <p data-i18n class="lede">The display navigates to the destination set here. Saved locations are the ones offered in the display's menu.</p>
 
     <section class="block nav-dest">
-      <h2>Destination</h2>
+      <h2 data-i18n>Destination</h2>
       <div class="nav-dest-row">
         <div id="nav-current" class="nav-current muted">None.</div>
         <div class="cmd-row" id="nav-current-actions" hidden>
-          <button type="button" class="btn" id="nav-clear">Clear</button>
+          <button data-i18n type="button" class="btn" id="nav-clear">Clear</button>
         </div>
       </div>
     </section>
 
     <div class="two-col">
       <section class="block">
-        <h2>Saved locations</h2>
+        <h2 data-i18n>Saved locations</h2>
         <div id="nav-locations" class="nav-locations"></div>
       </section>
 
       <section class="block">
-        <h2>New destination</h2>
+        <h2 data-i18n>New destination</h2>
         <form id="nav-form" class="nav-form">
-          <input id="nav-label" placeholder="Name (optional)" aria-label="Name" autocomplete="off">
+          <input data-i18n-attr="placeholder aria-label" id="nav-label" placeholder="Name (optional)" aria-label="Name" autocomplete="off">
           <div class="inline-form">
-            <input id="nav-lat" placeholder="Latitude" aria-label="Latitude" inputmode="decimal" required>
-            <input id="nav-lon" placeholder="Longitude" aria-label="Longitude" inputmode="decimal" required>
-            <button type="button" class="btn" id="nav-use-gps" title="Fill in the scooter's current position">Current position</button>
+            <input data-i18n-attr="placeholder aria-label" id="nav-lat" placeholder="Latitude" aria-label="Latitude" inputmode="decimal" required>
+            <input data-i18n-attr="placeholder aria-label" id="nav-lon" placeholder="Longitude" aria-label="Longitude" inputmode="decimal" required>
+            <button data-i18n data-i18n-attr="title" type="button" class="btn" id="nav-use-gps" title="Fill in the scooter's current position">Current position</button>
           </div>
           <div class="inline-form">
-            <button type="submit" class="btn btn-primary">Navigate</button>
-            <button type="button" class="btn" id="nav-save">Save as location</button>
+            <button data-i18n type="submit" class="btn btn-primary">Navigate</button>
+            <button data-i18n type="button" class="btn" id="nav-save">Save as location</button>
           </div>
         </form>
       </section>
@@ -203,104 +208,104 @@
   </section>
 
   <section id="view-keycards" class="view" hidden>
-    <div class="page-head"><h1>Keycards</h1></div>
-    <p class="lede">Authorized cards unlock the scooter. A master card also starts teach-in at the reader: tap the master, then tap the cards to add.</p>
+    <div class="page-head"><h1 data-i18n>Keycards</h1></div>
+    <p data-i18n class="lede">Authorized cards unlock the scooter. A master card also starts teach-in at the reader: tap the master, then tap the cards to add.</p>
 
     <div class="two-col">
       <section class="block">
-        <h2>Authorized cards</h2>
+        <h2 data-i18n>Authorized cards</h2>
         <div id="kc-authorized" class="kc-list"></div>
         <form id="kc-add-form" class="inline-form">
-          <input id="kc-add-uid" placeholder="Card UID" aria-label="Card UID" spellcheck="false" autocomplete="off">
-          <button type="submit" class="btn">Authorize</button>
+          <input data-i18n-attr="placeholder aria-label" id="kc-add-uid" placeholder="Card UID" aria-label="Card UID" spellcheck="false" autocomplete="off">
+          <button data-i18n type="submit" class="btn">Authorize</button>
         </form>
         <div class="kc-learn">
-          <button type="button" class="btn" id="kc-learn-start">Add by tapping</button>
-          <button type="button" class="btn btn-primary" id="kc-learn-stop" hidden>Save tapped cards</button>
+          <button data-i18n type="button" class="btn" id="kc-learn-start">Add by tapping</button>
+          <button data-i18n type="button" class="btn btn-primary" id="kc-learn-stop" hidden>Save tapped cards</button>
           <span class="kc-learn-hint" id="kc-learn-hint"></span>
         </div>
       </section>
 
       <section class="block">
-        <h2>Master cards</h2>
+        <h2 data-i18n>Master cards</h2>
         <div id="kc-master" class="kc-list"></div>
         <div class="kc-learn">
-          <button type="button" class="btn" id="kc-master-start">Add a master by tapping</button>
-          <button type="button" class="btn" id="kc-master-stop" hidden>Cancel</button>
+          <button data-i18n type="button" class="btn" id="kc-master-start">Add a master by tapping</button>
+          <button data-i18n type="button" class="btn" id="kc-master-stop" hidden>Cancel</button>
         </div>
-        <p class="cmd-hint">Adds another master. Existing masters stay.</p>
+        <p data-i18n class="cmd-hint">Adds another master. Existing masters stay.</p>
 
-        <h2 class="kc-sub">Last card at the reader</h2>
+        <h2 data-i18n class="kc-sub">Last card at the reader</h2>
         <div id="kc-last" class="kc-last muted">Nothing tapped yet.</div>
       </section>
     </div>
 
     <details class="block advanced">
-      <summary><h2>Start over</h2></summary>
-      <p>Removes all cards. The next card tapped at the reader becomes the new master; until then no card unlocks the scooter.</p>
-      <button type="button" class="btn btn-danger" id="kc-reset">Forget all cards</button>
+      <summary><h2 data-i18n>Start over</h2></summary>
+      <p data-i18n>Removes all cards. The next card tapped at the reader becomes the new master; until then no card unlocks the scooter.</p>
+      <button data-i18n type="button" class="btn btn-danger" id="kc-reset">Forget all cards</button>
     </details>
   </section>
 
   <section id="view-files" class="view" hidden>
     <div class="page-head">
-      <h1>Files</h1>
+      <h1 data-i18n>Files</h1>
       <div class="page-tools">
         <input type="file" id="file-input" multiple hidden>
-        <button type="button" id="files-mkdir" class="btn">New folder</button>
-        <button type="button" id="files-upload" class="btn btn-primary">Upload</button>
+        <button data-i18n type="button" id="files-mkdir" class="btn">New folder</button>
+        <button data-i18n type="button" id="files-upload" class="btn btn-primary">Upload</button>
       </div>
     </div>
-    <nav id="files-crumbs" class="crumbs" aria-label="Path"></nav>
+    <nav data-i18n-attr="aria-label" id="files-crumbs" class="crumbs" aria-label="Path"></nav>
     <div id="dropzone" class="dropzone">
       <table id="files-table" class="data files">
-        <thead><tr><th>Name</th><th class="num">Size</th><th>Modified</th><th class="actions"></th></tr></thead>
+        <thead><tr><th data-i18n>Name</th><th data-i18n class="num">Size</th><th data-i18n>Modified</th><th class="actions"></th></tr></thead>
         <tbody></tbody>
       </table>
-      <p class="drop-hint">Drop files here to upload them to this folder.</p>
+      <p data-i18n class="drop-hint">Drop files here to upload them to this folder.</p>
     </div>
   </section>
 
   <section id="view-cloud" class="view" hidden>
-    <div class="page-head"><h1>Cloud</h1></div>
-    <p class="lede">Sunshine, run by rescoot.org, gives you remote lock and unlock, location, telemetry and the companion app. radio-gaga connects the scooter to it. uplink-service connects to a backend of your own.</p>
+    <div class="page-head"><h1 data-i18n>Cloud</h1></div>
+    <p data-i18n class="lede">Sunshine, run by rescoot.org, gives you remote lock and unlock, location, telemetry and the companion app. radio-gaga connects the scooter to it. uplink-service connects to a backend of your own.</p>
 
     <div class="two-col">
       <section class="block">
-        <h2>This scooter</h2>
+        <h2 data-i18n>This scooter</h2>
         <dl id="cloud-identity" class="facts"></dl>
       </section>
       <section class="block">
-        <h2>Connectivity services</h2>
+        <h2 data-i18n>Connectivity services</h2>
         <div id="cloud-services"></div>
       </section>
     </div>
 
     <section class="block" id="cloud-connect">
-      <h2>Connect to Sunshine</h2>
+      <h2 data-i18n>Connect to Sunshine</h2>
       <div id="cloud-connected" class="notice notice-ok" hidden></div>
-      <p>Create a bootstrap token in <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/settings" target="_blank" rel="noopener">your Sunshine settings</a> and paste it here. The scooter registers with its IMEI and board serials, Sunshine adds it to your account, and radio-gaga is configured and started.</p>
+      <p data-i18n-html>Create a bootstrap token in <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/settings" target="_blank" rel="noopener">your Sunshine settings</a> and paste it here. The scooter registers with its IMEI and board serials, Sunshine adds it to your account, and radio-gaga is configured and started.</p>
       <form id="cloud-bootstrap-form" class="inline-form">
-        <input id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="Bootstrap token" aria-label="Bootstrap token" required>
-        <button type="submit" class="btn btn-primary">Connect</button>
+        <input data-i18n-attr="placeholder aria-label" id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="Bootstrap token" aria-label="Bootstrap token" required>
+        <button data-i18n type="submit" class="btn btn-primary">Connect</button>
       </form>
       <pre id="cloud-bootstrap-out" class="result" hidden></pre>
     </section>
 
     <details class="block advanced">
-      <summary><h2>Install a config file</h2></summary>
-      <p>For uplink-service, or a radio-gaga config downloaded from Sunshine. The service restarts with it.</p>
+      <summary><h2 data-i18n>Install a config file</h2></summary>
+      <p data-i18n>For uplink-service, or a radio-gaga config downloaded from Sunshine. The service restarts with it.</p>
       <form id="cloud-config-form">
         <div class="inline-form">
-          <select id="cloud-service" aria-label="Service">
+          <select data-i18n-attr="aria-label" id="cloud-service" aria-label="Service">
             <option value="radio-gaga">radio-gaga</option>
             <option value="uplink">uplink-service</option>
           </select>
-          <input id="cloud-path" placeholder="Config path (optional)" aria-label="Config path">
+          <input data-i18n-attr="placeholder aria-label" id="cloud-path" placeholder="Config path (optional)" aria-label="Config path">
         </div>
-        <textarea id="cloud-yaml" rows="10" spellcheck="false" placeholder="YAML config" aria-label="Configuration"></textarea>
+        <textarea data-i18n-attr="placeholder aria-label" id="cloud-yaml" rows="10" spellcheck="false" placeholder="YAML config" aria-label="Configuration"></textarea>
         <div class="inline-form">
-          <button type="submit" class="btn">Install and restart</button>
+          <button data-i18n type="submit" class="btn">Install and restart</button>
         </div>
       </form>
       <pre id="cloud-config-out" class="result" hidden></pre>
@@ -308,17 +313,17 @@
   </section>
 
   <section id="view-updates" class="view" hidden>
-    <div class="page-head"><h1>Updates</h1></div>
-    <p class="lede">Each board updates itself. Pick another channel to see what it would install. Switching downloads a full image; later updates on the same channel are small.</p>
+    <div class="page-head"><h1 data-i18n>Updates</h1></div>
+    <p data-i18n class="lede">Each board updates itself. Pick another channel to see what it would install. Switching downloads a full image; later updates on the same channel are small.</p>
     <div class="two-col" id="upd-boards"></div>
 
     <section class="block">
-      <h2>Install a file</h2>
-      <p>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. Files for the display are copied over when you install them; the display is switched on for that if needed.</p>
+      <h2 data-i18n>Install a file</h2>
+      <p data-i18n-html>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. Files for the display are copied over when you install them; the display is switched on for that if needed.</p>
       <form id="upd-upload-form" class="inline-form">
-        <select id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option value="dbc">Display (DBC)</option></select>
-        <input type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
-        <button type="submit" class="btn btn-primary">Upload</button>
+        <select data-i18n-attr="aria-label" id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option data-i18n value="dbc">Display (DBC)</option></select>
+        <input data-i18n-attr="aria-label" type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
+        <button data-i18n type="submit" class="btn btn-primary">Upload</button>
       </form>
       <div id="upd-upload-progress" class="progress" hidden><span></span></div>
       <div id="upd-files"></div>
@@ -326,42 +331,42 @@
   </section>
 
   <section id="view-system" class="view" hidden>
-    <div class="page-head"><h1>System</h1></div>
-    <nav class="jump" data-prefix="sys-" aria-label="Sections">
-      <a href="#system/boards" data-jump="boards">Boards</a>
-      <a href="#system/maps" data-jump="maps">Maps</a>
-      <a href="#system/modem" data-jump="modem">Modem</a>
-      <a href="#system/logs" data-jump="logs">Logs</a>
-      <a href="#system/journal" data-jump="journal">Journal</a>
-      <a href="#system/services" data-jump="services">Services</a>
+    <div class="page-head"><h1 data-i18n>System</h1></div>
+    <nav data-i18n-attr="aria-label" class="jump" data-prefix="sys-" aria-label="Sections">
+      <a data-i18n href="#system/boards" data-jump="boards">Boards</a>
+      <a data-i18n href="#system/maps" data-jump="maps">Maps</a>
+      <a data-i18n href="#system/modem" data-jump="modem">Modem</a>
+      <a data-i18n href="#system/logs" data-jump="logs">Logs</a>
+      <a data-i18n href="#system/journal" data-jump="journal">Journal</a>
+      <a data-i18n href="#system/services" data-jump="services">Services</a>
     </nav>
 
     <div class="two-col">
       <section class="block" id="sys-boards">
-        <h2>Boards and firmware</h2>
+        <h2 data-i18n>Boards and firmware</h2>
         <table id="boards" class="data"><tbody></tbody></table>
       </section>
       <section class="block" id="sys-maps-modem">
-        <h2 id="sys-maps">Maps</h2>
+        <h2 data-i18n id="sys-maps">Maps</h2>
         <dl id="sys-maps-facts" class="facts"></dl>
-        <h2 class="kc-sub" id="sys-modem">Modem</h2>
+        <h2 data-i18n class="kc-sub" id="sys-modem">Modem</h2>
         <dl id="sys-modem-facts" class="facts"></dl>
       </section>
     </div>
 
     <div class="two-col">
       <section class="block" id="sys-logs">
-        <h2>Log bundles</h2>
-        <p>A snapshot of the scooter's logs and state, for troubleshooting. Takes a moment to build.</p>
+        <h2 data-i18n>Log bundles</h2>
+        <p data-i18n>A snapshot of the scooter's logs and state, for troubleshooting. Takes a moment to build.</p>
         <form id="log-bundle-form" class="inline-form">
-          <select id="log-since" aria-label="Time range">
-            <option value="1h">Last hour</option>
-            <option value="6h">Last 6 hours</option>
-            <option value="24h" selected>Last 24 hours</option>
-            <option value="3d">Last 3 days</option>
-            <option value="7d">Last 7 days</option>
+          <select data-i18n-attr="aria-label" id="log-since" aria-label="Time range">
+            <option data-i18n value="1h">Last hour</option>
+            <option data-i18n value="6h">Last 6 hours</option>
+            <option data-i18n value="24h" selected>Last 24 hours</option>
+            <option data-i18n value="3d">Last 3 days</option>
+            <option data-i18n value="7d">Last 7 days</option>
           </select>
-          <button type="submit" class="btn btn-primary">Create bundle</button>
+          <button data-i18n type="submit" class="btn btn-primary">Create bundle</button>
         </form>
         <div id="log-bundles"></div>
       </section>
@@ -369,38 +374,38 @@
     </div>
 
     <section class="block" id="sys-journal">
-      <h2>Journal</h2>
+      <h2 data-i18n>Journal</h2>
       <form id="journal-form" class="inline-form">
-        <select id="journal-unit" aria-label="Unit"><option value="">All services</option><option value="dmesg">Kernel</option></select>
-        <select id="journal-lines" aria-label="Lines"><option value="100">100 lines</option><option value="200" selected>200 lines</option><option value="500">500 lines</option><option value="2000">2000 lines</option></select>
-        <button type="submit" class="btn">Show</button>
-        <a id="journal-download" class="btn" href="#" download hidden>Download</a>
+        <select data-i18n-attr="aria-label" id="journal-unit" aria-label="Unit"><option data-i18n value="">All services</option><option data-i18n value="dmesg">Kernel</option></select>
+        <select data-i18n-attr="aria-label" id="journal-lines" aria-label="Lines"><option data-i18n value="100">100 lines</option><option data-i18n value="200" selected>200 lines</option><option data-i18n value="500">500 lines</option><option data-i18n value="2000">2000 lines</option></select>
+        <button data-i18n type="submit" class="btn">Show</button>
+        <a data-i18n id="journal-download" class="btn" href="#" download hidden>Download</a>
       </form>
       <pre id="journal-out" class="journal" hidden></pre>
     </section>
 
     <section class="block" id="sys-services">
       <div class="page-head">
-        <h2>Services <button type="button" id="services-refresh" class="icon-btn icon-btn-page" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></h2>
+        <h2 data-i18n>Services <button data-i18n-attr="title aria-label" type="button" id="services-refresh" class="icon-btn icon-btn-page" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button></h2>
         <div class="page-tools">
-          <div class="chips" role="group" aria-label="Filter">
-            <button type="button" class="chip is-active" data-filter="all">All</button>
-            <button type="button" class="chip" data-filter="active">Running</button>
-            <button type="button" class="chip" data-filter="inactive">Stopped</button>
-            <button type="button" class="chip" data-filter="failed">Failed</button>
-            <button type="button" class="chip" data-filter="masked">Masked</button>
+          <div data-i18n-attr="aria-label" class="chips" role="group" aria-label="Filter">
+            <button data-i18n type="button" class="chip is-active" data-filter="all">All</button>
+            <button data-i18n type="button" class="chip" data-filter="active">Running</button>
+            <button data-i18n type="button" class="chip" data-filter="inactive">Stopped</button>
+            <button data-i18n type="button" class="chip" data-filter="failed">Failed</button>
+            <button data-i18n type="button" class="chip" data-filter="masked">Masked</button>
           </div>
-          <select id="services-filter-select" class="filter-select" aria-label="Filter">
-            <option value="all">All</option>
-            <option value="active">Running</option>
-            <option value="inactive">Stopped</option>
-            <option value="failed">Failed</option>
-            <option value="masked">Masked</option>
+          <select data-i18n-attr="aria-label" id="services-filter-select" class="filter-select" aria-label="Filter">
+            <option data-i18n value="all">All</option>
+            <option data-i18n value="active">Running</option>
+            <option data-i18n value="inactive">Stopped</option>
+            <option data-i18n value="failed">Failed</option>
+            <option data-i18n value="masked">Masked</option>
           </select>
         </div>
       </div>
       <table id="services-table" class="data services">
-        <thead><tr><th>Unit</th><th>State</th><th class="actions"></th></tr></thead>
+        <thead><tr><th data-i18n>Unit</th><th data-i18n>State</th><th class="actions"></th></tr></thead>
         <tbody></tbody>
       </table>
     </section>
@@ -411,8 +416,8 @@
 
 <div id="savebar" class="savebar" hidden>
   <span id="savebar-text">1 change</span>
-  <button type="button" id="settings-revert" class="btn">Discard</button>
-  <button type="button" id="settings-save" class="btn btn-primary">Save changes</button>
+  <button data-i18n type="button" id="settings-revert" class="btn">Discard</button>
+  <button data-i18n type="button" id="settings-save" class="btn btn-primary">Save changes</button>
 </div>
 
 <div id="notices" class="notices" aria-live="polite"></div>
@@ -423,12 +428,14 @@
     <p id="dialog-body"></p>
     <input id="dialog-input" hidden autocomplete="off">
     <div class="dialog-actions">
-      <button type="button" class="btn" value="cancel" id="dialog-cancel">Cancel</button>
-      <button type="submit" class="btn btn-primary" value="ok" id="dialog-ok">OK</button>
+      <button data-i18n type="button" class="btn" value="cancel" id="dialog-cancel">Cancel</button>
+      <button data-i18n type="submit" class="btn btn-primary" value="ok" id="dialog-ok">OK</button>
     </div>
   </form>
 </dialog>
 
+<script src="/static/i18n.js"></script>
+<script src="/static/de.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
