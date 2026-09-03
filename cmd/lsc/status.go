@@ -117,6 +117,9 @@ var statusCmd = &cobra.Command{
 				sohStr = format.ColorizePercentage(soh)
 			}
 			format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, format.SafeValueOr(battery0Data["cycle-count"], "0")))
+			if rc, fc := format.MilliampHoursToAmpHours(battery0Data["remaining-capacity"]), format.MilliampHoursToAmpHours(battery0Data["full-capacity"]); rc != "" && fc != "" {
+				format.PrintKV("Capacity", rc+" / "+fc)
+			}
 		} else {
 			fmt.Printf("\n%s%s%s\n", prefix, format.Dim("not present"), suffix)
 		}
@@ -140,6 +143,9 @@ var statusCmd = &cobra.Command{
 				sohStr = format.ColorizePercentage(soh)
 			}
 			format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, format.SafeValueOr(battery1Data["cycle-count"], "0")))
+			if rc, fc := format.MilliampHoursToAmpHours(battery1Data["remaining-capacity"]), format.MilliampHoursToAmpHours(battery1Data["full-capacity"]); rc != "" && fc != "" {
+				format.PrintKV("Capacity", rc+" / "+fc)
+			}
 		} else {
 			fmt.Printf("\n%s%s%s\n", prefix, format.Dim("not present"), suffix)
 		}
@@ -262,15 +268,18 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatte
 	// Add battery 0
 	if battery0Data["present"] == "true" {
 		output["battery_0"] = map[string]interface{}{
-			"present":           true,
-			"state":             battery0Data["state"],
-			"charge_percent":    parseInt(battery0Data["charge"]),
-			"voltage_v":         parseFloat(battery0Data["voltage"]) / 1000.0,
-			"current_a":         parseFloat(battery0Data["current"]) / 1000.0,
-			"temperature_c":     parseInt(battery0Data["temperature:0"]),
-			"temperature_state": battery0Data["temperature-state"],
-			"cycles":            parseInt(battery0Data["cycle-count"]),
-			"health_percent":    parseInt(battery0Data["state-of-health"]),
+			"present":                true,
+			"state":                  battery0Data["state"],
+			"charge_percent":         parseInt(battery0Data["charge"]),
+			"voltage_v":              parseFloat(battery0Data["voltage"]) / 1000.0,
+			"current_a":              parseFloat(battery0Data["current"]) / 1000.0,
+			"temperature_c":          parseInt(battery0Data["temperature:0"]),
+			"temperature_state":      battery0Data["temperature-state"],
+			"cycles":                 parseInt(battery0Data["cycle-count"]),
+			"health_percent":         parseInt(battery0Data["state-of-health"]),
+			"remaining_capacity_mah": parseInt(battery0Data["remaining-capacity"]),
+			"full_capacity_mah":      parseInt(battery0Data["full-capacity"]),
+			"low_soc":                battery0Data["low-soc"] == "true",
 		}
 	} else {
 		output["battery_0"] = map[string]interface{}{
@@ -281,15 +290,18 @@ func outputStatusJSON(vehicleData, ecuData, battery0Data, battery1Data, auxBatte
 	// Add battery 1
 	if battery1Data["present"] == "true" {
 		output["battery_1"] = map[string]interface{}{
-			"present":           true,
-			"state":             battery1Data["state"],
-			"charge_percent":    parseInt(battery1Data["charge"]),
-			"voltage_v":         parseFloat(battery1Data["voltage"]) / 1000.0,
-			"current_a":         parseFloat(battery1Data["current"]) / 1000.0,
-			"temperature_c":     parseInt(battery1Data["temperature:0"]),
-			"temperature_state": battery1Data["temperature-state"],
-			"cycles":            parseInt(battery1Data["cycle-count"]),
-			"health_percent":    parseInt(battery1Data["state-of-health"]),
+			"present":                true,
+			"state":                  battery1Data["state"],
+			"charge_percent":         parseInt(battery1Data["charge"]),
+			"voltage_v":              parseFloat(battery1Data["voltage"]) / 1000.0,
+			"current_a":              parseFloat(battery1Data["current"]) / 1000.0,
+			"temperature_c":          parseInt(battery1Data["temperature:0"]),
+			"temperature_state":      battery1Data["temperature-state"],
+			"cycles":                 parseInt(battery1Data["cycle-count"]),
+			"health_percent":         parseInt(battery1Data["state-of-health"]),
+			"remaining_capacity_mah": parseInt(battery1Data["remaining-capacity"]),
+			"full_capacity_mah":      parseInt(battery1Data["full-capacity"]),
+			"low_soc":                battery1Data["low-soc"] == "true",
 		}
 	} else {
 		output["battery_1"] = map[string]interface{}{

@@ -39,3 +39,24 @@ func TestBytesNotBinary(t *testing.T) {
 		t.Errorf("Bytes(1 MiB) = %q, want 1.0 MB (1 MiB is not 1 MB)", got)
 	}
 }
+
+func TestMilliampHoursToAmpHours(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"0", ""},         // non-positive reads as no data, callers skip the line
+		{"-5", ""},        // negative likewise
+		{"junk", ""},      // unparsable likewise
+		{"", ""},          // missing field likewise
+		{"999", "1.0 Ah"}, // rounds half up like the other formatters
+		{"1000", "1.0 Ah"},
+		{"17200", "17.2 Ah"},
+		{"20000", "20.0 Ah"},
+	}
+	for _, tc := range tests {
+		if got := MilliampHoursToAmpHours(tc.in); got != tc.want {
+			t.Errorf("MilliampHoursToAmpHours(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

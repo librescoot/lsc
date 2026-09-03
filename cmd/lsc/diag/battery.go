@@ -106,6 +106,12 @@ func getBatteryData(id string) map[string]interface{} {
 			"voltage_v":      parseFloat(data["voltage"]) / 1000.0,
 			"current_a":      parseFloat(data["current"]) / 1000.0,
 		},
+		"capacity": map[string]interface{}{
+			"remaining_mah": parseInt(data["remaining-capacity"]),
+			"full_mah":      parseInt(data["full-capacity"]),
+		},
+		"low_soc":    data["low-soc"] == "true",
+		"fault_code": parseInt(data["fault-code"]),
 		"temperature": map[string]interface{}{
 			"sensor_0_c": parseInt(data["temperature:0"]),
 			"sensor_1_c": parseInt(data["temperature:1"]),
@@ -166,6 +172,20 @@ func showBattery(id string) error {
 		sohStr = format.ColorizePercentage(soh)
 	}
 	format.PrintKV("Health", fmt.Sprintf("%s (%s cycles)", sohStr, cycles))
+
+	// Capacity
+	if rc := format.MilliampHoursToAmpHours(data["remaining-capacity"]); rc != "" {
+		if fc := format.MilliampHoursToAmpHours(data["full-capacity"]); fc != "" {
+			format.PrintKV("Capacity", rc+" / "+fc)
+		} else {
+			format.PrintKV("Capacity", rc)
+		}
+	}
+
+	// Low SOC flag from the BMS
+	if data["low-soc"] == "true" {
+		format.PrintKV("Low SOC", format.Warning("flag set"))
+	}
 
 	// Identity
 	format.PrintKV("Identity", fmt.Sprintf("%s, manufactured %s, firmware %s",

@@ -107,6 +107,8 @@ func recordBattery(ctx context.Context, wg *sync.WaitGroup, outputDir string, in
 					switch {
 					case key == "charge" || key == "voltage" || key == "current" ||
 						key == "state-of-health" || key == "cycle-count" ||
+						key == "remaining-capacity" || key == "full-capacity" ||
+						key == "fault-code" ||
 						strings.HasPrefix(key, "temperature"):
 						if f, err := strconv.ParseFloat(val, 64); err == nil {
 							record[key] = f

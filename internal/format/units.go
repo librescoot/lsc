@@ -165,6 +165,17 @@ func MicrowattHoursToWattHours(uwh string) string {
 	return fmt.Sprintf("%.1f Wh", float64(val)/1000000.0)
 }
 
+// MilliampHoursToAmpHours converts a milliamp-hours string to a human-readable
+// Ah string. Returns "" on error or non-positive input, like
+// MicrowattHoursToWattHours, so callers can skip the line entirely.
+func MilliampHoursToAmpHours(mah string) string {
+	val, err := strconv.Atoi(mah)
+	if err != nil || val <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%.1f Ah", float64(val)/1000.0)
+}
+
 // SecondsToHuman converts a seconds string to a compact duration like "2d 4h", "3h 12m", "45m"
 func SecondsToHuman(s string) string {
 	val, err := strconv.Atoi(s)
