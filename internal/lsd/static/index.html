@@ -57,7 +57,7 @@
       <a data-i18n href="#dashboard/vehicle" data-jump="vehicle">Vehicle</a>
       <a data-i18n href="#dashboard/connectivity" data-jump="connectivity">Connectivity</a>
       <a data-i18n href="#dashboard/faults" data-jump="faults">Faults</a>
-      <a data-i18n class="adv-only" href="#dashboard/raw" data-jump="raw">Live data</a>
+      <a data-i18n class="adv-only" href="#dashboard/raw" data-jump="raw">Raw data</a>
     </nav>
 
     <section class="block" id="dash-commands">
@@ -158,12 +158,12 @@
     </section>
     <section class="block adv-only" id="dash-raw">
       <div class="page-head">
-        <h2 data-i18n>Live data</h2>
+        <h2 data-i18n>Raw data</h2>
         <div class="page-tools">
           <input data-i18n-attr="placeholder aria-label" id="raw-filter" type="search" placeholder="Filter fields" aria-label="Filter fields">
         </div>
       </div>
-      <p data-i18n class="lede">Every hash the daemon watches, as the services wrote it. Field names and values are raw.</p>
+      <p data-i18n class="lede">Every Redis hash the daemon watches, exactly as the services wrote it.</p>
       <div id="raw-hashes"></div>
     </section>
   </section>
@@ -425,7 +425,7 @@
 
     <details id="sys-shell" class="block advanced adv-only" hidden>
       <summary><h2 data-i18n>Shell</h2></summary>
-      <p data-i18n class="lede">Runs as root on the MDB. Every command gets its own shell, so only the working directory carries over, and nothing here is interactive: no editors, no prompts, no password entry.</p>
+      <p data-i18n class="lede">Runs as root on the MDB. Each command gets a fresh shell and only the working directory carries over. There is no terminal, so nothing interactive works here.</p>
       <div class="term">
         <div data-i18n-attr="aria-label" id="shell-out" class="term-out" tabindex="0" role="log" aria-label="Output"></div>
         <form id="shell-form" class="term-line">

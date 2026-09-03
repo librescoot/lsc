@@ -69,7 +69,7 @@ The switch in the top bar turns on **advanced mode**, remembered per
 browser. It reveals what is debug or foot-gun material: the shell, the
 destructive disclosures (forget all keycards, install a config file), the
 settings the schema does not mark user-visible, raw unit names, the main
-packs' fault code, and a Live data section on the dashboard listing every
+packs' fault code, and a Raw data section on the dashboard listing every
 watched Redis hash exactly as the services wrote it. It only hides things.
 Nothing is permitted by turning it on that was forbidden before: the
 endpoints behind it keep their own checks.
