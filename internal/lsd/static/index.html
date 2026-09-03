@@ -339,6 +339,7 @@
       <a data-i18n href="#system/logs" data-jump="logs">Logs</a>
       <a data-i18n href="#system/journal" data-jump="journal">Journal</a>
       <a data-i18n href="#system/services" data-jump="services">Services</a>
+      <a data-i18n href="#system/shell" data-jump="shell" id="jump-shell" hidden>Shell</a>
     </nav>
 
     <div class="two-col">
@@ -409,8 +410,25 @@
         <tbody></tbody>
       </table>
     </section>
-  </section>
 
+    <details id="sys-shell" class="block advanced" hidden>
+      <summary><h2 data-i18n>Shell</h2></summary>
+      <p data-i18n class="lede">Runs as root on the MDB. Every command gets its own shell, so only the working directory carries over, and nothing here is interactive: no editors, no prompts, no password entry.</p>
+      <div class="term">
+        <div data-i18n-attr="aria-label" id="shell-out" class="term-out" tabindex="0" role="log" aria-label="Output"></div>
+        <form id="shell-form" class="term-line">
+          <span id="shell-cwd" class="term-cwd mono"></span>
+          <input data-i18n-attr="placeholder aria-label" id="shell-cmd" class="mono" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type a command" aria-label="Command">
+          <button data-i18n type="submit" id="shell-send" class="btn btn-primary">Execute</button>
+          <button data-i18n type="button" id="shell-stop" class="btn" hidden>Stop</button>
+        </form>
+      </div>
+      <div class="term-foot">
+        <div id="shell-presets" class="term-presets"></div>
+        <button data-i18n type="button" id="shell-clear" class="btn btn-small btn-quiet">Clear output</button>
+      </div>
+    </details>
+  </section>
 
 </main>
 

@@ -31,6 +31,7 @@ func main() {
 		dataDir  = flag.String("data", "/data", "Data directory to expose in the file browser")
 		token    = flag.String("token", "", "Require a bearer token for all requests (empty disables auth)")
 		sunshine = flag.String("sunshine-url", "", "Sunshine instance for the Cloud page (default https://sunshine.rescoot.org)")
+		noShell  = flag.Bool("no-shell", false, "Disable the shell page and its API")
 		showVer  = flag.Bool("version", false, "Print version and exit")
 	)
 	flag.Parse()
@@ -53,6 +54,7 @@ func main() {
 		DataDir:     *dataDir,
 		Token:       *token,
 		SunshineURL: *sunshine,
+		Shell:       !*noShell,
 	})
 	if err != nil {
 		log.Fatalf("Failed to initialize: %v", err)

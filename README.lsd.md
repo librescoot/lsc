@@ -56,6 +56,14 @@ contracts.
   reader saw with a one-click authorize for unknown cards.
 - **Services**: Librescoot's systemd units with their state, filters, and
   start, stop and restart.
+- **Shell**: a command console on the MDB, collapsed at the bottom of the
+  System page. Each command is its own `sh -c`, so only the working directory
+  carries over; output streams as it arrives, stdout and stderr are told
+  apart, and a running command can be interrupted and then killed. It is not
+  a terminal: there is no pty, so nothing interactive works (no editors, no
+  prompts, no password entry) and colour escapes are stripped rather than
+  rendered. Output is capped at 4 MB and a command at 10 minutes. Every
+  command is logged to the journal.
 
 The interface is available in English and German. It follows the scooter's
 `dashboard.language` setting, so the display and the web page speak the same
@@ -75,6 +83,7 @@ lsd [-addr ADDRESS] [-redis-addr ADDRESS] [-data DIRECTORY] [-token TOKEN] [-sun
 | `-data` | `/data` | Directory exposed in the file browser. |
 | `-token` | *(empty)* | When set, every request must carry this bearer token (`Authorization` header, or `?token=` for the SSE stream and downloads). |
 | `-sunshine-url` | `https://sunshine.rescoot.org` | Sunshine instance the Cloud page talks to. |
+| `-no-shell` | *(off)* | Disable the shell page and its API. |
 
 ### Availability and the usb0 gate
 
@@ -90,15 +99,23 @@ discusses making the interface reachable without usb0.
 ### Security posture
 
 The daemon has full control over the scooter: it queues power and vehicle
-commands, writes settings, manipulates `/data` and restarts services. It is
-meant for the usb0 management network only. Bind it away from other
+commands, writes settings, manipulates `/data`, restarts services and, on the
+Shell page, runs arbitrary commands as root. That last one is a root shell in
+a browser tab, so treat reaching lsd as equal to having the board's shell;
+`-no-shell` removes the page and the API when that is too much. It is meant
+for the usb0 management network only. Bind it away from other
 interfaces (the default does), firewall the port, and set `-token` when the
 network is not fully trusted. There is no TLS; usb0 is a point-to-point
 cable.
 
 State-changing requests are rejected when the browser marks them as
 cross-origin (`Origin` or `Sec-Fetch-Site`), so a page open in another tab
-cannot drive the scooter through the laptop's usb0 connection. Commands are
+cannot drive the scooter through the laptop's usb0 connection. The two shell
+endpoints go further, because that check passes requests that carry no
+`Origin` at all: they also require `Content-Type: application/json` and an
+`X-Lsd-Shell: 1` header. A cross-site page can send neither without a
+preflight, which lsd never answers, so the only ways in are this page and a
+deliberate `curl`. Commands are
 validated against a fixed table, file paths are contained under `-data`,
 and service actions only reach systemd for Librescoot unit names.
 
@@ -127,6 +144,8 @@ and service actions only reach systemd for Librescoot unit names.
 | `PUT/DELETE /api/navigation/locations` | Create or update `{id?, label, latitude, longitude}`; delete by `?id=`. Stored as `dashboard.saved-locations.<id>.*` in settings. |
 | `GET /api/keycards` | Authorized and master card UIDs from keycard-service's files, plus the last card seen. |
 | `POST /api/keycards/command` | `{command, uid?}`: add, remove, set-master, learn:start/stop, learn:master:start/stop, reset via `scooter:keycard`; waits for `command-result`. |
+| `POST /api/shell` | `{cmd, cwd, id}`: run one command, streaming newline-delimited JSON frames (`{"o"}` stdout, `{"e"}` stderr, `{"x", "cwd"}` last). Needs `Content-Type: application/json` and `X-Lsd-Shell: 1`. |
+| `POST /api/shell/signal` | `{id, signal}`: send `int`, `term` or `kill` to a running command's process group. Same two headers. |
 | `GET /api/cloud` | Identity, connectivity service states, Sunshine URL. |
 | `POST /api/cloud/bootstrap` | `{token}`: claim the scooter in Sunshine and install the returned radio-gaga config. |
 | `POST /api/cloud/config` | `{service, yaml, config-path?}`: write a pasted config and restart the service. |

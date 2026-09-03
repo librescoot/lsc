@@ -456,6 +456,32 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
 .upd-group h3 { margin: 0.5rem 0 0.25rem; }
 .journal { font-family: var(--mono); font-size: 0.78rem; line-height: 1.45; background: var(--code-bg, #111); color: #E0E0E0; border-radius: var(--radius); padding: 0.75rem 0.9rem; margin: 0.75rem 0 0; white-space: pre; overflow: auto; max-height: 34rem; }
 :root[data-theme="dark"] .journal { background: var(--surface); border: 1px solid var(--border); }
+
+/* ---- shell ---- */
+.term { background: var(--code-bg, #111); border-radius: var(--radius); overflow: hidden; }
+:root[data-theme="dark"] .term { background: var(--surface); border: 1px solid var(--border); }
+.term-out {
+  font-family: var(--mono); font-size: 0.78rem; line-height: 1.45; color: #E0E0E0;
+  padding: 0.75rem 0.9rem; margin: 0; white-space: pre-wrap; word-break: break-word;
+  height: 30rem; overflow: auto;
+}
+.term-out .is-cmd { color: var(--accent-bright); }
+.term-out .is-err { color: #FCA5A5; }
+.term-out .is-note { color: #A3A3A3; }
+.term-line { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.term-cwd { color: #7DD3FC; font-size: 0.78rem; white-space: nowrap; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+.term-line input {
+  flex: 1; min-width: 0; background: transparent; border: 0; color: #E0E0E0;
+  font-size: 0.82rem; padding: 0.3rem 0;
+}
+.term-line input:focus { outline: 0; }
+.term.is-busy .term-cwd { opacity: 0.5; }
+.term-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-top: 0.75rem; }
+.term-presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.term-foot .term-presets { flex: 1; }
+.term-presets button { font: 400 0.78rem/1 var(--mono); padding: 0.4rem 0.6rem; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
+.term-presets button:hover { color: var(--text); border-color: var(--border-strong); }
+@media (max-width: 640px) { .term-out { height: 22rem; } .term-cwd { max-width: 6rem; } }
 .tabs { gap: 0; }
 #sys-services .page-head { align-items: center; }
 .tabs a { padding: 11px 0.65rem 0; font-size: 0.88rem; }

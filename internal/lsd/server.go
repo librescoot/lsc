@@ -38,6 +38,10 @@ type Options struct {
 	DataDir     string
 	Token       string
 	SunshineURL string
+	// Shell enables the command console. It is on by default; lsd already
+	// controls the whole scooter, but the console is the one page that reads
+	// and writes anything on the board, so it can be turned off.
+	Shell bool
 }
 
 // Server holds the daemon state.
@@ -46,6 +50,8 @@ type Server struct {
 	dataDir     string
 	token       string
 	sunshineURL string
+	shell       bool
+	shells      *shellRegistry
 
 	mu       sync.RWMutex
 	rdb      *redis.Client
@@ -74,6 +80,8 @@ func New(opts Options) (*Server, error) {
 		dataDir:     opts.DataDir,
 		token:       opts.Token,
 		sunshineURL: strings.TrimRight(opts.SunshineURL, "/"),
+		shell:       opts.Shell,
+		shells:      newShellRegistry(),
 		doneCh:      make(chan struct{}),
 		hub:         newHub(),
 	}
@@ -253,6 +261,9 @@ func (s *Server) routes() http.Handler {
 	api("/api/keycards", s.handleKeycards)
 	api("/api/keycards/command", s.handleKeycardCommand)
 
+	api("/api/shell", s.handleShell)
+	api("/api/shell/signal", s.handleShellSignal)
+
 	api("/api/cloud", s.handleCloudStatus)
 	api("/api/cloud/bootstrap", s.handleCloudBootstrap)
 	api("/api/cloud/config", s.handleCloudConfig)
@@ -306,6 +317,7 @@ func (s *Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 		"data-dir":     s.dataDir,
 		"sunshine-url": s.sunshineURL,
 		"auth":         s.token != "",
+		"shell":        s.shell,
 		"redis-ok":     s.getRedis() != nil,
 	})
 }

@@ -36,6 +36,9 @@ const API = {
     }
     return data;
   },
+  // The shell endpoints demand this header: a cross-site form cannot set it,
+  // and setting it from a script forces a preflight lsd never answers.
+  shellHeaders() { return { ...this.headers(), "X-Lsd-Shell": "1" }; },
   get(p) { return this.req("GET", p); },
   post(p, b) { return this.req("POST", p, b); },
   put(p, b) { return this.req("PUT", p, b); },
@@ -144,6 +147,7 @@ const Views = {};
 let currentView = "";
 function route() {
   if (location.hash.startsWith("#services")) { location.replace("#system/services"); return; }
+  if (location.hash === "#shell") { location.replace("#system/shell"); return; }
   const view = (location.hash.slice(1) || "dashboard").split("/")[0];
   const known = Views[view] ? view : "dashboard";
   $$(".view").forEach(v => { v.hidden = v.id !== "view-" + known; });
@@ -616,11 +620,17 @@ document.addEventListener("click", e => {
   if (!a) return;
   e.preventDefault();
   const el = document.getElementById(a.closest(".jump").dataset.prefix + a.dataset.jump);
-  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!el) return;
+  if (el.tagName === "DETAILS") el.open = true;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 function scrollToHashSection(view, prefix) {
   const target = decodeURIComponent(location.hash.split("/")[1] || "");
-  if (target) document.getElementById(prefix + target)?.scrollIntoView({ block: "start" });
+  if (!target) return;
+  const el = document.getElementById(prefix + target);
+  if (!el) return;
+  if (el.tagName === "DETAILS") el.open = true;
+  el.scrollIntoView({ block: "start" });
 }
 
 function currentValue(key) {
@@ -1493,6 +1503,157 @@ $("#services-table").addEventListener("click", async e => {
   finally { btn.classList.remove("is-busy"); }
 });
 
+// ---------- shell ----------
+
+// Populate the input, never run on click: a stray tap should not restart a
+// service.
+const SHELL_PRESETS = [
+  "lsc status", "systemctl --failed", "journalctl -n 50 -u librescoot-vehicle",
+  "redis-cli hgetall vehicle", "free -h", "df -h /data", "ip -br addr", "uptime", "dmesg | tail -30",
+];
+
+// Terminal control sequences and stray control bytes: the page is not a
+// terminal emulator, so they are dropped rather than rendered as mojibake.
+const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[\x00-\x08\x0b-\x1f]/g;
+const deansi = (s) => s.replace(ANSI, "");
+
+const sh = { cwd: "/data", seq: 0, running: null, stops: 0, hist: [], pos: -1 };
+try { sh.hist = JSON.parse(localStorage.getItem("lsd-shell-hist")) || []; } catch { /* no history */ }
+
+// The console lives behind a collapsed section on the System page, so it is
+// never one stray click away.
+function shellInit() {
+  const presets = $("#shell-presets");
+  if (!presets.children.length) {
+    presets.innerHTML = SHELL_PRESETS.map(c => `<button type="button" data-cmd="${esc(c)}">${esc(c)}</button>`).join("");
+  }
+  $("#shell-cwd").textContent = sh.cwd + " $";
+}
+
+$("#sys-shell").addEventListener("toggle", e => {
+  const open = e.target.open;
+  try { localStorage.setItem("lsd-shell-open", open ? "1" : ""); } catch { /* private mode */ }
+  if (open) { shellInit(); $("#shell-cmd").focus(); }
+});
+
+function shellWrite(text, cls = "") {
+  const out = $("#shell-out");
+  const atEnd = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
+  const last = out.lastElementChild;
+  if (last && last.className === cls && last.textContent.length < 65536) last.appendChild(document.createTextNode(text));
+  else {
+    const span = document.createElement("span");
+    span.className = cls;
+    span.textContent = text;
+    out.appendChild(span);
+  }
+  while (out.childElementCount > 600) out.removeChild(out.firstElementChild);
+  if (atEnd) out.scrollTop = out.scrollHeight;
+}
+
+function shellBusy(busy) {
+  $(".term").classList.toggle("is-busy", busy);
+  $("#shell-send").hidden = busy;
+  $("#shell-stop").hidden = !busy;
+}
+
+function shellFrame(f) {
+  if (f.o !== undefined) shellWrite(deansi(f.o));
+  if (f.e !== undefined) shellWrite(deansi(f.e), "is-err");
+  if (f.x === undefined) return;
+  if (f.cwd && f.cwd !== sh.cwd) { sh.cwd = f.cwd; $("#shell-cwd").textContent = sh.cwd + " $"; }
+  if (f.trunc) shellWrite(t("Output truncated.") + "\n", "is-note");
+  if (f.err) shellWrite(f.err + "\n", "is-err");
+  if (f.x !== 0) shellWrite(t("Exit {code}", { code: f.x }) + "\n", "is-note");
+}
+
+async function shellExec(cmd) {
+  if (sh.running) return;
+  shellWrite(`${sh.cwd} $ ${cmd}\n`, "is-cmd");
+  sh.hist = sh.hist.filter(h => h !== cmd);
+  sh.hist.push(cmd);
+  if (sh.hist.length > 100) sh.hist.shift();
+  sh.pos = -1;
+  try { localStorage.setItem("lsd-shell-hist", JSON.stringify(sh.hist)); } catch { /* private mode */ }
+
+  const id = `${Date.now()}-${++sh.seq}`;
+  sh.running = id;
+  sh.stops = 0;
+  shellBusy(true);
+  try {
+    const resp = await fetch(API.url("/api/shell"), { method: "POST", headers: API.shellHeaders(), body: JSON.stringify({ id, cmd, cwd: sh.cwd }) });
+    if (!resp.ok || !resp.body) {
+      let msg = `HTTP ${resp.status}`;
+      try { const d = await resp.json(); if (d && d.error) msg = d.error; } catch { /* not JSON */ }
+      if (resp.status === 401) askToken();
+      throw new Error(msg);
+    }
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (line) shellFrame(JSON.parse(line));
+      }
+    }
+  } catch (err) {
+    shellWrite(err.message + "\n", "is-err");
+  } finally {
+    sh.running = null;
+    shellBusy(false);
+    $("#shell-cmd").focus();
+  }
+}
+
+// First press interrupts, a second one kills: the same escalation a terminal
+// gives you, without a key for SIGKILL.
+async function shellStop() {
+  if (!sh.running) return;
+  const signal = sh.stops++ === 0 ? "int" : "kill";
+  shellWrite(signal === "int" ? "^C\n" : t("Killed.") + "\n", "is-note");
+  try {
+    const resp = await fetch(API.url("/api/shell/signal"), { method: "POST", headers: API.shellHeaders(), body: JSON.stringify({ id: sh.running, signal }) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  } catch (err) { notify(err.message, true); }
+}
+
+$("#shell-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const input = $("#shell-cmd");
+  const cmd = input.value.trim();
+  if (!cmd) return;
+  input.value = "";
+  shellExec(cmd);
+});
+
+$("#shell-cmd").addEventListener("keydown", e => {
+  if (e.key === "c" && e.ctrlKey) { e.preventDefault(); shellStop(); return; }
+  if (e.key === "l" && e.ctrlKey) { e.preventDefault(); $("#shell-out").textContent = ""; return; }
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+  if (!sh.hist.length) return;
+  e.preventDefault();
+  if (sh.pos === -1) sh.pos = sh.hist.length;
+  sh.pos = Math.max(0, Math.min(sh.hist.length, sh.pos + (e.key === "ArrowUp" ? -1 : 1)));
+  e.target.value = sh.pos === sh.hist.length ? "" : sh.hist[sh.pos];
+  e.target.setSelectionRange(e.target.value.length, e.target.value.length);
+});
+
+$("#shell-stop").addEventListener("click", shellStop);
+$("#shell-clear").addEventListener("click", () => { $("#shell-out").textContent = ""; $("#shell-cmd").focus(); });
+$("#shell-presets").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-cmd]");
+  if (!btn) return;
+  const input = $("#shell-cmd");
+  input.value = btn.dataset.cmd;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+});
+
 // ---------- boot ----------
 
 // Static markup is translated now; the scooter's dashboard.language may switch it later.
@@ -1513,4 +1674,11 @@ function setLanguage(lang) {
 
 connectStream();
 route();
-API.get("/api/info").then(info => { if (info.version) document.title = `Librescoot ${info.version}`; }).catch(() => {});
+API.get("/api/info").then(info => {
+  if (info.version) document.title = `Librescoot ${info.version}`;
+  if (info["data-dir"]) { sh.cwd = info["data-dir"]; $("#shell-cwd").textContent = sh.cwd + " $"; }
+  $("#sys-shell").hidden = !info.shell;
+  $("#jump-shell").hidden = !info.shell;
+  if (info.shell && localStorage.getItem("lsd-shell-open")) $("#sys-shell").open = true;
+  if (info.shell && location.hash === "#system/shell") { $("#sys-shell").open = true; $("#sys-shell").scrollIntoView({ block: "start" }); }
+}).catch(() => {});
