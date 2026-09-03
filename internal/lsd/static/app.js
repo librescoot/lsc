@@ -223,6 +223,7 @@ const fmtV = (mv) => { const n = num(mv); return n === null ? null : (n / 1000).
 const fmtKm = (m) => { const n = num(m); return n === null ? null : (n / 1000).toFixed(1) + " km"; };
 const fmtTemp = (c) => { const n = num(c); return n === null ? null : `${Math.round(n)} °C`; };
 const fmtPct = (p) => { const n = num(p); return n === null ? null : `${Math.round(n)} %`; };
+const fmtAh = (mah) => { const n = num(mah); return n === null || n <= 0 ? null : (n / 1000).toFixed(1); };
 function ago(iso) {
   const ts = Date.parse(iso);
   if (!isFinite(ts)) return "";
@@ -299,9 +300,12 @@ function renderDashboard() {
     if (!Object.keys(b).length) continue;
     const present = b.present !== "false";
     const temps = [0, 1, 2, 3].map(i => num(b["temperature:" + i])).filter(t => t !== null);
+    const rem = fmtAh(b["remaining-capacity"]), full = fmtAh(b["full-capacity"]);
     const meta = [fmtV(b.voltage), temps.length ? `${Math.max(...temps)} °C` : null,
+      rem && full ? `${rem} / ${full} Ah` : null,
       has(b["state-of-health"]) ? `${t("health")} ${b["state-of-health"]} %` : null, has(b["cycle-count"]) ? t("{n} cycles", { n: b["cycle-count"] }) : null];
-    batts.push(battRow(t("Battery {n}", { n: Number(id) + 1 }), present ? num(b.charge) : null, present ? b.state : "not present", present ? meta : [], !present));
+    batts.push(battRow(t("Battery {n}", { n: Number(id) + 1 }), present ? num(b.charge) : null, present ? b.state : "not present", present ? meta : [], !present,
+      false, present && b["low-soc"] === "true"));
   }
   const aux = H("aux-battery");
   if (Object.keys(aux).length) {
@@ -360,15 +364,18 @@ function renderDashboard() {
   syncCommandAvailability();
 }
 
-function battRow(name, pct, stateText, meta, absent = false, coarse = false) {
+function battRow(name, pct, stateText, meta, absent = false, coarse = false, low = false) {
   const p = pct === null ? null : Math.max(0, Math.min(100, pct));
-  const barTone = p === null ? "" : p <= 10 ? "is-bad" : p <= 25 ? "is-warn" : "";
+  let barTone = p === null ? "" : p <= 10 ? "is-bad" : p <= 25 ? "is-warn" : "";
+  // The pack's own low-soc flag beats the percentage tiers: the BMS raises it
+  // from cell voltage, so it can fire while the reported charge still looks fine.
+  if (low && barTone !== "is-bad") barTone = "is-warn";
   const val = p === null ? esc(human(stateText)) : `${Math.round(p)}<small>%${coarse ? ` ${t("approx.")}` : ""}</small>`;
   return `<div class="batt ${absent ? "is-absent" : ""}">
     <div class="batt-name">${esc(name)}</div>
     <div class="batt-value">${val}${p !== null && has(stateText) ? `<small>${esc(human(stateText))}</small>` : ""}</div>
     ${p === null ? "" : `<div class="batt-bar ${barTone}"><span style="width:${p}%"></span></div>`}
-    ${meta.filter(Boolean).length ? `<div class="batt-meta">${meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join("")}</div>` : ""}
+    ${meta.filter(Boolean).length || low ? `<div class="batt-meta">${low ? `<span class="is-warn">${t("Low charge")}</span>` : ""}${meta.filter(Boolean).map(m => `<span>${esc(m)}</span>`).join("")}</div>` : ""}
   </div>`;
 }
 

@@ -26,6 +26,7 @@ I18N.dicts.de = {
   "{n} faults": "{n} Fehler",
   "health": "Zustand",
   "{n} cycles": "{n} Zyklen",
+  "Low charge": "Niedriger Ladestand",
   "Battery {n}": "Akku {n}",
   "AUX (12V)": "AUX (12V)",
   "Connectivity (CBB)": "Konnektivität (CBB)",
