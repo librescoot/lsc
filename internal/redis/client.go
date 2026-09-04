@@ -124,6 +124,11 @@ func (c *Client) LPushWithContext(ctx context.Context, key, value string) error 
 	return c.client.LPush(ctx, key, value).Err()
 }
 
+// LRange returns a range of list elements.
+func (c *Client) LRange(key string, start, stop int64) ([]string, error) {
+	return c.client.LRange(c.ctx, key, start, stop).Result()
+}
+
 // SMembers retrieves all members of a set
 func (c *Client) SMembers(key string) ([]string, error) {
 	return c.client.SMembers(c.ctx, key).Result()
