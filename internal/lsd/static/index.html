@@ -102,7 +102,7 @@
           <div class="cmd-row">
             <button data-i18n type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-manual" data-hold="2500"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg> Hibernate</button>
             <div class="cmd-combo">
-              <button data-i18n type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-for" data-hold="2500">Sleep for</button>
+              <button data-i18n type="button" class="cmd cmd-small cmd-tone-blue" data-cmd="power-hibernate-for" data-hold="2500">Wake after</button>
               <select data-i18n-attr="aria-label" id="sleep-for-duration" aria-label="Sleep duration">
                 <option data-i18n value="1800">30 min</option>
                 <option value="3600">1 h</option>
@@ -119,17 +119,17 @@
             <button data-i18n type="button" class="cmd cmd-small" data-cmd="power-run" id="cmd-cancel-power" hidden>Cancel power-off</button>
             <button data-i18n type="button" class="cmd cmd-small" data-cmd="power-hibernate-cancel" id="cmd-cancel-wake" hidden>Cancel wake timer</button>
           </div>
-          <p data-i18n class="cmd-hint">Hibernate powers the scooter off until a keycard or button wakes it. Sleep for wakes it on a timer instead. A reboot takes about a minute.</p>
+          <p data-i18n class="cmd-hint">Hibernate powers off the scooter until a keycard or button wakes it. Wake after adds a timer. Rebooting takes about one minute.</p>
           <p class="cmd-hint" id="power-hint"></p>
         </div>
 
         <div class="cmd-label" data-i18n>Service mode</div>
         <div>
           <div class="cmd-row">
-            <button data-i18n data-i18n-attr="data-confirm data-title" type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="The scooter stays awake with the USB link up, alarm and handlebar auto-lock off, until you disable service mode or reboot.">Enable</button>
+            <button data-i18n data-i18n-attr="data-confirm data-title" type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="Service mode keeps the scooter awake and the USB link active. The alarm and automatic handlebar locking remain disabled until service mode ends or the scooter reboots.">Enable</button>
             <button data-i18n type="button" class="cmd cmd-small" data-cmd="service-mode-off">Disable</button>
           </div>
-          <p data-i18n class="cmd-hint">For working on the scooter: it stays awake with the USB link up, alarm and handlebar auto-lock off. Ends when disabled or on reboot.</p>
+          <p data-i18n class="cmd-hint">Keeps the scooter awake and the USB link active. The alarm and automatic handlebar locking remain disabled until service mode ends.</p>
         </div>
       </div>
     </section>
@@ -163,7 +163,7 @@
           <input data-i18n-attr="placeholder aria-label" id="raw-filter" type="search" placeholder="Filter fields" aria-label="Filter fields">
         </div>
       </div>
-      <p data-i18n class="lede">Every Redis hash the daemon watches, exactly as the services wrote it.</p>
+      <p data-i18n class="lede">Shows the current contents of the Redis hashes used by lsd.</p>
       <div id="raw-hashes"></div>
     </section>
   </section>
@@ -176,14 +176,14 @@
         <label class="check" data-i18n><input id="settings-advanced" type="checkbox"> Advanced mode</label>
       </div>
     </div>
-    <p data-i18n class="lede">Changes apply when saved. An empty field means the default.</p>
+    <p data-i18n class="lede">Changes take effect when saved. Empty fields use their default values.</p>
     <nav data-i18n-attr="aria-label" id="settings-jump" class="jump" data-prefix="group-" aria-label="Services"></nav>
     <div id="settings-groups"></div>
   </section>
 
   <section id="view-navigation" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Navigation</h1></div>
-    <p data-i18n class="lede">The display navigates to the destination set here. Saved locations are the ones offered in the display's menu.</p>
+    <p data-i18n class="lede">Set the dashboard's navigation destination and manage the locations shown in its menu.</p>
 
     <section class="block nav-dest">
       <h2 data-i18n>Destination</h2>
@@ -221,7 +221,7 @@
 
   <section id="view-keycards" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Keycards</h1></div>
-    <p data-i18n class="lede">Authorized cards unlock the scooter. A master card also starts teach-in at the reader: tap the master, then tap the cards to add.</p>
+    <p data-i18n class="lede">Authorized keycards unlock the scooter. To add keycards at the reader, present a master keycard followed by each new keycard.</p>
 
     <div class="two-col">
       <section class="block">
@@ -245,7 +245,7 @@
           <button data-i18n type="button" class="btn" id="kc-master-start">Add a master by tapping</button>
           <button data-i18n type="button" class="btn" id="kc-master-stop" hidden>Cancel</button>
         </div>
-        <p data-i18n class="cmd-hint">Adds another master. Existing masters stay.</p>
+        <p data-i18n class="cmd-hint">Adds a master keycard without removing existing ones.</p>
 
         <h2 data-i18n class="kc-sub">Last card at the reader</h2>
         <div id="kc-last" class="kc-last muted">Nothing tapped yet.</div>
@@ -280,7 +280,7 @@
 
   <section id="view-cloud" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Cloud</h1></div>
-    <p data-i18n class="lede">Sunshine, run by rescoot.org, gives you remote lock and unlock, location, telemetry and the companion app. radio-gaga connects the scooter to it. uplink-service connects to a backend of your own.</p>
+    <p data-i18n class="lede">Sunshine provides remote vehicle control, location, telemetry and companion-app access. radio-gaga connects to Sunshine; uplink-service connects to a custom backend.</p>
 
     <div class="two-col">
       <section class="block">
@@ -326,7 +326,7 @@
 
   <section id="view-updates" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Updates</h1></div>
-    <p data-i18n class="lede">Each board updates itself. Pick another channel to see what it would install. Switching downloads a full image; later updates on the same channel are small.</p>
+    <p data-i18n class="lede">MDB and DBC install updates independently. Select a channel to preview its available version. Changing channels downloads a full image; later updates on the same channel use smaller deltas.</p>
     <div class="two-col" id="upd-boards"></div>
 
     <section class="block">
@@ -425,7 +425,7 @@
 
     <details id="sys-shell" class="block advanced adv-only" hidden>
       <summary><h2 data-i18n>Shell</h2></summary>
-      <p data-i18n class="lede">Runs as root on the MDB. Each command gets a fresh shell and only the working directory carries over. There is no terminal, so nothing interactive works here.</p>
+      <p data-i18n class="lede">Commands run as root on the MDB in separate, non-interactive shells. The working directory is preserved between commands.</p>
       <div class="term">
         <div data-i18n-attr="aria-label" id="shell-out" class="term-out" tabindex="0" role="log" aria-label="Output"></div>
         <form id="shell-form" class="term-line">

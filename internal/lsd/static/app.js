@@ -145,11 +145,7 @@ $$(".jump").forEach(j => new ResizeObserver(measureSticky).observe(j));
 
 // ---------- advanced mode ----------
 
-// One switch for everything that is debug or foot-gun material: the shell,
-// the destructive disclosures, raw Redis values, and the settings the schema
-// does not mark user-visible. It hides things; it grants nothing. The
-// endpoints keep their own checks, since a localStorage flag is not a
-// security boundary.
+// Advanced mode changes visibility only; endpoint checks remain authoritative.
 let advancedMode = false;
 try { advancedMode = localStorage.getItem("lsd-advanced") === "1"; } catch { /* private mode */ }
 

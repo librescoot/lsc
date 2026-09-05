@@ -131,8 +131,7 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
 :root[data-theme="dark"] .icon-moon { display: none; }
 :root:not([data-theme="dark"]) .icon-sun { display: none; }
 
-/* Advanced mode hides; it never grants. Every endpoint behind these keeps
-   its own checks. */
+/* Advanced mode changes visibility only. */
 :root:not([data-advanced]) .adv-only { display: none !important; }
 
 /* ---- layout ---- */

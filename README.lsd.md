@@ -65,14 +65,11 @@ contracts.
   rendered. Output is capped at 4 MB and a command at 10 minutes. Every
   command is logged to the journal.
 
-The switch in the top bar turns on **advanced mode**, remembered per
-browser. It reveals what is debug or foot-gun material: the shell, the
-destructive disclosures (forget all keycards, install a config file), the
-settings the schema does not mark user-visible, raw unit names, the main
-packs' fault code, and a Raw data section on the dashboard listing every
-watched Redis hash exactly as the services wrote it. It only hides things.
-Nothing is permitted by turning it on that was forbidden before: the
-endpoints behind it keep their own checks.
+The switch in the top bar turns on **advanced mode** and is remembered per
+browser. It shows the shell, destructive actions, settings not marked as
+user-visible, full unit names, main-battery fault codes, and the current
+contents of Redis hashes used by lsd. Advanced mode changes visibility only;
+all endpoint checks still apply.
 
 The interface is available in English and German. It follows the scooter's
 `dashboard.language` setting, so the display and the web page speak the same
