@@ -55,6 +55,8 @@ lsc watch vehicle battery:0
 endpoint. Management requires a running, compatible event-service; there is no
 local rule-file fallback, SSH invocation, or automatic service restart. `status`
 requests a live reply rather than treating cached Redis hashes as proof of life.
+RPC expiry uses the datastore clock; the CLI host and MDB need not have
+synchronized wall clocks.
 
 ```sh
 lsc ext list

@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/librescoot/event-service v0.0.0-20260908115814-cd381a15ab25
+	github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088
 	github.com/librescoot/eventbus v0.1.0
 	github.com/librescoot/redis-ipc v0.15.2
 	github.com/redis/go-redis/v9 v9.18.0

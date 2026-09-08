@@ -15,8 +15,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/klauspost/cpuid/v2 v2.0.9 h1:lgaqFMSdTdQYdZ04uHyN2d/eKdOMyi2YLSvlQIBFYa4=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
-github.com/librescoot/event-service v0.0.0-20260908115814-cd381a15ab25 h1:2Vap6fLKwyYEYYt9QKJWnT/3EfxRq7tBbC8GyUlfSvo=
-github.com/librescoot/event-service v0.0.0-20260908115814-cd381a15ab25/go.mod h1:/ow1iq8zHPjC8XCMjzImCppck1Io/d48DHANKLmZAnU=
+github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088 h1:wLuDwPznscAZmt6yVzf2bJyT8jqfcG0XWkyrrxx7dbM=
+github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088/go.mod h1:/ow1iq8zHPjC8XCMjzImCppck1Io/d48DHANKLmZAnU=
 github.com/librescoot/eventbus v0.1.0 h1:CM0jteSfA+jSEHXA2lh0D2dHXSAHrJ6T0EuCiWYTEVs=
 github.com/librescoot/eventbus v0.1.0/go.mod h1:sSKIXixtMH98vowcy+jReKD3fAcfXT+1WYn7G4meTyM=
 github.com/librescoot/redis-ipc v0.15.2 h1:QH3Ns7MHBa957LPzWnA45+XSZFlJM9ZFSFIcEwb2eu4=
