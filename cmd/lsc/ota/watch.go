@@ -16,6 +16,7 @@ import (
 
 type componentStatus struct {
 	Status                string
+	StateOrigin           string
 	UpdateVersion         string
 	UpdateMethod          string
 	DownloadProgress      string
@@ -34,6 +35,7 @@ func readComponentStatus(otaData map[string]string, component string) componentS
 	}
 	return componentStatus{
 		Status:           get("status"),
+		StateOrigin:      get("state-origin"),
 		UpdateVersion:    get("update-version"),
 		UpdateMethod:     get("update-method"),
 		DownloadProgress: get("download-progress"),
@@ -53,14 +55,21 @@ func (s componentStatus) equals(other componentStatus) bool {
 	return s == other
 }
 
+func (s componentStatus) withOrigin(text string) string {
+	if s.StateOrigin == "cached" {
+		return text + " " + format.Dim("(cached)")
+	}
+	return text
+}
+
 func (s componentStatus) summary() string {
 	switch s.Status {
 	case "idle", "":
-		return format.Dim("idle")
+		return s.withOrigin(format.Dim("idle"))
 	case "downloading":
 		text := colorizeOTAStatus("downloading")
 		if s.UpdateVersion != "" {
-			text += " " + s.UpdateVersion
+			text += " target " + s.UpdateVersion
 		}
 		if s.DownloadProgress != "" {
 			text += " " + formatProgress(s.DownloadProgress, s.DownloadBytes, s.DownloadTotal)
@@ -68,34 +77,34 @@ func (s componentStatus) summary() string {
 		if s.UpdateMethod != "" {
 			text += fmt.Sprintf(" [%s]", s.UpdateMethod)
 		}
-		return text
+		return s.withOrigin(text)
 	case "preparing":
 		text := colorizeOTAStatus("preparing")
 		if s.UpdateVersion != "" {
-			text += " " + s.UpdateVersion
+			text += " target " + s.UpdateVersion
 		}
 		if s.InstallProgress != "" {
 			text += fmt.Sprintf(" %s%%", s.InstallProgress)
 		}
-		return text
+		return s.withOrigin(text)
 	case "installing":
 		text := colorizeOTAStatus("installing")
 		if s.UpdateVersion != "" {
-			text += " " + s.UpdateVersion
+			text += " target " + s.UpdateVersion
 		}
 		if s.InstallProgress != "" {
 			text += fmt.Sprintf(" %s%%", s.InstallProgress)
 		}
-		return text
+		return s.withOrigin(text)
 	case "pending-reboot":
 		text := colorizeOTAStatus("pending-reboot")
 		if s.UpdateVersion != "" {
-			text += " " + s.UpdateVersion
+			text += " pending " + s.UpdateVersion
 		}
 		if info := standbyTimerSummary(s.VehicleState, s.VehicleStateTimestamp); info != "" {
 			text += fmt.Sprintf(" (%s)", info)
 		}
-		return text
+		return s.withOrigin(text)
 	case "error":
 		text := colorizeOTAStatus("error")
 		if s.Error != "" {
@@ -104,9 +113,9 @@ func (s componentStatus) summary() string {
 		if s.ErrorMessage != "" {
 			text += " (" + s.ErrorMessage + ")"
 		}
-		return text
+		return s.withOrigin(text)
 	default:
-		return s.Status
+		return s.withOrigin(s.Status)
 	}
 }
 
@@ -194,6 +203,9 @@ func printWatchLine(component string, s componentStatus) {
 			"timestamp": time.Now().Unix(),
 			"component": component,
 			"status":    s.Status,
+		}
+		if s.StateOrigin != "" {
+			output["state-origin"] = s.StateOrigin
 		}
 		if s.UpdateVersion != "" {
 			output["update-version"] = s.UpdateVersion

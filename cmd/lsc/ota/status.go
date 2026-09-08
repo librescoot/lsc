@@ -49,7 +49,7 @@ func formatProgress(percent, downloaded, total string) string {
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show OTA update status",
-	Long:  `Display current OTA update status, installed version, and configuration.`,
+	Long:  `Display current OTA update status, running version, and configuration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		settings, err := RedisClient.HGetAll("settings")
 		if err != nil {
@@ -83,11 +83,11 @@ var statusCmd = &cobra.Command{
 
 		components := []string{"mdb", "dbc"}
 
-		installedVersions := make(map[string]string)
+		runningVersions := make(map[string]string)
 		for _, component := range components {
 			ver, err := RedisClient.HGet(fmt.Sprintf("version:%s", component), "version_id")
 			if err == nil && ver != "" {
-				installedVersions[component] = ver
+				runningVersions[component] = ver
 			}
 		}
 
@@ -99,11 +99,8 @@ var statusCmd = &cobra.Command{
 			for _, component := range components {
 				c := make(map[string]any)
 
-				if v, ok := installedVersions[component]; ok {
-					c["installed-version"] = v
-				} else {
-					c["installed-version"] = nil
-				}
+				v, ok := runningVersions[component]
+				setRunningVersionFields(c, v, ok)
 
 				for _, key := range []string{"method", "channel", "check-interval", "last-check-time"} {
 					settingKey := fmt.Sprintf("updates.%s.%s", component, key)
@@ -115,7 +112,7 @@ var statusCmd = &cobra.Command{
 				}
 
 				for _, key := range []string{
-					"status", "update-version", "update-method",
+					"status", "state-origin", "update-version", "update-method",
 					"download-progress", "download-bytes", "download-total",
 					"install-progress",
 					"error", "error-message",
@@ -145,10 +142,14 @@ var statusCmd = &cobra.Command{
 			for _, component := range components {
 				fmt.Printf("%s:\n", format.Info(component))
 
-				if v, ok := installedVersions[component]; ok {
-					format.PrintKV("  installed", v)
+				origin := otaData[fmt.Sprintf("state-origin:%s", component)]
+				if v, ok := runningVersions[component]; ok {
+					if origin == "cached" {
+						v += " (cached)"
+					}
+					format.PrintKV("  running", v)
 				} else {
-					format.PrintKV("  installed", format.Dim("unknown"))
+					format.PrintKV("  running", format.Dim("unknown"))
 				}
 
 				status := otaData[fmt.Sprintf("status:%s", component)]
@@ -217,6 +218,16 @@ var statusCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func setRunningVersionFields(component map[string]any, version string, known bool) {
+	var value any
+	if known {
+		value = version
+	}
+	component["running-version"] = value
+	// Keep the old name for JSON consumers; version:* reports the running rootfs.
+	component["installed-version"] = value
 }
 
 func init() {
