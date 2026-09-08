@@ -14,10 +14,11 @@ func init() {
 }
 
 var enableCmd = &cobra.Command{
-	Use:   "enable <service>",
-	Short: "Enable a systemd service to start on boot",
-	Long:  `Enable a systemd service to start automatically on boot. Service name can be with or without .service suffix.`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:               "enable <service>",
+	Short:             "Enable a systemd service to start on boot",
+	Long:              `Enable a systemd service to start automatically on boot. Service name can be with or without .service suffix.`,
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeServiceNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var failed bool
 		for _, service := range args {

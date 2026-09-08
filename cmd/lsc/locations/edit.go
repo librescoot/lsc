@@ -24,7 +24,8 @@ Examples:
   lsc loc edit 0 label "New Home"
   lsc loc edit 0 lat 52.5 lon 13.4
   lsc loc edit 0 label "Office" lat 52.5235 lon 13.4115`,
-	Args: cobra.MinimumNArgs(3),
+	Args:              cobra.MinimumNArgs(3),
+	ValidArgsFunction: completeLocationEdit,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])

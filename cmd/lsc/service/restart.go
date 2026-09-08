@@ -14,10 +14,11 @@ func init() {
 }
 
 var restartCmd = &cobra.Command{
-	Use:   "restart <service>",
-	Short: "Restart a systemd service",
-	Long:  `Restart a systemd service. Service name can be with or without .service suffix.`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:               "restart <service>",
+	Short:             "Restart a systemd service",
+	Long:              `Restart a systemd service. Service name can be with or without .service suffix.`,
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeServiceNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var failed bool
 		for _, service := range args {

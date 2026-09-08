@@ -13,9 +13,10 @@ import (
 )
 
 var batteryCmd = &cobra.Command{
-	Use:   "battery [id...]",
-	Short: "Show detailed battery information",
-	Long:  `Display comprehensive battery information for one or more batteries. IDs can be numeric (0, 1) or named (aux, cb). If no IDs specified, shows all batteries.`,
+	Use:       "battery [id...]",
+	Short:     "Show detailed battery information",
+	Long:      `Display comprehensive battery information for one or more batteries. IDs can be numeric (0, 1) or named (aux, cb). If no IDs specified, shows all batteries.`,
+	ValidArgs: []string{"0", "1", "aux", "cb"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine which batteries to show
 		batteryIDs := []string{"0", "1", "aux", "cb"}

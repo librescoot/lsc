@@ -13,11 +13,12 @@ import (
 )
 
 var showCmd = &cobra.Command{
-	Use:     "show <id>",
-	Aliases: []string{"get"},
-	Short:   "Show details of a saved location",
-	Long:    `Display detailed information about a specific saved location.`,
-	Args:    cobra.ExactArgs(1),
+	Use:               "show <id>",
+	Aliases:           []string{"get"},
+	Short:             "Show details of a saved location",
+	Long:              `Display detailed information about a specific saved location.`,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeLocationIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])

@@ -22,10 +22,11 @@ func init() {
 }
 
 var logsCmd = &cobra.Command{
-	Use:   "logs <service>",
-	Short: "Show recent logs from a systemd service",
-	Long:  `Show recent logs from a systemd service using journalctl. Service name can be with or without .service suffix.`,
-	Args:  cobra.ExactArgs(1),
+	Use:               "logs <service>",
+	Short:             "Show recent logs from a systemd service",
+	Long:              `Show recent logs from a systemd service using journalctl. Service name can be with or without .service suffix.`,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeServiceNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		service := args[0]
 		serviceName := ensureServiceSuffix(service)

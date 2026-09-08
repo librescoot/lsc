@@ -36,6 +36,38 @@ func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
 }
 
+func completeUIDFile(path string, args []string, toComplete string, masters bool) ([]string, cobra.ShellCompDirective) {
+	uids, err := readKeycardFile(path)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	if masters {
+		uids, _ = splitMasters(uids)
+	}
+	used := make(map[string]bool, len(args))
+	for _, uid := range args {
+		used[normalizeUID(uid)] = true
+	}
+	candidates := make([]string, 0, len(uids))
+	prefix := normalizeUID(toComplete)
+	for _, uid := range uids {
+		uid = normalizeUID(uid)
+		if !used[uid] && strings.HasPrefix(uid, prefix) {
+			candidates = append(candidates, uid)
+		}
+	}
+	sort.Strings(candidates)
+	return candidates, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeAuthorizedUIDs(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return completeUIDFile(authorizedFilePath(), args, toComplete, false)
+}
+
+func completeMasterUIDs(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return completeUIDFile(masterFilePath(), args, toComplete, true)
+}
+
 // Reads go to the files, not the service: command-result has no request
 // correlation, so a multi-entry reply cannot be collected reliably. Mutations
 // go through the command interface, see service.go.

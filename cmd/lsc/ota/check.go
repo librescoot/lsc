@@ -20,7 +20,8 @@ Examples:
   lsc ota check       # Check both MDB and DBC
   lsc ota check mdb   # Check MDB only
   lsc ota check dbc   # Check DBC only`,
-	Args: cobra.MaximumNArgs(1),
+	Args:      cobra.MaximumNArgs(1),
+	ValidArgs: []string{"mdb", "dbc"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var targets []string
 		var successMsg string

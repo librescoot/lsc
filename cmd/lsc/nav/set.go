@@ -21,7 +21,8 @@ Examples:
   lsc nav set 52.520008,13.404954
   lsc nav set 52.520008 13.404954
   lsc nav set Home                  # label from 'lsc locations list'`,
-	Args: cobra.MinimumNArgs(1),
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: locations.CompleteLabels,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		lat, lon, address, err := resolveDestination(args)
 		if err != nil {

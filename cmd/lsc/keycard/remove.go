@@ -7,9 +7,10 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <uid>",
-	Short: "Remove a keycard UID from the authorized list",
-	Args:  cobra.ExactArgs(1),
+	Use:               "remove <uid>",
+	Short:             "Remove a keycard UID from the authorized list",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeAuthorizedUIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := validateUIDFormat(args[0]); err != nil {
 			printError("Invalid UID", err)

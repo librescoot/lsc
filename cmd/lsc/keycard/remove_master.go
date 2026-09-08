@@ -10,10 +10,11 @@ import (
 )
 
 var removeMasterCmd = &cobra.Command{
-	Use:   "remove-master <uid> [uid...]",
-	Short: "Remove one or more master keycard UIDs",
-	Long:  `Remove one or more master keycard UIDs. Multiple UIDs can be provided as separate arguments.`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:               "remove-master <uid> [uid...]",
+	Short:             "Remove one or more master keycard UIDs",
+	Long:              `Remove one or more master keycard UIDs. Multiple UIDs can be provided as separate arguments.`,
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeMasterUIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		uids := make([]string, 0, len(args))
 		for _, arg := range args {

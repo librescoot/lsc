@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -60,8 +61,9 @@ var redisKeys = []string{
 }
 
 var LogsCmd = &cobra.Command{
-	Use:   "logs [services...]",
-	Short: "Extract service logs and system state",
+	Use:               "logs [services...]",
+	Short:             "Extract service logs and system state",
+	ValidArgsFunction: completeLogServices,
 	Long: `Extract systemd service logs and Redis snapshots for debugging and analysis.
 
 Available services:
@@ -83,6 +85,24 @@ Examples:
   lsc logs battery ecu --since "2025-10-25 10:00" --until "2025-10-25 12:00"
   lsc logs all --since 1d --priority err`,
 	Run: runLogsExtract,
+}
+
+func completeLogServices(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	services := map[string]bool{"all": true}
+	for name := range serviceMap {
+		services[name] = true
+	}
+	for _, used := range args {
+		delete(services, used)
+	}
+	candidates := make([]string, 0, len(services))
+	for service := range services {
+		if strings.HasPrefix(service, toComplete) {
+			candidates = append(candidates, service)
+		}
+	}
+	sort.Strings(candidates)
+	return candidates, cobra.ShellCompDirectiveNoFileComp
 }
 
 // SetRedisClient sets the Redis client for logs commands

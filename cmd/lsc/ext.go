@@ -17,6 +17,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	completionutil "librescoot/lsc/internal/completion"
+	redisclient "librescoot/lsc/internal/redis"
+
 	"github.com/BurntSushi/toml"
 	"github.com/librescoot/event-service/api"
 	"github.com/librescoot/eventbus"
@@ -123,6 +126,32 @@ func extList(ctx context.Context, backend extensionAPI) (api.ListResponse, error
 		}
 	}
 }
+func completeExtNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	candidates := completionutil.WithRedis(cmd, func(ctx context.Context, client *redisclient.Client) ([]string, error) {
+		response, err := api.Call[api.ListRequest, api.ListResponse](ctx, client.GetClient(), api.MethodList, api.ListRequest{Limit: 100})
+		if err != nil {
+			return nil, err
+		}
+		values := make([]string, 0, len(response.Rules))
+		for _, rule := range response.Rules {
+			if !strings.HasPrefix(rule.Name, toComplete) {
+				continue
+			}
+			state := "disabled"
+			if rule.Enabled {
+				state = "enabled"
+			}
+			values = append(values, rule.Name+"\t"+state)
+		}
+		sort.Strings(values)
+		return values, nil
+	})
+	return candidates, cobra.ShellCompDirectiveNoFileComp
+}
+
 func extNameArgs(cmd *cobra.Command, args []string) error {
 	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 		return err
@@ -158,7 +187,7 @@ func newExtCommand(backend extensionAPI) *cobra.Command {
 		}
 		return nil
 	}})
-	ext.AddCommand(&cobra.Command{Use: "show <name>", Short: "Show rule summary and TOML definition", Args: extNameArgs, RunE: func(cmd *cobra.Command, args []string) error {
+	ext.AddCommand(&cobra.Command{Use: "show <name>", Short: "Show rule summary and TOML definition", Args: extNameArgs, ValidArgsFunction: completeExtNames, RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := backend.show(cmd.Context(), api.ShowRequest{Name: args[0]})
 		if err != nil {
 			return err
@@ -177,7 +206,7 @@ func newExtCommand(backend extensionAPI) *cobra.Command {
 		if enabled {
 			name = "enable"
 		}
-		ext.AddCommand(&cobra.Command{Use: name + " <name>", Short: name + " a rule after the next explicit restart", Args: extNameArgs, RunE: func(cmd *cobra.Command, args []string) error {
+		ext.AddCommand(&cobra.Command{Use: name + " <name>", Short: name + " a rule after the next explicit restart", Args: extNameArgs, ValidArgsFunction: completeExtNames, RunE: func(cmd *cobra.Command, args []string) error {
 			shown, err := backend.show(cmd.Context(), api.ShowRequest{Name: args[0]})
 			if err != nil {
 				return err
@@ -191,7 +220,7 @@ func newExtCommand(backend extensionAPI) *cobra.Command {
 	}
 	ext.AddCommand(newExtAdd(backend))
 	var eventJSON string
-	test := &cobra.Command{Use: "test <name> --event JSON", Short: "Dry-run conditions and action previews; never execute or publish", Args: func(cmd *cobra.Command, args []string) error {
+	test := &cobra.Command{Use: "test <name> --event JSON", Short: "Dry-run conditions and action previews; never execute or publish", ValidArgsFunction: completeExtNames, Args: func(cmd *cobra.Command, args []string) error {
 		if err := extNameArgs(cmd, args); err != nil {
 			return err
 		}

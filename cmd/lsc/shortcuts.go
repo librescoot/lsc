@@ -94,10 +94,11 @@ func copyCommand(realCmd *cobra.Command) *cobra.Command {
 
 // get shortcut (get setting)
 var getCmd = &cobra.Command{
-	Use:     "get <key> [<key>...]",
-	Short:   "Get one or more setting values (shortcut for 'settings get')",
-	GroupID: "shortcuts",
-	Args:    cobra.MinimumNArgs(1),
+	Use:               "get <key> [<key>...]",
+	Short:             "Get one or more setting values (shortcut for 'settings get')",
+	GroupID:           "shortcuts",
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeSettingsGetArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return settingsGetCmd.RunE(cmd, args)
 	},
@@ -105,10 +106,11 @@ var getCmd = &cobra.Command{
 
 // set shortcut (set setting)
 var setCmd = &cobra.Command{
-	Use:     "set <key> <value> [<key> <value>...]",
-	Short:   "Set one or more setting values (shortcut for 'settings set')",
-	GroupID: "shortcuts",
-	Args:    settingsSetArgs,
+	Use:               "set <key> <value> [<key> <value>...]",
+	Short:             "Set one or more setting values (shortcut for 'settings set')",
+	GroupID:           "shortcuts",
+	Args:              settingsSetArgs,
+	ValidArgsFunction: completeSettingsSetArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return settingsSetCmd.RunE(cmd, args)
 	},
@@ -116,10 +118,11 @@ var setCmd = &cobra.Command{
 
 // del shortcut (delete setting)
 var delCmd = &cobra.Command{
-	Use:     "del <key>",
-	Short:   "Delete a setting key (shortcut for 'settings del')",
-	GroupID: "shortcuts",
-	Args:    cobra.ExactArgs(1),
+	Use:               "del <key>",
+	Short:             "Delete a setting key (shortcut for 'settings del')",
+	GroupID:           "shortcuts",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeSettingsDelArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return settingsDelCmd.RunE(cmd, args)
 	},

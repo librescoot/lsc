@@ -7,11 +7,15 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
 	"librescoot/lsc/internal/cli"
+	completionutil "librescoot/lsc/internal/completion"
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
 )
@@ -20,6 +24,48 @@ var (
 	watchFormat string
 	watchFilter string
 )
+
+var usefulWatchChannels = map[string]string{
+	"vehicle":          "vehicle state changes",
+	"alarm":            "alarm status changes",
+	"battery:0":        "main battery 0",
+	"battery:1":        "main battery 1",
+	"motion:sensors":   "accelerometer, gyroscope, and magnetometer",
+	"motion:heading":   "magnetic heading",
+	"motion:interrupt": "motion detection events",
+	"bmx:interrupt":    "motion interrupt relay",
+	"engine-ecu":       "engine ECU updates",
+	"gps":              "GPS updates",
+	"buttons":          "button events",
+	"dashboard":        "dashboard status",
+	"settings":         "settings changes",
+}
+
+func completeWatchChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	channels := make(map[string]string, len(usefulWatchChannels))
+	for channel, description := range usefulWatchChannels {
+		channels[channel] = description
+	}
+	for _, channel := range completionutil.WithRedis(cmd, func(ctx context.Context, client *redis.Client) ([]string, error) {
+		return client.GetClient().PubSubChannels(ctx, "*").Result()
+	}) {
+		if _, exists := channels[channel]; !exists {
+			channels[channel] = "active Redis channel"
+		}
+	}
+	for _, used := range args {
+		delete(channels, used)
+	}
+
+	candidates := make([]string, 0, len(channels))
+	for channel, description := range channels {
+		if strings.HasPrefix(channel, toComplete) {
+			candidates = append(candidates, channel+"\t"+description)
+		}
+	}
+	sort.Strings(candidates)
+	return candidates, cobra.ShellCompDirectiveNoFileComp
+}
 
 var watchCmd = &cobra.Command{
 	Use:   "watch [channel...]",
@@ -54,7 +100,8 @@ Useful channels:
   buttons          - Button press events
   dashboard        - Dashboard status
   settings         - Settings changes`,
-	Args: cobra.MinimumNArgs(1),
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeWatchChannels,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		channels := args
 

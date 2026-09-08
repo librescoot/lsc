@@ -26,7 +26,8 @@ Argument may be:
   other, swap            — the currently inactive slot
   current                — the currently running slot (useful to clear a pending one-shot)
   <partition-number>     — raw partition number (e.g. 2, 3)`,
-	Args: cobra.ExactArgs(1),
+	Args:      cobra.ExactArgs(1),
+	ValidArgs: []string{"a", "b", "other", "current"},
 	Run: func(cmd *cobra.Command, args []string) {
 		st, err := readBootState()
 		if err != nil {

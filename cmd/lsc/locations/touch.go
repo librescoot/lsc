@@ -14,10 +14,11 @@ import (
 )
 
 var touchCmd = &cobra.Command{
-	Use:   "touch <id>",
-	Short: "Update last-used timestamp",
-	Long:  `Update the last-used timestamp for a location (affects sort order).`,
-	Args:  cobra.ExactArgs(1),
+	Use:               "touch <id>",
+	Short:             "Update last-used timestamp",
+	Long:              `Update the last-used timestamp for a location (affects sort order).`,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeLocationIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])

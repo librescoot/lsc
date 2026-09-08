@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	completionutil "librescoot/lsc/internal/completion"
 	"librescoot/lsc/internal/redis"
 
 	"github.com/spf13/cobra"
@@ -52,6 +53,74 @@ func SetRedisClient(client *redis.Client) {
 // SetJSONOutput sets the JSON output flag reference for all locations commands
 func SetJSONOutput(jsonOutput *bool) {
 	JSONOutput = jsonOutput
+}
+
+func locationCompletionCandidates(cmd *cobra.Command, args []string, toComplete string, labels bool) []string {
+	return completionutil.WithRedis(cmd, func(ctx context.Context, client *redis.Client) ([]string, error) {
+		settings, err := client.HGetAllWithContext(ctx, "settings")
+		if err != nil {
+			return nil, err
+		}
+
+		locations := make(map[string]string)
+		re := regexp.MustCompile(`^dashboard\.saved-locations\.(\d+)\.label$`)
+		for key, label := range settings {
+			matches := re.FindStringSubmatch(key)
+			if len(matches) == 2 {
+				locations[matches[1]] = label
+			}
+		}
+		used := make(map[string]bool, len(args))
+		for _, arg := range args {
+			used[arg] = true
+		}
+
+		candidates := make([]string, 0, len(locations))
+		for id, label := range locations {
+			value, description := id, label
+			if labels {
+				value, description = label, "location "+id
+			}
+			if value == "" || used[value] || !strings.HasPrefix(strings.ToLower(value), strings.ToLower(toComplete)) {
+				continue
+			}
+			if description != "" {
+				value += "\t" + description
+			}
+			candidates = append(candidates, value)
+		}
+		sort.Strings(candidates)
+		return candidates, nil
+	})
+}
+
+func completeLocationIDs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return locationCompletionCandidates(cmd, args, toComplete, false), cobra.ShellCompDirectiveNoFileComp
+}
+
+// CompleteLabels provides saved-location label completion to navigation commands.
+func CompleteLabels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return locationCompletionCandidates(cmd, nil, toComplete, true), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeLocationEdit(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return completeLocationIDs(cmd, nil, toComplete)
+	}
+	if len(args)%2 == 1 {
+		fields := []string{"label", "lat", "lon"}
+		candidates := fields[:0]
+		for _, field := range fields {
+			if strings.HasPrefix(field, toComplete) {
+				candidates = append(candidates, field)
+			}
+		}
+		return candidates, cobra.ShellCompDirectiveNoFileComp
+	}
+	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
 // loadAllLocations discovers and loads all saved locations from Redis

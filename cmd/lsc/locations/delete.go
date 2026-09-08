@@ -13,11 +13,12 @@ import (
 )
 
 var deleteCmd = &cobra.Command{
-	Use:     "delete <id>",
-	Aliases: []string{"rm", "remove"},
-	Short:   "Delete a saved location",
-	Long:    `Delete a saved location by ID.`,
-	Args:    cobra.ExactArgs(1),
+	Use:               "delete <id>",
+	Aliases:           []string{"rm", "remove"},
+	Short:             "Delete a saved location",
+	Long:              `Delete a saved location by ID.`,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeLocationIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse ID
 		id, err := strconv.Atoi(args[0])

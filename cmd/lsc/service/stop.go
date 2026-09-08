@@ -14,10 +14,11 @@ func init() {
 }
 
 var stopCmd = &cobra.Command{
-	Use:   "stop <service>",
-	Short: "Stop a systemd service",
-	Long:  `Stop a systemd service. Service name can be with or without .service suffix.`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:               "stop <service>",
+	Short:             "Stop a systemd service",
+	Long:              `Stop a systemd service. Service name can be with or without .service suffix.`,
+	Args:              cobra.MinimumNArgs(1),
+	ValidArgsFunction: completeServiceNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var failed bool
 		for _, service := range args {

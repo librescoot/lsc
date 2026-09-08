@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -61,6 +62,40 @@ var fadeAliases = map[string]int{
 	"drive-light-off":    8,
 	"brake-dim-off":      9,
 	"blink":              10,
+}
+
+func completeLEDAliases(aliases map[string]int, toComplete string) []string {
+	candidates := make(map[string]string)
+	for alias, index := range aliases {
+		candidates[alias] = fmt.Sprintf("index %d", index)
+		candidates[strconv.Itoa(index)] = "numeric index"
+	}
+	result := make([]string, 0, len(candidates))
+	for value, description := range candidates {
+		if strings.HasPrefix(value, toComplete) {
+			result = append(result, value+"\t"+description)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func completeLEDCue(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return completeLEDAliases(cueAliases, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeLEDFade(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	switch len(args) {
+	case 0:
+		return completeLEDAliases(channelAliases, toComplete), cobra.ShellCompDirectiveNoFileComp
+	case 1:
+		return completeLEDAliases(fadeAliases, toComplete), cobra.ShellCompDirectiveNoFileComp
+	default:
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
 }
 
 // parseCueIndex parses cue index from string (numeric or alias)
@@ -149,7 +184,8 @@ Examples:
   lsc led cue 10              # Activate left blinker
   lsc led cue blink-left      # Same using alias
   lsc led cue blink_both      # Hazard lights (underscores work too)`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeLEDCue,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		indexStr := args[0]
 		index, err := parseCueIndex(indexStr)
@@ -231,7 +267,8 @@ Examples:
   lsc led fade 2 2                          # Fade on brake light
   lsc led fade brake brake-linear-on        # Same using aliases
   lsc led fade front-ring smooth-off        # Smooth off front ring`,
-	Args: cobra.ExactArgs(2),
+	Args:              cobra.ExactArgs(2),
+	ValidArgsFunction: completeLEDFade,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		channelStr := args[0]
 		indexStr := args[1]

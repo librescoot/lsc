@@ -16,10 +16,11 @@ func init() {
 }
 
 var statusCmd = &cobra.Command{
-	Use:   "status <service>",
-	Short: "Show detailed status of a systemd service",
-	Long:  `Show detailed status of a systemd service including active state, enabled state, and recent logs. Service name can be with or without .service suffix.`,
-	Args:  cobra.ExactArgs(1),
+	Use:               "status <service>",
+	Short:             "Show detailed status of a systemd service",
+	Long:              `Show detailed status of a systemd service including active state, enabled state, and recent logs. Service name can be with or without .service suffix.`,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeServiceNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		service := args[0]
 		serviceName := ensureServiceSuffix(service)

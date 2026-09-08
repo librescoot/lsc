@@ -2,6 +2,7 @@ package service
 
 import (
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 
@@ -42,6 +43,25 @@ var serviceNameMap = map[string]string{
 	"update":     "librescoot-update",
 	"version":    "librescoot-version",
 	"netconfig":  "librescoot-netconfig",
+}
+
+func completeServiceNames(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	seen := map[string]bool{"redis": true, "valkey": true}
+	for alias, service := range serviceNameMap {
+		seen[alias] = true
+		seen[service] = true
+	}
+	for _, used := range args {
+		delete(seen, used)
+	}
+	candidates := make([]string, 0, len(seen))
+	for name := range seen {
+		if strings.HasPrefix(name, toComplete) {
+			candidates = append(candidates, name)
+		}
+	}
+	sort.Strings(candidates)
+	return candidates, cobra.ShellCompDirectiveNoFileComp
 }
 
 var (

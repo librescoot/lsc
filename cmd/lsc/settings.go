@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
@@ -224,10 +225,11 @@ var settingsListCmd = &cobra.Command{
 }
 
 var settingsGetCmd = &cobra.Command{
-	Use:   "get <key> [<key>...]",
-	Short: "Get one or more setting values",
-	Long:  `Retrieve the value of one or more settings.`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:               "get <key> [<key>...]",
+	Short:             "Get one or more setting values",
+	Long:              `Retrieve the value of one or more settings.`,
+	ValidArgsFunction: completeSettingsGetArgs,
+	Args:              cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if JSONOutput {
 			result := make(map[string]interface{})
@@ -302,8 +304,9 @@ var settingsGetCmd = &cobra.Command{
 }
 
 var settingsSetCmd = &cobra.Command{
-	Use:   "set <key> <value> [<key> <value>...]",
-	Short: "Set one or more setting values",
+	Use:               "set <key> <value> [<key> <value>...]",
+	Short:             "Set one or more setting values",
+	ValidArgsFunction: completeSettingsSetArgs,
 	Long: `Set the value of one or more settings and publish the changes.
 
 Examples:
@@ -432,6 +435,130 @@ Use 'lsc settings list' to see all available settings and their current values.`
 	},
 }
 
+// Completion commands skip the root Redis connection, so use a short bounded
+// lookup here to keep shell completion responsive when Redis is unavailable.
+func loadSettingsCompletionData() (*schema.Schema, map[string]string) {
+	client := redis.NewClient(redisAddr)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 750*time.Millisecond)
+	defer cancel()
+
+	var s *schema.Schema
+	if raw, err := client.GetClient().Get(ctx, "settings:schema").Bytes(); err == nil {
+		s, _ = schema.Parse(raw)
+	}
+	settings, _ := client.HGetAllWithContext(ctx, "settings")
+	return s, settings
+}
+
+func completeSettingsGetArgs(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	s, settings := loadSettingsCompletionData()
+	return settingsKeyCompletionCandidates(s, settings, args, toComplete, false, false), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeSettingsDelArgs(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	s, settings := loadSettingsCompletionData()
+	return settingsKeyCompletionCandidates(s, settings, args, toComplete, false, true), cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeSettingsSetArgs(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	s, settings := loadSettingsCompletionData()
+	return settingsSetCompletionCandidates(s, settings, args, toComplete), cobra.ShellCompDirectiveNoFileComp
+}
+
+func settingsSetCompletionCandidates(s *schema.Schema, settings map[string]string, args []string, toComplete string) []string {
+	// Even argument positions are keys; odd positions are values.
+	if len(args)%2 == 0 {
+		used := make([]string, 0, len(args)/2)
+		for i := 0; i < len(args); i += 2 {
+			used = append(used, args[i])
+		}
+		return settingsKeyCompletionCandidates(s, settings, used, toComplete, true, false)
+	}
+	if s == nil {
+		return nil
+	}
+
+	setting, ok := s.Lookup(args[len(args)-1])
+	if !ok {
+		return nil
+	}
+
+	var values []string
+	switch setting.Type {
+	case "bool":
+		values = []string{"false", "true"}
+	case "enum":
+		for _, value := range setting.Values {
+			candidate := value.Value
+			if value.Label != "" {
+				candidate += "\t" + value.Label
+			}
+			values = append(values, candidate)
+		}
+	}
+
+	filtered := values[:0]
+	for _, value := range values {
+		plain, _, _ := strings.Cut(value, "\t")
+		if strings.HasPrefix(plain, toComplete) {
+			filtered = append(filtered, value)
+		}
+	}
+	return filtered
+}
+
+func settingsKeyCompletionCandidates(s *schema.Schema, settings map[string]string, usedArgs []string, toComplete string, writableOnly, existingOnly bool) []string {
+	used := make(map[string]bool, len(usedArgs))
+	for _, key := range usedArgs {
+		used[key] = true
+	}
+
+	keys := make(map[string]string)
+	if s != nil && !existingOnly {
+		for key, setting := range s.Settings {
+			if writableOnly && setting.ReadOnly {
+				continue
+			}
+			if setting.Pattern != "indexed" {
+				keys[key] = setting.Description
+				continue
+			}
+
+			// Keep the .0. schema placeholder as a discoverable template;
+			// concrete indexed keys from Redis are added below as well.
+			keys[key] = setting.Description
+		}
+	}
+	for key := range settings {
+		description := ""
+		if s != nil {
+			if setting, ok := s.Lookup(key); ok {
+				if writableOnly && setting.ReadOnly {
+					continue
+				}
+				description = setting.Description
+			}
+		}
+		keys[key] = description
+	}
+
+	candidates := make([]string, 0, len(keys))
+	for key, description := range keys {
+		if used[key] || !strings.HasPrefix(key, toComplete) {
+			continue
+		}
+		candidate := key
+		if description != "" {
+			candidate += "\t" + description
+		}
+		candidates = append(candidates, candidate)
+	}
+	sort.Strings(candidates)
+	return candidates
+}
+
 // settingsSetArgs validates key-value pair arguments; shared with the 'set'
 // shortcut so both accept the same argument shapes.
 var settingsSetArgs = func(cmd *cobra.Command, args []string) error {
@@ -445,10 +572,11 @@ var settingsSetArgs = func(cmd *cobra.Command, args []string) error {
 }
 
 var settingsDelCmd = &cobra.Command{
-	Use:   "del <key>",
-	Short: "Delete a setting key",
-	Long:  `Delete a setting key from the settings hash and publish the change.`,
-	Args:  cobra.ExactArgs(1),
+	Use:               "del <key>",
+	Short:             "Delete a setting key",
+	Long:              `Delete a setting key from the settings hash and publish the change.`,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeSettingsDelArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key := args[0]
 

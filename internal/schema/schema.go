@@ -54,6 +54,19 @@ func (s *Schema) Get(key string) (Setting, bool) {
 	return setting, ok
 }
 
+// Lookup returns an exact setting or the schema entry matching an indexed key.
+func (s *Schema) Lookup(key string) (Setting, bool) {
+	if setting, ok := s.Get(key); ok {
+		return setting, true
+	}
+	for schemaKey, setting := range s.Settings {
+		if setting.Pattern == "indexed" && matchIndexedKey(schemaKey, key) {
+			return setting, true
+		}
+	}
+	return Setting{}, false
+}
+
 // Sort keys because Go map iteration is random.
 func (s *Schema) Services() []string {
 	keys := make([]string, 0, len(s.Settings))
@@ -118,16 +131,7 @@ func matchIndexedKey(schemaKey, candidateKey string) bool {
 }
 
 func (s *Schema) ValidateValue(key, value string) error {
-	setting, ok := s.Settings[key]
-	if !ok {
-		for schemaKey, schemaSetting := range s.Settings {
-			if schemaSetting.Pattern == "indexed" && matchIndexedKey(schemaKey, key) {
-				setting = schemaSetting
-				ok = true
-				break
-			}
-		}
-	}
+	setting, ok := s.Lookup(key)
 	if !ok {
 		return nil
 	}

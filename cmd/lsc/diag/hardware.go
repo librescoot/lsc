@@ -17,11 +17,12 @@ import (
 )
 
 var dashboardCmd = &cobra.Command{
-	Use:     "dashboard [on|off]",
-	Aliases: []string{"dbc", "dash"},
-	Short:   "Control dashboard power and connectivity",
-	Long:    `Control dashboard power (on/off) and check connectivity (ping, on-wait).`,
-	Args:    cobra.MaximumNArgs(1),
+	Use:       "dashboard [on|off]",
+	Aliases:   []string{"dbc", "dash"},
+	Short:     "Control dashboard power and connectivity",
+	Long:      `Control dashboard power (on/off) and check connectivity (ping, on-wait).`,
+	Args:      cobra.MaximumNArgs(1),
+	ValidArgs: []string{"on", "off"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// If no args, show help
 		if len(args) == 0 {

@@ -39,7 +39,8 @@ Examples:
   lsc ota channel           # Show current channels
   lsc ota channel stable    # Set both to stable
   lsc ota channel nightly   # Set both to nightly`,
-	Args: cobra.MaximumNArgs(1),
+	Args:      cobra.MaximumNArgs(1),
+	ValidArgs: validChannels,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return showChannels()
