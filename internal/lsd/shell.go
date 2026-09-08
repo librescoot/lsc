@@ -147,7 +147,16 @@ func (s *Server) handleShell(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer cwdRead.Close()
+	defer func() {
+		if err := cwdRead.Close(); err != nil {
+			log.Printf("shell: close cwd read pipe: %v", err)
+		}
+	}()
+	closeCwdWrite := func() {
+		if err := cwdWrite.Close(); err != nil {
+			log.Printf("shell: close cwd write pipe: %v", err)
+		}
+	}
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(shellScript, req.Cmd))
 	cmd.Env = append(os.Environ(), "LSD_CWD="+req.Cwd, "TERM=dumb", "PAGER=cat", "NO_COLOR=1")
@@ -160,24 +169,24 @@ func (s *Server) handleShell(w http.ResponseWriter, r *http.Request) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		cwdWrite.Close()
+		closeCwdWrite()
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		cwdWrite.Close()
+		closeCwdWrite()
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := cmd.Start(); err != nil {
-		cwdWrite.Close()
+		closeCwdWrite()
 		writeErr(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	// The child holds its own copy; ours has to go or the read below blocks
 	// until the whole process group exits.
-	cwdWrite.Close()
+	closeCwdWrite()
 
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Cache-Control", "no-store")
