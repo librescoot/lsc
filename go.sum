@@ -1,3 +1,5 @@
+github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
+github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/bsm/ginkgo/v2 v2.12.0 h1:Ny8MWAHyOepLGlLKYmXG4IEkioBysk6GpaRTLC8zwWs=
 github.com/bsm/ginkgo/v2 v2.12.0/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
 github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
@@ -13,8 +15,12 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/klauspost/cpuid/v2 v2.0.9 h1:lgaqFMSdTdQYdZ04uHyN2d/eKdOMyi2YLSvlQIBFYa4=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
-github.com/librescoot/redis-ipc v0.15.0 h1:HCedzX29mtKZNtuMZorlDemTVKrdCDfqxwqB8uP2Sbg=
-github.com/librescoot/redis-ipc v0.15.0/go.mod h1:uvlJaUd1WzRMjZy7dYCHJ6qphCDeYD5orGK9CLudv1Q=
+github.com/librescoot/event-service v0.0.0-20260908115814-cd381a15ab25 h1:2Vap6fLKwyYEYYt9QKJWnT/3EfxRq7tBbC8GyUlfSvo=
+github.com/librescoot/event-service v0.0.0-20260908115814-cd381a15ab25/go.mod h1:/ow1iq8zHPjC8XCMjzImCppck1Io/d48DHANKLmZAnU=
+github.com/librescoot/eventbus v0.1.0 h1:CM0jteSfA+jSEHXA2lh0D2dHXSAHrJ6T0EuCiWYTEVs=
+github.com/librescoot/eventbus v0.1.0/go.mod h1:sSKIXixtMH98vowcy+jReKD3fAcfXT+1WYn7G4meTyM=
+github.com/librescoot/redis-ipc v0.15.2 h1:QH3Ns7MHBa957LPzWnA45+XSZFlJM9ZFSFIcEwb2eu4=
+github.com/librescoot/redis-ipc v0.15.2/go.mod h1:uvlJaUd1WzRMjZy7dYCHJ6qphCDeYD5orGK9CLudv1Q=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/redis/go-redis/v9 v9.18.0 h1:pMkxYPkEbMPwRdenAzUNyFNrDgHx9U+DrBabWNfSRQs=

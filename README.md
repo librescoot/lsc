@@ -25,7 +25,7 @@ system; it is not a standalone vehicle controller.
 Run `lsc --help` and `lsc <command> --help` for the authoritative command and
 argument reference. The primary command groups are `vehicle`, `alarm`, `led`,
 `diag`, `gps`, `modem`, `nav`, `ota`, `power`, `service`, `settings`, `usb`,
-`keycard`, `locations`, `logs`, `monitor`, and `watch`. Common shortcuts include
+`keycard`, `locations`, `logs`, `monitor`, `ext`, and `watch`. Common shortcuts include
 `status`, `lock`, `unlock`, `open`, `battery`, `faults`, and `maps`.
 
 `keycard` changes go to keycard-service over `scooter:keycard`, so it stays
@@ -49,6 +49,74 @@ lsc --json gps status
 lsc watch vehicle battery:0
 ```
 
+## Event extensions
+
+`lsc ext` manages rules through the event-service RPC API on the selected Redis
+endpoint. Management requires a running, compatible event-service; there is no
+local rule-file fallback, SSH invocation, or automatic service restart. `status`
+requests a live reply rather than treating cached Redis hashes as proof of life.
+
+```sh
+lsc ext list
+lsc --json ext list
+lsc ext add seatbox-notice --on 'vehicle.seatbox.*' --do redis --list extensions:notifications --push seatbox-changed
+lsc ext show seatbox-notice
+lsc ext add input-notice --on button.horn.tap,button.horn.hold --on 'button.brake.*' --do exec --command /data/extensions/input-notice.sh --timeout 2s
+lsc ext disable seatbox-notice
+lsc ext enable seatbox-notice
+lsc ext test seatbox-notice --event '{"topic":"vehicle.seatbox.opened","src":"example","from":"closed","to":"open"}'
+lsc ext status
+lsc ext tail
+lsc ext tail 'button.*'
+lsc --json ext tail vehicle.seatbox.opened
+```
+
+Add, enable and disable persist **desired configuration only**. Their response
+reports pending restart; **current running rules remain unchanged until an
+explicit event-service restart**. A disabled rule can therefore still fire in the
+current process. Arrange that restart separately on the intended target when it
+is safe; these commands never perform it. Updates use revision checks and do not
+retry mutations after errors or timeouts. Inspect `list`/`show` before deciding
+whether to issue a fresh mutation. After restart, disabled rules stop accepting
+new triggers, but valid saved delayed tails can finish without `cancel-on`
+cancellation; replay expiry and fingerprint checks still apply.
+
+`exec --command` names an executable on the service host, not shell text or a
+command with arguments. Install the script before activating its rule. Add
+writes a dedicated TOML file; enable/disable preferences are persisted separately
+and take precedence over the file's `enabled` field.
+
+`list` includes enabled/loaded state, last-fire timestamps, error counts and load
+diagnostics, fetching all pages while checking revision consistency. `show`
+includes the TOML definition. `test` is strictly a dry run: it does not publish
+the supplied event or execute actions. Delayed conditions are evaluated against
+the **current snapshot**, not predicted future state. `status` reports workers,
+queue occupancy and service counters, including CAN counters when supplied by
+the service.
+
+`tail` subscribes only to `ev:` channels. Accepted patterns are an exact topic,
+`*`, or a dotted prefix such as `button.*`; other globs are rejected. Quote stars
+against shell expansion. Human output includes timestamp, source, topic, from
+and to; JSON mode emits one event envelope per line. Malformed payloads produce
+warnings on stderr; payloads over 64 KiB are skipped with a warning. Press Ctrl-C to stop. Tail watches live pub/sub, not history;
+slow consumers can miss events.
+
+### CAN extensions
+
+CAN rules can directly affect vehicle hardware after the next service restart.
+Only configure frames whose effects you understand, and verify the target and
+service CAN policy first. Adding or dry-running a rule does not transmit a CAN
+frame. These examples illustrate syntax, **not safe vehicle commands**:
+
+```sh
+lsc ext add example-can --on example.request --do can --iface can0 --id 0x123 --data '01 02'
+lsc ext add example-rtr --on example.query --do can --iface can0 --id 0x123 --rtr --dlc 2
+```
+
+IDs are hexadecimal (standard or extended); classic CAN data is limited to
+eight bytes. RTR frames carry no data and optionally specify `--dlc 0..8`.
+Runtime CAN availability and permission remain the service's responsibility.
+
 ## Configuration
 
 `lsc` has no configuration file. Its persistent options are:
@@ -67,7 +135,7 @@ react.
 
 ## Build and test
 
-The module declares Go 1.24. Build a host binary or the ARMv7 target binary
+Use Go 1.25.7 (`GOTOOLCHAIN=go1.25.7`). Build a host binary or the ARMv7 target binary
 with the supplied Makefile:
 
 ```sh

@@ -1,9 +1,12 @@
 module librescoot/lsc
 
-go 1.24.0
+go 1.25.7
 
 require (
-	github.com/librescoot/redis-ipc v0.15.0
+	github.com/BurntSushi/toml v1.6.0
+	github.com/librescoot/event-service v0.0.0-20260908115814-cd381a15ab25
+	github.com/librescoot/eventbus v0.1.0
+	github.com/librescoot/redis-ipc v0.15.2
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.40.0
