@@ -17,6 +17,7 @@ import (
 type componentStatus struct {
 	Status                string
 	StateOrigin           string
+	RunningVersion        string
 	UpdateVersion         string
 	UpdateMethod          string
 	DownloadProgress      string
@@ -65,7 +66,11 @@ func (s componentStatus) withOrigin(text string) string {
 func (s componentStatus) summary() string {
 	switch s.Status {
 	case "idle", "":
-		return s.withOrigin(format.Dim("idle"))
+		text := format.Dim("idle")
+		if s.RunningVersion != "" {
+			text += " running " + s.RunningVersion
+		}
+		return s.withOrigin(text)
 	case "downloading":
 		text := colorizeOTAStatus("downloading")
 		if s.UpdateVersion != "" {
@@ -148,6 +153,13 @@ Press Ctrl+C to stop.`,
 			}
 			for _, c := range components {
 				s := readComponentStatus(otaData, c)
+				if running, err := RedisClient.HGet(fmt.Sprintf("version:%s", c), "version_id"); err == nil {
+					s.RunningVersion = running
+				} else if previous, ok := prev[c]; ok {
+					// Do not report a spurious version disappearance on a transient
+					// read failure; the next successful poll will still detect a change.
+					s.RunningVersion = previous.RunningVersion
+				}
 				result[c] = s
 			}
 			// Enrich MDB with vehicle state when pending-reboot
@@ -206,6 +218,9 @@ func printWatchLine(component string, s componentStatus) {
 		}
 		if s.StateOrigin != "" {
 			output["state-origin"] = s.StateOrigin
+		}
+		if s.RunningVersion != "" {
+			output["running-version"] = s.RunningVersion
 		}
 		if s.UpdateVersion != "" {
 			output["update-version"] = s.UpdateVersion

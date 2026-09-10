@@ -31,6 +31,21 @@ func TestSetRunningVersionFields(t *testing.T) {
 	})
 }
 
+func TestComponentStatusSummaryShowsRunningVersionWhenIdle(t *testing.T) {
+	got := (componentStatus{Status: "idle", RunningVersion: "nightly-20260910t085736"}).summary()
+	if !strings.Contains(got, "idle running nightly-20260910t085736") {
+		t.Fatalf("summary = %q, want idle running version", got)
+	}
+}
+
+func TestComponentStatusDetectsRunningVersionChange(t *testing.T) {
+	before := componentStatus{Status: "idle", RunningVersion: "nightly-old"}
+	after := componentStatus{Status: "idle", RunningVersion: "nightly-new"}
+	if after.equals(before) {
+		t.Fatal("running-version change was ignored")
+	}
+}
+
 func TestComponentStatusSummaryAnnotatesCachedState(t *testing.T) {
 	got := (componentStatus{Status: "pending-reboot", StateOrigin: "cached", UpdateVersion: "1.4.0"}).summary()
 	if !strings.Contains(got, "cached") {
