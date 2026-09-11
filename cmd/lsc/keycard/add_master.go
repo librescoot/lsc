@@ -27,8 +27,15 @@ var addMasterCmd = &cobra.Command{
 		}
 
 		added := 0
-		for _, uid := range uids {
-			if useService {
+		if !useService {
+			var err error
+			added, err = addUIDsToFile(masterFilePath(), uids)
+			if err != nil {
+				printError("Failed to add master", err)
+				return err
+			}
+		} else {
+			for _, uid := range uids {
 				// already-registered covers a UID that is already a
 				// master or already an authorized card; either way there is
 				// nothing to add, so it counts as a skip and not a failure.
@@ -40,13 +47,7 @@ var addMasterCmd = &cobra.Command{
 				if !skipped {
 					added++
 				}
-				continue
 			}
-
-			if err := addUIDToFile(masterFilePath(), uid); err != nil {
-				continue
-			}
-			added++
 		}
 
 		if *JSONOutput {

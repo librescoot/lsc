@@ -2,6 +2,7 @@ package keycard
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -121,8 +122,11 @@ func importUIDs(useService bool, uids []string, prefix, path string, skipCodes .
 		}
 
 		if err := addUIDToFile(path, uid); err != nil {
-			conflicts++
-			continue
+			if errors.Is(err, errUIDAlreadyRegistered) {
+				conflicts++
+				continue
+			}
+			return imported, conflicts, err
 		}
 		imported++
 	}
