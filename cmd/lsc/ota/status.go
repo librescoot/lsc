@@ -147,26 +147,26 @@ var statusCmd = &cobra.Command{
 					if origin == "cached" {
 						v += " (cached)"
 					}
-					format.PrintKV("  running", v)
+					format.PrintNestedKV("Running", v)
 				} else {
-					format.PrintKV("  running", format.Dim("unknown"))
+					format.PrintNestedKV("Running", format.Dim("unknown"))
 				}
 
 				status := otaData[fmt.Sprintf("status:%s", component)]
 				if status != "" {
-					format.PrintKV("  status", colorizeOTAStatus(status))
+					format.PrintNestedKV("Status", colorizeOTAStatus(status))
 				} else {
-					format.PrintKV("  status", format.Dim("unknown"))
+					format.PrintNestedKV("Status", format.Dim("unknown"))
 				}
 
 				if status != "" && status != "idle" {
 					if ver := otaData[fmt.Sprintf("update-version:%s", component)]; ver != "" {
-						format.PrintKV("  target", ver)
+						format.PrintNestedKV("Target", ver)
 					}
 				}
 
 				if method := otaData[fmt.Sprintf("update-method:%s", component)]; method != "" {
-					format.PrintKV("  method", method)
+					format.PrintNestedKV("Method", method)
 				}
 
 				if status == "downloading" {
@@ -174,43 +174,43 @@ var statusCmd = &cobra.Command{
 					downloaded := otaData[fmt.Sprintf("download-bytes:%s", component)]
 					total := otaData[fmt.Sprintf("download-total:%s", component)]
 					if progress != "" {
-						format.PrintKV("  download", formatProgress(progress, downloaded, total))
+						format.PrintNestedKV("Download", formatProgress(progress, downloaded, total))
 					}
 				}
 
 				if status == "preparing" || status == "installing" {
 					if progress := otaData[fmt.Sprintf("install-progress:%s", component)]; progress != "" {
-						format.PrintKV("  install", fmt.Sprintf("%s%%", progress))
+						format.PrintNestedKV("Install", fmt.Sprintf("%s%%", progress))
 					}
 				}
 
 				if status == "pending-reboot" && component == "mdb" && vehicleData != nil {
 					info := standbyTimerSummary(vehicleData["state"], vehicleData["state:timestamp"])
 					if info != "" {
-						format.PrintKV("  standby", info)
+						format.PrintNestedKV("Standby", info)
 					}
 				}
 
 				if status == "error" {
 					if errType := otaData[fmt.Sprintf("error:%s", component)]; errType != "" {
-						format.PrintKV("  error", format.Error(errType))
+						format.PrintNestedKV("Error", format.Error(errType))
 					}
 					if errMsg := otaData[fmt.Sprintf("error-message:%s", component)]; errMsg != "" {
-						format.PrintKV("  message", errMsg)
+						format.PrintNestedKV("Message", errMsg)
 					}
 				}
 
 				channel := settings[fmt.Sprintf("updates.%s.channel", component)]
 				if channel != "" {
-					format.PrintKV("  channel", channel)
+					format.PrintNestedKV("Channel", channel)
 				}
 				interval := settings[fmt.Sprintf("updates.%s.check-interval", component)]
 				if interval != "" {
-					format.PrintKV("  check-interval", interval)
+					format.PrintNestedKV("Check interval", interval)
 				}
 				lastCheck := settings[fmt.Sprintf("updates.%s.last-check-time", component)]
 				if lastCheck != "" {
-					format.PrintKV("  last-check", lastCheck)
+					format.PrintNestedKV("Last check", lastCheck)
 				}
 
 				fmt.Println()

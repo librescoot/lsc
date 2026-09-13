@@ -74,12 +74,12 @@ func Error(text string) string {
 	return colorRed + text + colorReset
 }
 
-// Info returns text in dim gray (for informational messages/headers)
+// Info returns text in blue (for informational messages and headers).
 func Info(text string) string {
 	if !colorsEnabled {
 		return text
 	}
-	return colorGray + text + colorReset
+	return colorBlue + text + colorReset
 }
 
 // LightGray returns text in light gray

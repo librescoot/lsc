@@ -4,45 +4,59 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // VisibleLength returns the length of the string excluding ANSI codes
 func VisibleLength(s string) int {
-	return len(ansiRegex.ReplaceAllString(s, ""))
+	return utf8.RuneCountInString(ansiRegex.ReplaceAllString(s, ""))
 }
 
-// PrintSection prints a section header
+const keyValueWidth = 20
+
+// PrintSection prints a compact section header.
 func PrintSection(title string) {
-	fmt.Printf("\n%s\n", Info("=== "+title+" ==="))
+	PrintSectionDetail(title, "")
 }
 
-// PrintSubsection prints a subsection header
+// PrintSectionDetail prints a compact section header with an optional detail.
+func PrintSectionDetail(title, detail string) {
+	prefix := "=== " + title
+	if detail != "" {
+		prefix += ": "
+	}
+	fmt.Printf("\n%s%s%s\n", Info(prefix), detail, Info(" ==="))
+}
+
+// PrintSubsection prints a subsection header.
 func PrintSubsection(title string) {
 	fmt.Printf("\n%s\n", title)
 }
 
-// PrintKV prints a key-value pair
-func PrintKV(key, value string) {
-	const width = 20
-	coloredKey := Dim(key + ":")
-	pad := width - VisibleLength(coloredKey)
+func printKV(indent, key, value string) {
+	coloredKey := Dim(indent + key + ":")
+	pad := keyValueWidth - VisibleLength(coloredKey)
 	if pad < 0 {
 		pad = 0
 	}
 	fmt.Printf("%s%s %s\n", coloredKey, strings.Repeat(" ", pad), value)
 }
 
-// PrintKVColored prints a key-value pair with colored value
+// PrintKV prints a key-value pair.
+func PrintKV(key, value string) {
+	printKV("", key, value)
+}
+
+// PrintNestedKV prints an indented key-value pair.
+func PrintNestedKV(key, value string) {
+	printKV("  ", key, value)
+}
+
+// PrintKVColored prints a key-value pair with a colored value.
 func PrintKVColored(key, value string, colorFunc func(string) string) {
-	const width = 20
-	coloredKey := Dim(key + ":")
-	pad := width - VisibleLength(coloredKey)
-	if pad < 0 {
-		pad = 0
-	}
-	fmt.Printf("%s%s %s\n", coloredKey, strings.Repeat(" ", pad), colorFunc(value))
+	printKV("", key, colorFunc(value))
 }
 
 // PrintKeyValue prints a simple key: value line

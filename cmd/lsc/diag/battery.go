@@ -141,13 +141,12 @@ func showBattery(id string) error {
 	}
 
 	if data["present"] != "true" {
-		fmt.Printf("\n%s\n\n", format.LightGray(fmt.Sprintf("=== Battery %s: not present ===", id)))
+		format.PrintSectionDetail(fmt.Sprintf("Battery %s", id), format.Dim("not present"))
+		fmt.Println()
 		return nil
 	}
 
-	prefix := format.LightGray(fmt.Sprintf("=== Battery %s: ", id))
-	suffix := format.LightGray(" ===")
-	fmt.Printf("\n%s%s, %s%s\n", prefix, format.ColorizeBatteryState("present"), format.ColorizeBatteryState(data["state"]), suffix)
+	format.PrintSectionDetail(fmt.Sprintf("Battery %s", id), fmt.Sprintf("%s, %s", format.ColorizeBatteryState("present"), format.ColorizeBatteryState(data["state"])))
 
 	// Charge
 	format.PrintKV("Charge", fmt.Sprintf("%s, %s, %s",
@@ -271,11 +270,12 @@ func showAuxBattery() error {
 		return cli.ErrSilent
 	}
 	if len(data) == 0 {
-		fmt.Printf("\n%s\n\n", format.LightGray("=== Aux Battery: no data ==="))
+		format.PrintSectionDetail("Aux Battery", format.Dim("no data"))
+		fmt.Println()
 		return nil
 	}
 
-	fmt.Printf("\n%s\n", format.LightGray("=== Aux Battery ==="))
+	format.PrintSection("Aux Battery")
 	if v := data["voltage"]; v != "" {
 		format.PrintKV("Voltage", format.FormatAuxVoltageColored(v))
 	}
@@ -297,11 +297,12 @@ func showCBBattery() error {
 		return cli.ErrSilent
 	}
 	if data["present"] != "true" {
-		fmt.Printf("\n%s\n\n", format.LightGray("=== CBB: not present ==="))
+		format.PrintSectionDetail("CBB", format.Dim("not present"))
+		fmt.Println()
 		return nil
 	}
 
-	fmt.Printf("\n%s\n", format.LightGray("=== CBB ==="))
+	format.PrintSection("CBB")
 
 	// Charge, voltage, current on one line
 	chargeVal, _ := strconv.Atoi(data["charge"])

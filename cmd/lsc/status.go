@@ -98,10 +98,8 @@ var statusCmd = &cobra.Command{
 		format.PrintKV("KERS", format.FormatOnOff(ecuData["kers"]))
 
 		// Display Battery 0 Status
-		prefix := format.LightGray("=== Battery 0: ")
-		suffix := format.LightGray(" ===")
 		if battery0Data["present"] == "true" {
-			fmt.Printf("\n%s%s, %s%s\n", prefix, format.ColorizeBatteryState("present"), format.ColorizeBatteryState(battery0Data["state"]), suffix)
+			format.PrintSectionDetail("Battery 0", fmt.Sprintf("%s, %s", format.ColorizeBatteryState("present"), format.ColorizeBatteryState(battery0Data["state"])))
 			format.PrintKV("Charge", fmt.Sprintf("%s, %s, %s",
 				format.FormatChargeColored(battery0Data["charge"]),
 				format.FormatVoltageColored(battery0Data["voltage"]),
@@ -121,13 +119,12 @@ var statusCmd = &cobra.Command{
 				format.PrintKV("Capacity", rc+" / "+fc)
 			}
 		} else {
-			fmt.Printf("\n%s%s%s\n", prefix, format.Dim("not present"), suffix)
+			format.PrintSectionDetail("Battery 0", format.Dim("not present"))
 		}
 
 		// Display Battery 1 Status
-		prefix = format.LightGray("=== Battery 1: ")
 		if battery1Data["present"] == "true" {
-			fmt.Printf("\n%s%s, %s%s\n", prefix, format.ColorizeBatteryState("present"), format.ColorizeBatteryState(battery1Data["state"]), suffix)
+			format.PrintSectionDetail("Battery 1", fmt.Sprintf("%s, %s", format.ColorizeBatteryState("present"), format.ColorizeBatteryState(battery1Data["state"])))
 			format.PrintKV("Charge", fmt.Sprintf("%s, %s, %s",
 				format.FormatChargeColored(battery1Data["charge"]),
 				format.FormatVoltageColored(battery1Data["voltage"]),
@@ -147,12 +144,12 @@ var statusCmd = &cobra.Command{
 				format.PrintKV("Capacity", rc+" / "+fc)
 			}
 		} else {
-			fmt.Printf("\n%s%s%s\n", prefix, format.Dim("not present"), suffix)
+			format.PrintSectionDetail("Battery 1", format.Dim("not present"))
 		}
 
 		// Display Auxiliary Battery
 		if len(auxBatteryData) > 0 {
-			fmt.Printf("\n%s\n", format.LightGray("=== Aux Battery ==="))
+			format.PrintSection("Aux Battery")
 			chargeParts := ""
 			if v := auxBatteryData["voltage"]; v != "" {
 				chargeParts = format.FormatAuxVoltageColored(v)
@@ -175,7 +172,7 @@ var statusCmd = &cobra.Command{
 
 		// Display Connectivity Battery Box (CBB)
 		if cbBatteryData["present"] == "true" {
-			fmt.Printf("\n%s\n", format.LightGray("=== CBB ==="))
+			format.PrintSection("CBB")
 			chargeVal, _ := strconv.Atoi(cbBatteryData["charge"])
 			chargeParts := format.ColorizePercentage(chargeVal)
 			if v := cbBatteryData["cell-voltage"]; v != "" {
