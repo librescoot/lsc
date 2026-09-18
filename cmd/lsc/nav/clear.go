@@ -15,11 +15,13 @@ var navClearCmd = &cobra.Command{
 	Long:  `Clear the current navigation destination and stop navigation on the dashboard.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fields := map[string]string{
-			"destination": "",
-			"latitude":    "",
-			"longitude":   "",
-			"address":     "",
-			"timestamp":   "",
+			"destination":  "",
+			"latitude":     "",
+			"longitude":    "",
+			"address":      "",
+			"timestamp":    "",
+			"waypoints":    "",
+			"current-step": "",
 		}
 		if err := setNavFields(fields); err != nil {
 			return emitNavError("nav-clear", err)

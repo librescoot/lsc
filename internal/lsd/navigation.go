@@ -1,6 +1,7 @@
 package lsd
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -16,6 +17,12 @@ import (
 // dashboard.saved-locations.<id>.<field>, the layout the dashboard and lsc
 // share. A change is announced with one publish of the id prefix.
 const locationsPrefix = "dashboard.saved-locations"
+
+// navFields is the navigation hash surface the dashboard reads, including the
+// multi-hop plan pointer. Every write touches all of them so a single
+// destination and a plan cannot leave stale fields behind.
+var navFields = []string{"latitude", "longitude", "address", "timestamp",
+	"destination", "waypoints", "current-step"}
 
 var locationKeyRe = regexp.MustCompile(`^dashboard\.saved-locations\.(\d+)\.(latitude|longitude|label|created-at|last-used-at)$`)
 
@@ -109,16 +116,52 @@ func (s *Server) setDestination(w http.ResponseWriter, r *http.Request) {
 		Longitude  float64 `json:"longitude"`
 		Address    string  `json:"address"`
 		LocationID *int    `json:"location-id"`
+		Waypoints  []struct {
+			Latitude  float64 `json:"latitude"`
+			Longitude float64 `json:"longitude"`
+			Label     string  `json:"label"`
+		} `json:"waypoints"`
 	}
 	if !readJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
-	if req.Clear {
-		for _, f := range []string{"latitude", "longitude", "address", "timestamp", "destination"} {
+	switch {
+	case req.Clear:
+		for _, f := range navFields {
 			fields[f] = ""
 		}
-	} else {
+	case len(req.Waypoints) > 0:
+		// Multi-hop plan. The first stop is also the current target, so the
+		// dashboard and every other reader keep working unchanged.
+		type planStop struct {
+			Lat   float64 `json:"lat"`
+			Lon   float64 `json:"lon"`
+			Label string  `json:"label,omitempty"`
+		}
+		stops := make([]planStop, 0, len(req.Waypoints))
+		for _, wp := range req.Waypoints {
+			if err := validCoords(wp.Latitude, wp.Longitude); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			stops = append(stops, planStop{Lat: wp.Latitude, Lon: wp.Longitude,
+				Label: strings.TrimSpace(wp.Label)})
+		}
+		encoded, err := json.Marshal(stops)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "encode waypoints")
+			return
+		}
+		lat, lon := fmt.Sprintf("%.6f", stops[0].Lat), fmt.Sprintf("%.6f", stops[0].Lon)
+		fields["latitude"] = lat
+		fields["longitude"] = lon
+		fields["address"] = stops[0].Label
+		fields["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+		fields["destination"] = lat + "," + lon
+		fields["waypoints"] = string(encoded)
+		fields["current-step"] = "0"
+	default:
 		if err := validCoords(req.Latitude, req.Longitude); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -129,14 +172,17 @@ func (s *Server) setDestination(w http.ResponseWriter, r *http.Request) {
 		fields["address"] = strings.TrimSpace(req.Address)
 		fields["timestamp"] = time.Now().UTC().Format(time.RFC3339)
 		fields["destination"] = lat + "," + lon
+		// A single destination replaces any plan.
+		fields["waypoints"] = ""
+		fields["current-step"] = ""
 	}
-	for _, f := range []string{"latitude", "longitude", "address", "timestamp", "destination"} {
+	for _, f := range navFields {
 		if err := client.HSet("navigation", f, fields[f]); err != nil {
 			writeErr(w, http.StatusBadGateway, "write navigation: "+err.Error())
 			return
 		}
 	}
-	for _, f := range []string{"latitude", "longitude", "address", "timestamp", "destination"} {
+	for _, f := range navFields {
 		_ = client.Publish(r.Context(), "navigation", f)
 	}
 	if req.LocationID != nil && !req.Clear {
