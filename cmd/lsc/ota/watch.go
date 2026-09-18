@@ -182,7 +182,7 @@ Press Ctrl+C to stop.`,
 		for _, c := range components {
 			s := initial[c]
 			prev[c] = s
-			printWatchLine(c, s)
+			printWatchLine(c, s, nil)
 		}
 
 		ticker := time.NewTicker(1 * time.Second)
@@ -200,8 +200,9 @@ Press Ctrl+C to stop.`,
 					changed := !s.equals(prev[c])
 					inPendingReboot := s.Status == "pending-reboot"
 					if changed || inPendingReboot {
+						completion := watchCompletionFor(prev[c], s)
 						prev[c] = s
-						printWatchLine(c, s)
+						printWatchLine(c, s, completion)
 					}
 				}
 			}
@@ -209,12 +210,64 @@ Press Ctrl+C to stop.`,
 	},
 }
 
-func printWatchLine(component string, s componentStatus) {
+// watchCompletion describes a pending-reboot that just resolved.
+type watchCompletion struct {
+	targetVersion  string
+	runningVersion string
+}
+
+func (c watchCompletion) version() string {
+	if c.targetVersion != "" {
+		return c.targetVersion
+	}
+	return c.runningVersion
+}
+
+func (c watchCompletion) summary() string {
+	switch {
+	case c.runningVersion != "" && (c.targetVersion == "" || c.runningVersion == c.targetVersion):
+		return "update complete — running " + c.runningVersion
+	case c.targetVersion != "":
+		return "update complete — target " + c.targetVersion
+	default:
+		return "update complete — rebooted"
+	}
+}
+
+// watchCompletionFor reports a pending-reboot that just resolved. A board
+// coming back idle after waiting to reboot is the success case that a bare
+// "pending-reboot -> idle" change does not convey on its own.
+func watchCompletionFor(prev, now componentStatus) *watchCompletion {
+	if prev.Status != "pending-reboot" {
+		return nil
+	}
+	if now.Status != "idle" && now.Status != "" {
+		return nil
+	}
+	return &watchCompletion{
+		targetVersion:  prev.UpdateVersion,
+		runningVersion: now.RunningVersion,
+	}
+}
+
+func printWatchLine(component string, s componentStatus, completion *watchCompletion) {
 	if JSONOutput != nil && *JSONOutput {
 		output := map[string]any{
 			"timestamp": time.Now().Unix(),
 			"component": component,
 			"status":    s.Status,
+		}
+		if completion != nil {
+			output["event"] = "update-complete"
+			if v := completion.version(); v != "" {
+				output["completed-version"] = v
+			}
+			// The running version comes from the version hash, which can lag the
+			// reboot behind the status; do not report a stale one next to the
+			// completion. A matching version is kept.
+			if completion.runningVersion != completion.targetVersion {
+				delete(output, "running-version")
+			}
 		}
 		if s.StateOrigin != "" {
 			output["state-origin"] = s.StateOrigin
@@ -253,9 +306,16 @@ func printWatchLine(component string, s componentStatus) {
 		jsonBytes, _ := json.Marshal(output)
 		fmt.Println(string(jsonBytes))
 	} else {
-		timestamp := time.Now().Format("15:04:05")
+		timestamp := format.Dim(time.Now().Format("15:04:05"))
+		if completion != nil {
+			fmt.Printf("[%s] %s: %s\n",
+				timestamp,
+				colorizeComponent(component),
+				format.Success("✓ "+completion.summary()))
+			return
+		}
 		fmt.Printf("[%s] %s: %s\n",
-			format.Dim(timestamp),
+			timestamp,
 			colorizeComponent(component),
 			s.summary())
 	}
