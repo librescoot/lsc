@@ -31,6 +31,22 @@ func colorizeOTAStatus(status string) string {
 	}
 }
 
+// colorizeCheckResult colors the update service's last-attempt-result value.
+func colorizeCheckResult(result string) string {
+	switch result {
+	case "update-started":
+		return format.Info(result)
+	case "up-to-date", "no-release", "no-asset":
+		return format.Dim(result)
+	case "backed-off":
+		return format.Warning(result)
+	case "settings-unavailable", "channel-not-configured", "releases-unavailable":
+		return format.Error(result)
+	default:
+		return result
+	}
+}
+
 // colorizeComponent gives each board its own colour so watch output can be
 // scanned per component.
 func colorizeComponent(component string) string {
@@ -117,7 +133,7 @@ var statusCmd = &cobra.Command{
 				v, ok := runningVersions[component]
 				setRunningVersionFields(c, v, ok)
 
-				for _, key := range []string{"method", "channel", "check-interval", "last-check-time"} {
+				for _, key := range []string{"method", "channel", "check-interval", "last-check-time", "last-attempt-time", "last-attempt-result"} {
 					settingKey := fmt.Sprintf("updates.%s.%s", component, key)
 					if val, exists := settings[settingKey]; exists && val != "" {
 						c[key] = val
@@ -226,6 +242,15 @@ var statusCmd = &cobra.Command{
 				lastCheck := settings[fmt.Sprintf("updates.%s.last-check-time", component)]
 				if lastCheck != "" {
 					format.PrintNestedKV("Last check", lastCheck)
+				}
+				lastAttempt := settings[fmt.Sprintf("updates.%s.last-attempt-time", component)]
+				lastResult := settings[fmt.Sprintf("updates.%s.last-attempt-result", component)]
+				if lastAttempt != "" {
+					text := lastAttempt
+					if lastResult != "" {
+						text += " (" + colorizeCheckResult(lastResult) + ")"
+					}
+					format.PrintNestedKV("Last attempt", text)
 				}
 
 				fmt.Println()
