@@ -16,6 +16,10 @@ const (
 	colorBlue      = "\033[34m"
 	colorLightGray = "\033[37m"
 	colorGray      = "\033[90m"
+	// 256-colour orange, the terminal stand-in for the dashboard's #FF7900
+	// (BatteryDisplay.qml chargeLabelColor). The 16-colour palette has no
+	// orange, and 208 (#ff8700) is the closest standard entry.
+	colorOrange = "\033[38;5;208m"
 )
 
 var colorsEnabled = true
@@ -64,6 +68,15 @@ func Warning(text string) string {
 		return text
 	}
 	return colorYellow + text + colorReset
+}
+
+// Orange returns text in orange (for the tier between warning and error, e.g. a
+// backup battery near its empty line). Matches the dashboard's #FF7900.
+func Orange(text string) string {
+	if !colorsEnabled {
+		return text
+	}
+	return colorOrange + text + colorReset
 }
 
 // Error returns text in red (for errors/faults)

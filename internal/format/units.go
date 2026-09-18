@@ -203,9 +203,35 @@ func FormatVoltageColored(mv string) string {
 	return colorizeVoltage(ParseInt(mv), MillivoltsToVolts(mv), 50000, 45000)
 }
 
-// FormatAuxVoltageColored formats aux battery voltage with appropriate coloring (~12V nominal, mV)
+// AUX 12V thresholds in mV. These are the dashboard's lines (scootui-qt
+// BatteryDisplay.qml auxLowVoltageMv / auxWarnVoltageMv / auxCriticalVoltageMv),
+// so the CLI can't call a pack low while the display is happy. The AUX pack has
+// no fuel gauge: mdb-nrf52 quantizes this same voltage into five SoC buckets, so
+// the voltage is the whole signal on both sides.
+const (
+	auxVoltageLowMv      = 11700 // soft "low"
+	auxVoltageWarnMv     = 11495 // ~firmware empty line
+	auxVoltageCriticalMv = 11000 // critical
+)
+
+// FormatAuxVoltageColored formats aux battery voltage with appropriate coloring
+// (~12V nominal, mV). Four tones so the dashboard's three lines each land on
+// their own colour: green >= 11.700V, yellow >= 11.495V, orange >= 11.000V,
+// red below that.
 func FormatAuxVoltageColored(mv string) string {
-	return colorizeVoltage(ParseInt(mv), MillivoltsToVolts(mv), 12400, 12000)
+	val := ParseInt(mv)
+	text := MillivoltsToVolts(mv)
+	switch {
+	case val >= auxVoltageLowMv:
+		return Success(text)
+	case val >= auxVoltageWarnMv:
+		return Warning(text)
+	case val >= auxVoltageCriticalMv:
+		return Orange(text)
+	case val > 0:
+		return Error(text)
+	}
+	return Dim(text)
 }
 
 // FormatCBVoltageColored formats CB battery cell voltage with appropriate coloring (single 21700 cell, µV)

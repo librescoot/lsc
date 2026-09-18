@@ -60,3 +60,32 @@ func TestMilliampHoursToAmpHours(t *testing.T) {
 		}
 	}
 }
+
+// The AUX tiers are the dashboard's (scootui-qt BatteryDisplay.qml), so the CLI
+// cannot call a pack low while the display is happy. The regression this guards:
+// lsc coloured 11.8V red while the dashboard still showed a healthy AUX.
+func TestFormatAuxVoltageColoredMatchesDashboardTiers(t *testing.T) {
+	EnableColors()
+	defer DisableColors()
+
+	tests := []struct {
+		mv    string
+		color string
+	}{
+		{"16026", colorGreen},  // 16.0V: high, not low - never red
+		{"12400", colorGreen},  // the old "good" line is now well inside green
+		{"11700", colorGreen},  // soft low line: at it is still fine
+		{"11699", colorYellow}, // just below it
+		{"11495", colorYellow}, // firmware empty line: warning, not yet orange
+		{"11494", colorOrange}, // below it
+		{"11000", colorOrange}, // critical line: at it is orange still
+		{"10999", colorRed},    // below it
+		{"0", colorGray},       // never reported
+	}
+	for _, tc := range tests {
+		want := tc.color + MillivoltsToVolts(tc.mv) + colorReset
+		if got := FormatAuxVoltageColored(tc.mv); got != want {
+			t.Errorf("FormatAuxVoltageColored(%q) = %q, want %q", tc.mv, got, want)
+		}
+	}
+}
