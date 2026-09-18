@@ -256,7 +256,7 @@ func printWatchLine(component string, s componentStatus) {
 		timestamp := time.Now().Format("15:04:05")
 		fmt.Printf("[%s] %s: %s\n",
 			format.Dim(timestamp),
-			format.Info(component),
+			colorizeComponent(component),
 			s.summary())
 	}
 }

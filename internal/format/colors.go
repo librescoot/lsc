@@ -14,6 +14,8 @@ const (
 	colorGreen     = "\033[32m"
 	colorYellow    = "\033[33m"
 	colorBlue      = "\033[34m"
+	colorMagenta   = "\033[35m"
+	colorCyan      = "\033[36m"
 	colorLightGray = "\033[37m"
 	colorGray      = "\033[90m"
 	// 256-colour orange, the terminal stand-in for the dashboard's #FF7900
@@ -93,6 +95,22 @@ func Info(text string) string {
 		return text
 	}
 	return colorBlue + text + colorReset
+}
+
+// Cyan returns text in cyan (for per-component labels such as the OTA boards).
+func Cyan(text string) string {
+	if !colorsEnabled {
+		return text
+	}
+	return colorCyan + text + colorReset
+}
+
+// Magenta returns text in magenta (for per-component labels such as the OTA boards).
+func Magenta(text string) string {
+	if !colorsEnabled {
+		return text
+	}
+	return colorMagenta + text + colorReset
 }
 
 // LightGray returns text in light gray

@@ -16,16 +16,31 @@ func colorizeOTAStatus(status string) string {
 	switch status {
 	case "idle":
 		return format.Dim(status)
-	case "downloading", "preparing":
+	case "downloading":
+		return format.Info(status)
+	case "preparing":
 		return format.Warning(status)
 	case "installing":
-		return format.Warning(status)
+		return format.Orange(status)
 	case "pending-reboot":
 		return format.Success(status)
 	case "error":
 		return format.Error(status)
 	default:
 		return status
+	}
+}
+
+// colorizeComponent gives each board its own colour so watch output can be
+// scanned per component.
+func colorizeComponent(component string) string {
+	switch component {
+	case "mdb":
+		return format.Cyan(component)
+	case "dbc":
+		return format.Magenta(component)
+	default:
+		return format.Info(component)
 	}
 }
 
@@ -140,7 +155,7 @@ var statusCmd = &cobra.Command{
 			fmt.Println()
 
 			for _, component := range components {
-				fmt.Printf("%s:\n", format.Info(component))
+				fmt.Printf("%s:\n", colorizeComponent(component))
 
 				origin := otaData[fmt.Sprintf("state-origin:%s", component)]
 				if v, ok := runningVersions[component]; ok {

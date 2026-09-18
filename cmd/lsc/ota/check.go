@@ -80,7 +80,8 @@ Examples:
 		} else {
 			fmt.Println(format.Success(successMsg))
 			fmt.Println(format.Info("The update service will check for available updates immediately"))
-			fmt.Println(format.Dim("Use 'lsc ota status' to monitor update progress"))
+			fmt.Println(format.Dim("Use 'lsc ota status' to see current status"))
+			fmt.Println(format.Dim("Use 'lsc ota watch' to monitor progress"))
 		}
 		return nil
 	},
