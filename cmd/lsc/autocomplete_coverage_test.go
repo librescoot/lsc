@@ -30,6 +30,7 @@ func TestArgumentCompletionCoverage(t *testing.T) {
 	paths := []string{
 		"settings get", "settings set", "settings del", "get", "set", "del",
 		"ota check", "ota channel", "diag dashboard", "diag battery", "boot set",
+		"boot theme", "boot sound",
 		"led cue", "led fade", "watch", "logs",
 		"service start", "service stop", "service restart", "service enable",
 		"service disable", "service status", "service logs",
