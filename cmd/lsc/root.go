@@ -100,10 +100,13 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		if cmd.Name() == "completion" || cmd.Name() == "help" || cmd.Name() == "__completeNoDesc" || cmd.Name() == "__complete" {
 			return nil
 		}
-		// `lsc boot ...` is a local-only developer tool — must work without Redis.
+		// Every boot subcommand wants the JSON flag. The local-only ones edit
+		// only this board's own U-Boot environment and must work without
+		// Redis; the theme and sound commands act on the DBC, so they need it
+		// to reach the dispatcher that owns that environment.
+		boot.SetJSONOutput(&JSONOutput)
 		for c := cmd; c != nil; c = c.Parent() {
-			if c.Name() == "boot" {
-				boot.SetJSONOutput(&JSONOutput)
+			if _, ok := c.Annotations[boot.AnnotationLocalOnly]; ok {
 				return nil
 			}
 		}
@@ -145,6 +148,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 		ota.SetRedisClient(redisClient)
 		power.SetRedisClient(redisClient)
 		service.SetRedisClient(redisClient)
+		boot.SetRedisClient(redisClient)
 
 		// Make JSONOutput flag available to subcommands
 		diag.SetJSONOutput(&JSONOutput)

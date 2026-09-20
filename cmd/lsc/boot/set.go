@@ -101,5 +101,6 @@ func resolveTarget(st bootState, raw string) (slotInfo, error) {
 
 func init() {
 	setCmd.Flags().BoolVarP(&setYes, "yes", "y", false, "Skip confirmation prompt")
+	markLocalOnly(setCmd)
 	BootCmd.AddCommand(setCmd)
 }

@@ -67,5 +67,6 @@ counting boots and won't roll back on the next reboot.`,
 
 func init() {
 	commitCmd.Flags().BoolVarP(&commitYes, "yes", "y", false, "Skip confirmation prompt")
+	markLocalOnly(commitCmd)
 	BootCmd.AddCommand(commitCmd)
 }

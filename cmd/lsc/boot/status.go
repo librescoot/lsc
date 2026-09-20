@@ -79,5 +79,6 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
+	markLocalOnly(statusCmd)
 	BootCmd.AddCommand(statusCmd)
 }

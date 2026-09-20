@@ -143,5 +143,6 @@ func blockSize(dev string) (int64, error) {
 func init() {
 	cloneCmd.Flags().BoolVar(&cloneArm, "arm", false, "After cloning, set next boot to the cloned slot")
 	cloneCmd.Flags().BoolVarP(&cloneYes, "yes", "y", false, "Skip confirmation prompt")
+	markLocalOnly(cloneCmd)
 	BootCmd.AddCommand(cloneCmd)
 }

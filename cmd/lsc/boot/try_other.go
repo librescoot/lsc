@@ -73,5 +73,6 @@ once bootcount exceeds bootlimit.`,
 
 func init() {
 	tryOtherCmd.Flags().BoolVarP(&tryOtherYes, "yes", "y", false, "Skip confirmation prompt")
+	markLocalOnly(tryOtherCmd)
 	BootCmd.AddCommand(tryOtherCmd)
 }

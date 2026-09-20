@@ -79,5 +79,6 @@ without a watchdog reboot won't trigger fallback.`,
 
 func init() {
 	armorCmd.Flags().BoolVarP(&armorYes, "yes", "y", false, "Skip confirmation prompt")
+	markLocalOnly(armorCmd)
 	BootCmd.AddCommand(armorCmd)
 }
