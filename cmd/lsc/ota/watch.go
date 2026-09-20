@@ -26,6 +26,9 @@ type componentStatus struct {
 	InstallProgress       string
 	Error                 string
 	ErrorMessage          string
+	PreflightResult       string
+	PreflightVersion      string
+	PreflightTime         string
 	VehicleState          string
 	VehicleStateTimestamp string
 }
@@ -45,6 +48,9 @@ func readComponentStatus(otaData map[string]string, component string) componentS
 		InstallProgress:  get("install-progress"),
 		Error:            get("error"),
 		ErrorMessage:     get("error-message"),
+		PreflightResult:  get("preflight-result"),
+		PreflightVersion: get("preflight-version"),
+		PreflightTime:    get("preflight-time"),
 	}
 }
 

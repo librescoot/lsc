@@ -1,6 +1,7 @@
 package ota
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -51,6 +52,56 @@ func TestDBCCheckWillBeOrchestrated(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := dbcCheckWillBeOrchestrated(tt.targets, tt.settingOn); got != tt.want {
 				t.Errorf("dbcCheckWillBeOrchestrated(%v, %v) = %v, want %v", tt.targets, tt.settingOn, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckQueueTargets(t *testing.T) {
+	tests := []struct {
+		name        string
+		targets     []string
+		orchestrate bool
+		want        []string
+	}{
+		{name: "orchestrated combined check belongs to MDB", targets: []string{"mdb", "dbc"}, orchestrate: true, want: []string{"mdb"}},
+		{name: "disabled orchestration checks both directly", targets: []string{"mdb", "dbc"}, want: []string{"mdb", "dbc"}},
+		{name: "DBC only stays direct", targets: []string{"dbc"}, orchestrate: true, want: []string{"dbc"}},
+		{name: "MDB only stays direct", targets: []string{"mdb"}, orchestrate: true, want: []string{"mdb"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := checkQueueTargets(tt.targets, tt.orchestrate); !slices.Equal(got, tt.want) {
+				t.Errorf("checkQueueTargets(%v, %v) = %v, want %v", tt.targets, tt.orchestrate, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFreshDBCPreflightOutcome(t *testing.T) {
+	base := componentStatus{PreflightTime: "2026-01-01T00:00:01Z", PreflightVersion: "v1.4.0"}
+	for _, tt := range []struct {
+		name      string
+		result    string
+		before    string
+		wantKind  string
+		wantFound bool
+	}{
+		{name: "available answers early", result: "available", wantKind: "update", wantFound: true},
+		{name: "up to date answers early", result: "up-to-date", wantKind: "no-update", wantFound: true},
+		{name: "no release answers early", result: "no-release", wantKind: "no-update", wantFound: true},
+		{name: "unknown waits for DBC", result: "unknown"},
+		{name: "stale result is ignored", result: "available", before: base.PreflightTime},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := base
+			s.PreflightResult = tt.result
+			got, found := freshDBCPreflightOutcome(s, tt.before, true)
+			if found != tt.wantFound || got.kind != tt.wantKind {
+				t.Errorf("freshDBCPreflightOutcome() = (%#v, %v), want kind=%q found=%v", got, found, tt.wantKind, tt.wantFound)
+			}
+			if found && (!got.preflight || got.status.UpdateVersion != "v1.4.0") {
+				t.Errorf("preflight outcome lost source or version: %#v", got)
 			}
 		})
 	}

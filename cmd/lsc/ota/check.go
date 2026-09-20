@@ -56,6 +56,16 @@ func dbcCheckWillBeOrchestrated(targets []string, orchestrationEnabled bool) boo
 	return orchestrationEnabled && slices.Contains(targets, "mdb")
 }
 
+// checkQueueTargets returns the services that should receive the initial
+// check-now. An MDB-led DBC request is deliberately not sent directly to the
+// DBC: the MDB preflight decides whether to wake it and queues its command.
+func checkQueueTargets(targets []string, orchestrateDBC bool) []string {
+	if orchestrateDBC && slices.Contains(targets, "mdb") && slices.Contains(targets, "dbc") {
+		return []string{"mdb"}
+	}
+	return targets
+}
+
 // effectiveCheckTimeout resolves the wait budget for a set of targets. The
 // waits run in parallel, so a single budget covering the slowest board is
 // enough. --timeout overrides the per-board defaults when set.
@@ -95,15 +105,31 @@ type checkOutcome struct {
 	// on for the check, which is what makes a slow DBC response expected
 	// rather than a sign that nothing is going to run it.
 	orchestrated bool
+	// preflight identifies an MDB-side DBC assessment. It is early and useful,
+	// but advisory: the DBC confirms it after boot before installing anything.
+	preflight bool
 }
 
 func (o checkOutcome) print() {
 	label := colorizeComponent(o.component)
 	switch o.kind {
-	case "update", "error":
+	case "update":
+		if o.preflight {
+			text := format.Info("update available (MDB preflight)")
+			if o.status.UpdateVersion != "" {
+				text += " target " + o.status.UpdateVersion
+			}
+			fmt.Printf("%s: %s\n", label, text)
+			return
+		}
+		fmt.Printf("%s: %s\n", label, o.status.summary())
+	case "error":
 		fmt.Printf("%s: %s\n", label, o.status.summary())
 	case "no-update":
 		text := format.Dim("no update available")
+		if o.preflight {
+			text += format.Dim(" (MDB preflight)")
+		}
 		if o.status.RunningVersion != "" {
 			text += " (running " + o.status.RunningVersion + ")"
 		}
@@ -126,6 +152,9 @@ func (o checkOutcome) pendingMessage() string {
 
 func (o checkOutcome) json() map[string]any {
 	m := map[string]any{"component": o.component}
+	if o.preflight {
+		m["source"] = "mdb-preflight"
+	}
 	if o.status.RunningVersion != "" {
 		m["running-version"] = o.status.RunningVersion
 	}
@@ -170,6 +199,23 @@ func planKind(status string) (string, bool) {
 	}
 }
 
+// freshDBCPreflightOutcome converts a preflight from this invocation into a
+// user-facing answer. Unknown stays non-terminal so the DBC can settle it.
+func freshDBCPreflightOutcome(s componentStatus, preflightBefore string, orchestrated bool) (checkOutcome, bool) {
+	if !orchestrated || s.PreflightTime == "" || s.PreflightTime == preflightBefore {
+		return checkOutcome{}, false
+	}
+	s.UpdateVersion = s.PreflightVersion
+	switch s.PreflightResult {
+	case "available":
+		return checkOutcome{component: "dbc", kind: "update", status: s, orchestrated: true, preflight: true}, true
+	case "up-to-date", "no-release":
+		return checkOutcome{component: "dbc", kind: "no-update", status: s, orchestrated: true, preflight: true}, true
+	default:
+		return checkOutcome{}, false
+	}
+}
+
 func snapshotComponent(component string) componentStatus {
 	otaData, err := RedisClient.HGetAll("ota")
 	if err != nil {
@@ -184,7 +230,7 @@ func snapshotComponent(component string) componentStatus {
 
 // waitForCheckResult watches one component until the update service reports a
 // plan, or until the check is known to have found nothing to install.
-func waitForCheckResult(component, lastCheckBefore string, timeout time.Duration, orchestrated bool) checkOutcome {
+func waitForCheckResult(component, lastCheckBefore, preflightBefore string, timeout time.Duration, orchestrated bool) checkOutcome {
 	settingsKey := fmt.Sprintf("updates.%s.last-check-time", component)
 	deadline := time.Now().Add(timeout)
 	var checkSeenAt time.Time
@@ -193,6 +239,14 @@ func waitForCheckResult(component, lastCheckBefore string, timeout time.Duration
 		s := snapshotComponent(component)
 		if kind, ok := planKind(s.Status); ok {
 			return checkOutcome{component: component, kind: kind, status: s, orchestrated: orchestrated}
+		}
+		// An orchestrated DBC request is answered first by the MDB's preflight.
+		// Only accept a result newer than the command, otherwise a periodic
+		// check from hours ago could be presented as this command's answer.
+		if component == "dbc" {
+			if outcome, ok := freshDBCPreflightOutcome(s, preflightBefore, orchestrated); ok {
+				return outcome
+			}
 		}
 
 		if checkSeenAt.IsZero() {
@@ -219,7 +273,7 @@ func waitForCheckResult(component, lastCheckBefore string, timeout time.Duration
 
 // waitForCheckResults waits for all components in parallel so the total wait
 // is bounded by timeout rather than the number of boards.
-func waitForCheckResults(components []string, lastCheckBefore map[string]string, timeout time.Duration, orchestrated bool) map[string]checkOutcome {
+func waitForCheckResults(components []string, lastCheckBefore, preflightBefore map[string]string, timeout time.Duration, orchestrated bool) map[string]checkOutcome {
 	results := make(map[string]checkOutcome, len(components))
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -228,7 +282,7 @@ func waitForCheckResults(components []string, lastCheckBefore map[string]string,
 		wg.Add(1)
 		go func(component string) {
 			defer wg.Done()
-			outcome := waitForCheckResult(component, lastCheckBefore[component], timeout, orchestrated)
+			outcome := waitForCheckResult(component, lastCheckBefore[component], preflightBefore[component], timeout, orchestrated)
 			mu.Lock()
 			results[component] = outcome
 			mu.Unlock()
@@ -283,15 +337,33 @@ to return as soon as the command is queued.`,
 			successMsg = fmt.Sprintf("Update check triggered for %s", strings.ToUpper(component))
 		}
 
-		// Remember each board's last check time before triggering, so the wait
-		// can tell the update service actually consumed the command.
-		lastCheckBefore := make(map[string]string, len(targets))
-		for _, target := range targets {
-			lastCheckBefore[target], _ = RedisClient.HGet("settings", fmt.Sprintf("updates.%s.last-check-time", target))
+		// When checking both boards, the MDB owns the DBC check: it publishes a
+		// fast preflight result, wakes the DBC only when useful, then asks the
+		// DBC service to make the final decision. Do not also queue the DBC here,
+		// or a powered-off dashboard would consume a stale direct request later.
+		orchestrateDBC := dbcCheckWillBeOrchestrated(targets, dbcOrchestrationEnabled())
+		queueTargets := checkQueueTargets(targets, orchestrateDBC)
+		orchestratedDBCTarget := len(queueTargets) != len(targets)
+		if orchestratedDBCTarget {
+			successMsg = "Update check triggered for MDB; DBC will be preflighted and awakened if needed"
 		}
 
-		// Send check-now command to each target component
+		// Remember each board's last check time before triggering, so the wait
+		// can tell the update service actually consumed the command. The MDB's
+		// preflight timestamp similarly distinguishes this request from stale
+		// availability information left by an earlier periodic check.
+		lastCheckBefore := make(map[string]string, len(targets))
+		preflightBefore := make(map[string]string, len(targets))
 		for _, target := range targets {
+			lastCheckBefore[target], _ = RedisClient.HGet("settings", fmt.Sprintf("updates.%s.last-check-time", target))
+			if target == "dbc" && orchestratedDBCTarget {
+				preflightBefore[target], _ = RedisClient.HGet("ota", "preflight-time:dbc")
+			}
+		}
+
+		// Send check-now to the components that own this request. The MDB queues
+		// the DBC command itself after a positive or inconclusive preflight.
+		for _, target := range queueTargets {
 			channel := fmt.Sprintf("scooter:update:%s", target)
 			err := RedisClient.LPush(channel, "check-now")
 			if err != nil {
@@ -312,9 +384,7 @@ to return as soon as the command is queued.`,
 
 		timeout := time.Duration(0)
 		wait := !checkNoWait
-		var orchestrateDBC bool
 		if wait {
-			orchestrateDBC = dbcCheckWillBeOrchestrated(targets, dbcOrchestrationEnabled())
 			timeout = effectiveCheckTimeout(targets, orchestrateDBC)
 			wait = timeout > 0
 		}
@@ -336,7 +406,7 @@ to return as soon as the command is queued.`,
 
 		var outcomes map[string]checkOutcome
 		if wait {
-			outcomes = waitForCheckResults(targets, lastCheckBefore, timeout, orchestrateDBC)
+			outcomes = waitForCheckResults(targets, lastCheckBefore, preflightBefore, timeout, orchestrateDBC)
 		}
 
 		if JSONOutput != nil && *JSONOutput {

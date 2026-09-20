@@ -144,6 +144,7 @@ var statusCmd = &cobra.Command{
 
 				for _, key := range []string{
 					"status", "state-origin", "update-version", "update-method",
+					"preflight-result", "preflight-version", "preflight-time",
 					"download-progress", "download-bytes", "download-total",
 					"install-progress",
 					"error", "error-message",
@@ -228,6 +229,19 @@ var statusCmd = &cobra.Command{
 					}
 					if errMsg := otaData[fmt.Sprintf("error-message:%s", component)]; errMsg != "" {
 						format.PrintNestedKV("Message", errMsg)
+					}
+				}
+
+				if component == "dbc" {
+					if result := otaData["preflight-result:dbc"]; result != "" {
+						text := result
+						if version := otaData["preflight-version:dbc"]; version != "" {
+							text += " " + version
+						}
+						if checked := otaData["preflight-time:dbc"]; checked != "" {
+							text += " (" + checked + ")"
+						}
+						format.PrintNestedKV("MDB preflight", text)
 					}
 				}
 
