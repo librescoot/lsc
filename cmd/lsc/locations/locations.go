@@ -161,7 +161,7 @@ func saveLocation(loc SavedLocation) error {
 
 // deleteLocation deletes a location by ID
 func deleteLocation(id int) error {
-	fields := []string{"latitude", "longitude", "label", "created-at", "last-used-at"}
+	fields := []string{"latitude", "longitude", "label", "created-at", "last-used-at", "uuid", "quick-slot", "quick-icon"}
 	client := RedisClient.GetClient()
 	ctx := context.Background()
 
