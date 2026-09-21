@@ -13,6 +13,7 @@ import (
 // Client is a wrapper around the go-redis client with common functionality
 type Client struct {
 	client *rdb.Client
+	addr   string
 	ctx    context.Context
 	logger *log.Logger
 }
@@ -32,6 +33,7 @@ type XReadArgs = rdb.XReadArgs
 // NewClient creates a new Redis client instance
 func NewClient(addr string) *Client {
 	return &Client{
+		addr: addr,
 		client: rdb.NewClient(&rdb.Options{
 			Addr:             addr,
 			DB:               0,    // use default DB
@@ -67,6 +69,11 @@ func (c *Client) Close() error {
 // GetClient returns the underlying redis client for advanced operations
 func (c *Client) GetClient() *rdb.Client {
 	return c.client
+}
+
+// Addr returns the address the client was configured with.
+func (c *Client) Addr() string {
+	return c.addr
 }
 
 // IsNil reports whether err means a missing key or hash field

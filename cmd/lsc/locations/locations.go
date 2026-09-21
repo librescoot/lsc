@@ -1,7 +1,6 @@
 package locations
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -137,64 +136,30 @@ func loadLocation(id int) (*SavedLocation, error) {
 }
 
 // saveLocation saves or updates a location
-func saveLocation(loc SavedLocation) error {
-	fields := map[string]string{
-		"latitude":     fmt.Sprintf("%.6f", loc.Latitude),
-		"longitude":    fmt.Sprintf("%.6f", loc.Longitude),
-		"label":        loc.Label,
-		"created-at":   loc.CreatedAt.Format(time.RFC3339),
-		"last-used-at": loc.LastUsedAt.Format(time.RFC3339),
+func saveLocation(loc SavedLocation) (int, error) {
+	// The destination service owns slot allocation, UUIDs, and timestamps: a
+	// negative ID asks for the first free slot, and the effective ID comes
+	// back with the response.
+	request := saveRequest{
+		Latitude:  loc.Latitude,
+		Longitude: loc.Longitude,
+		Label:     loc.Label,
 	}
-
-	for field, value := range fields {
-		key := fmt.Sprintf("%s.%d.%s", locationsKeyPrefix, loc.ID, field)
-		if err := RedisClient.HSet("settings", key, value); err != nil {
-			return err
-		}
+	if loc.ID >= 0 {
+		id := loc.ID
+		request.ID = &id
 	}
-
-	// Publish notification
-	client := RedisClient.GetClient()
-	ctx := context.Background()
-	return client.Publish(ctx, "settings", fmt.Sprintf("%s.%d", locationsKeyPrefix, loc.ID)).Err()
-}
-
-// deleteLocation deletes a location by ID
-func deleteLocation(id int) error {
-	fields := []string{"latitude", "longitude", "label", "created-at", "last-used-at", "uuid", "quick-slot", "quick-icon"}
-	client := RedisClient.GetClient()
-	ctx := context.Background()
-
-	for _, field := range fields {
-		key := fmt.Sprintf("%s.%d.%s", locationsKeyPrefix, id, field)
-		if err := client.HDel(ctx, "settings", key).Err(); err != nil {
-			return err
-		}
-	}
-
-	// Publish notification
-	return client.Publish(ctx, "settings", fmt.Sprintf("%s.%d", locationsKeyPrefix, id)).Err()
-}
-
-// findNextAvailableID finds the next available ID slot
-func findNextAvailableID() (int, error) {
-	locations, err := loadAllLocations()
-	if err != nil {
+	var saved saveResponse
+	if err := destinationCall("destination.save", request, &saved); err != nil {
 		return 0, err
 	}
+	return saved.ID, nil
+}
 
-	// Build set of used IDs
-	usedIDs := make(map[int]bool)
-	for _, loc := range locations {
-		usedIDs[loc.ID] = true
-	}
-
-	// Find first available ID starting from 0
-	for i := 0; ; i++ {
-		if !usedIDs[i] {
-			return i, nil
-		}
-	}
+// deleteLocation deletes a location by ID, including its shortcut-menu item.
+func deleteLocation(id int) error {
+	var deleted emptyResponse
+	return destinationCall("destination.delete", idRequest{ID: id}, &deleted)
 }
 
 // formatRelativeTime formats a time as relative to now
