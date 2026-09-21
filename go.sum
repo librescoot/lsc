@@ -19,8 +19,8 @@ github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088 h1:wLuDwP
 github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088/go.mod h1:/ow1iq8zHPjC8XCMjzImCppck1Io/d48DHANKLmZAnU=
 github.com/librescoot/eventbus v0.1.0 h1:CM0jteSfA+jSEHXA2lh0D2dHXSAHrJ6T0EuCiWYTEVs=
 github.com/librescoot/eventbus v0.1.0/go.mod h1:sSKIXixtMH98vowcy+jReKD3fAcfXT+1WYn7G4meTyM=
-github.com/librescoot/redis-ipc v0.15.2 h1:QH3Ns7MHBa957LPzWnA45+XSZFlJM9ZFSFIcEwb2eu4=
-github.com/librescoot/redis-ipc v0.15.2/go.mod h1:uvlJaUd1WzRMjZy7dYCHJ6qphCDeYD5orGK9CLudv1Q=
+github.com/librescoot/redis-ipc v0.15.3 h1:TziMMjcb9Erm3zfBODWit9RU2BXFrUtz8mTCzoyMD8U=
+github.com/librescoot/redis-ipc v0.15.3/go.mod h1:uvlJaUd1WzRMjZy7dYCHJ6qphCDeYD5orGK9CLudv1Q=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/redis/go-redis/v9 v9.18.0 h1:pMkxYPkEbMPwRdenAzUNyFNrDgHx9U+DrBabWNfSRQs=
