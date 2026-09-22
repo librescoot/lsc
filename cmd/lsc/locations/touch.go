@@ -52,11 +52,12 @@ var touchCmd = &cobra.Command{
 			return cli.ErrSilent
 		}
 
-		// Update last-used timestamp
+		// The destination service stamps the stored value; the local one feeds
+		// the output below.
 		location.LastUsedAt = time.Now()
 
-		// Save to Redis
-		if err := saveLocation(*location); err != nil {
+		var touched emptyResponse
+		if err := destinationCall("destination.touch", idRequest{ID: id}, &touched); err != nil {
 			if JSONOutput != nil && *JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "locations-touch",

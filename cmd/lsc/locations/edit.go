@@ -151,8 +151,8 @@ Examples:
 		// Update last-used-at timestamp
 		location.LastUsedAt = time.Now()
 
-		// Save to Redis
-		if err := saveLocation(*location); err != nil {
+		// Save through the destination service
+		if _, err := saveLocation(*location); err != nil {
 			if JSONOutput != nil && *JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "locations-edit",

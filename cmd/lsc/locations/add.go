@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
@@ -70,35 +69,17 @@ var addCmd = &cobra.Command{
 		// Join remaining args as label
 		label := strings.Join(args[2:], " ")
 
-		// Find next available ID
-		id, err := findNextAvailableID()
-		if err != nil {
-			if JSONOutput != nil && *JSONOutput {
-				output, _ := json.Marshal(map[string]interface{}{
-					"command": "locations-add",
-					"status":  "error",
-					"error":   err.Error(),
-				})
-				fmt.Println(string(output))
-			} else {
-				fmt.Fprintf(os.Stderr, format.Error("Failed to find available ID: %v\n"), err)
-			}
-			return cli.ErrSilent
-		}
-
-		// Create location
-		now := time.Now()
+		// Create location. A negative ID asks the destination service for the
+		// first free slot.
 		location := SavedLocation{
-			ID:         id,
-			Latitude:   lat,
-			Longitude:  lon,
-			Label:      label,
-			CreatedAt:  now,
-			LastUsedAt: now,
+			ID:        -1,
+			Latitude:  lat,
+			Longitude: lon,
+			Label:     label,
 		}
 
-		// Save to Redis
-		if err := saveLocation(location); err != nil {
+		id, err := saveLocation(location)
+		if err != nil {
 			if JSONOutput != nil && *JSONOutput {
 				output, _ := json.Marshal(map[string]interface{}{
 					"command": "locations-add",
