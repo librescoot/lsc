@@ -20,6 +20,24 @@ func boardVersion(ver map[string]string) string {
 	return ver["version_id"]
 }
 
+// kernelReport summarizes what version-service publishes about each board's own
+// kernel: the release it runs, whether it agrees with /lib/modules and
+// /boot/zImage, and what disagrees when it does not.
+func kernelReport(versions map[string]map[string]string) map[string]map[string]string {
+	out := make(map[string]map[string]string)
+	for board, ver := range versions {
+		if ver["kernel_check"] == "" && ver["kernel_release"] == "" {
+			continue
+		}
+		out[board] = map[string]string{
+			"release": ver["kernel_release"],
+			"check":   ver["kernel_check"],
+			"detail":  ver["kernel_check_detail"],
+		}
+	}
+	return out
+}
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show firmware versions",
@@ -58,6 +76,7 @@ var versionCmd = &cobra.Command{
 					"dbc": boardVersion(dbcVer),
 					"nrf": system["nrf-fw-version"],
 				},
+				"kernel": kernelReport(map[string]map[string]string{"mdb": mdbVer, "dbc": dbcVer}),
 				"components": map[string]interface{}{
 					"ecu": ecuData["fw-version"],
 				},
@@ -100,6 +119,31 @@ var versionCmd = &cobra.Command{
 		format.PrintKV("MDB", format.SafeValueOr(boardVersion(mdbVer), "N/A"))
 		format.PrintKV("DBC", format.SafeValueOr(boardVersion(dbcVer), "N/A"))
 		format.PrintKV("nRF", format.SafeValueOr(system["nrf-fw-version"], "N/A"))
+
+		// What each board reports about its own kernel, published by
+		// version-service. Absent fields mean an older writer, not a fault.
+		for _, board := range []struct {
+			name     string
+			versions map[string]string
+		}{{"MDB", mdbVer}, {"DBC", dbcVer}} {
+			check := board.versions["kernel_check"]
+			if check == "" && board.versions["kernel_release"] == "" {
+				continue
+			}
+			value := fmt.Sprintf("%s (%s)",
+				format.SafeValueOr(board.versions["kernel_release"], "unknown release"), check)
+			switch check {
+			case "ok":
+			case "skew":
+				value = format.Error(value)
+			default:
+				value = format.Dim(value)
+			}
+			format.PrintKV(board.name+" kernel", value)
+			if detail := board.versions["kernel_check_detail"]; detail != "" {
+				format.PrintKV("", format.Dim(detail))
+			}
+		}
 
 		// Display component versions
 		format.PrintSection("Component Versions")

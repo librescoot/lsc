@@ -9,6 +9,7 @@ import (
 
 	"librescoot/lsc/cmd/lsc/boot"
 	"librescoot/lsc/cmd/lsc/diag"
+	"librescoot/lsc/cmd/lsc/doctor"
 	"librescoot/lsc/cmd/lsc/gps"
 	"librescoot/lsc/cmd/lsc/keycard"
 	"librescoot/lsc/cmd/lsc/locations"
@@ -50,6 +51,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(boot.BootCmd)
 	rootCmd.AddCommand(diag.DiagCmd)
+	rootCmd.AddCommand(doctor.DoctorCmd)
 	rootCmd.AddCommand(gps.GpsCmd)
 	rootCmd.AddCommand(keycard.KeycardCmd)
 	rootCmd.AddCommand(locations.LocationsCmd)
@@ -138,6 +140,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 
 		// Make Redis client available to subcommands
 		diag.SetRedisClient(redisClient)
+		doctor.SetRedisClient(redisClient)
 		gps.SetRedisClient(redisClient)
 		keycard.SetRedisClient(redisClient)
 		locations.SetRedisClient(redisClient)
@@ -152,6 +155,7 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 
 		// Make JSONOutput flag available to subcommands
 		diag.SetJSONOutput(&JSONOutput)
+		doctor.SetJSONOutput(&JSONOutput)
 		gps.SetJSONOutput(&JSONOutput)
 		keycard.SetJSONOutput(&JSONOutput)
 		locations.SetJSONOutput(&JSONOutput)
