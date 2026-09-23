@@ -198,7 +198,7 @@ func showBattery(id string) error {
 	faults, err := RedisClient.SMembers(fmt.Sprintf("battery:%s:fault", id))
 	if err == nil && len(faults) > 0 {
 		for _, fault := range faults {
-			fmt.Printf("  %s %s\n", format.Error("•"), fault)
+			fmt.Printf("  %s %s\n", format.Error("•"), format.FaultLabel(format.SeriesBattery, fault))
 		}
 	} else if err == nil {
 		format.PrintKV("Faults", format.Success("None"))

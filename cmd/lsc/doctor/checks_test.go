@@ -160,7 +160,7 @@ func TestCheckFaults(t *testing.T) {
 	if got.Verdict != VerdictAttention {
 		t.Fatalf("faults = %v", got.Verdict)
 	}
-	if got.Detail != "battery 0: 35; battery 1: 35" {
+	if got.Detail != "battery 0: B35; battery 1: B35" {
 		t.Fatalf("detail = %q", got.Detail)
 	}
 	e.state = fakeState{err: errors.New("redis down")}

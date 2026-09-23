@@ -61,25 +61,25 @@ var faultsCmd = &cobra.Command{
 
 		if len(vehicleFaults) > 0 {
 			for _, fault := range vehicleFaults {
-				rows = append(rows, []string{"Vehicle", format.Error(fault)})
+				rows = append(rows, []string{"Vehicle", format.Error(format.FaultLabel(format.SeriesVehicle, fault))})
 			}
 		}
 
 		if len(ecuFaults) > 0 {
 			for _, fault := range ecuFaults {
-				rows = append(rows, []string{"ECU", format.Error(fault)})
+				rows = append(rows, []string{"ECU", format.Error(format.FaultLabel(format.SeriesMotor, fault))})
 			}
 		}
 
 		if len(battery0Faults) > 0 {
 			for _, fault := range battery0Faults {
-				rows = append(rows, []string{"Battery 0", format.Error(fault)})
+				rows = append(rows, []string{"Battery 0", format.Error(format.FaultLabel(format.SeriesBattery, fault))})
 			}
 		}
 
 		if len(battery1Faults) > 0 {
 			for _, fault := range battery1Faults {
-				rows = append(rows, []string{"Battery 1", format.Error(fault)})
+				rows = append(rows, []string{"Battery 1", format.Error(format.FaultLabel(format.SeriesBattery, fault))})
 			}
 		}
 

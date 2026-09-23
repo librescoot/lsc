@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"librescoot/lsc/internal/format"
 )
 
 // Verdict is how much attention a check wants.
@@ -206,13 +208,14 @@ func checkOTA(e env) Result {
 func checkFaults(e env) Result {
 	result := Result{Name: "faults"}
 	sources := []struct {
-		name string
-		key  string
+		name   string
+		key    string
+		series format.FaultSeries
 	}{
-		{"vehicle", "vehicle:fault"},
-		{"ecu", "engine-ecu:fault"},
-		{"battery 0", "battery:0:fault"},
-		{"battery 1", "battery:1:fault"},
+		{"vehicle", "vehicle:fault", format.SeriesVehicle},
+		{"ecu", "engine-ecu:fault", format.SeriesMotor},
+		{"battery 0", "battery:0:fault", format.SeriesBattery},
+		{"battery 1", "battery:1:fault", format.SeriesBattery},
 	}
 
 	var reported []string
@@ -227,9 +230,13 @@ func checkFaults(e env) Result {
 		if len(faults) == 0 {
 			continue
 		}
-		total += len(faults)
 		sort.Strings(faults)
-		reported = append(reported, fmt.Sprintf("%s: %s", source.name, strings.Join(faults, ", ")))
+		labelled := make([]string, 0, len(faults))
+		for _, fault := range faults {
+			labelled = append(labelled, format.FaultLabel(source.series, fault))
+		}
+		total += len(faults)
+		reported = append(reported, fmt.Sprintf("%s: %s", source.name, strings.Join(labelled, ", ")))
 	}
 
 	switch {
