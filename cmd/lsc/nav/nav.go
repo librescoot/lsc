@@ -1,7 +1,6 @@
 package nav
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -33,28 +32,10 @@ var NavCmd = &cobra.Command{
 	Short:   "Control dashboard navigation",
 	Long: `Set, clear, and inspect the navigation destination shown on the dashboard.
 
-The dashboard (scootui) picks up destinations from the 'navigation' Redis hash,
-the same mechanism the mobile app uses via BLE.`,
+The route plan is managed by settings-service and projected into the navigation hash.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return navStatusCmd.RunE(cmd, args)
 	},
-}
-
-// setNavFields writes navigation hash fields and publishes each changed field
-// name, which is how scootui's store synchronization picks up external writes.
-func setNavFields(fields map[string]string) error {
-	ctx := context.Background()
-	for field, value := range fields {
-		if err := RedisClient.HSet("navigation", field, value); err != nil {
-			return fmt.Errorf("failed to set navigation %s: %w", field, err)
-		}
-	}
-	for field := range fields {
-		if err := RedisClient.Publish(ctx, "navigation", field); err != nil {
-			return fmt.Errorf("failed to publish navigation %s: %w", field, err)
-		}
-	}
-	return nil
 }
 
 func emitNavError(command string, err error) error {

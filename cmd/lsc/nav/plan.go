@@ -4,30 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/routeplan"
 
 	"github.com/spf13/cobra"
 )
 
-// planStop mirrors the JSON shape the dashboard reads from the navigation
-// hash's "waypoints" field.
-type planStop struct {
-	Lat   float64 `json:"lat"`
-	Lon   float64 `json:"lon"`
-	Label string  `json:"label,omitempty"`
-}
-
 var navPlanName string
 
 var navPlanCmd = &cobra.Command{
-	Use:     "plan",
-	Short:   "Manage the multi-hop route plan",
+	Use:   "plan",
+	Short: "Manage the multi-hop route plan",
 	Long: `Inspect and edit the ordered stop list the dashboard guides through.
 
-The plan lives in the navigation hash's "waypoints" (JSON) together with
-"current-step". Without a plan the destination fields describe a single trip.`,
+The plan is managed by settings-service and projected into the navigation hash.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return navPlanListCmd.RunE(cmd, args)
 	},
@@ -37,10 +28,11 @@ var navPlanListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Show the current route plan",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stops, step, err := readPlan()
+		plan, err := routeplan.Call(RedisClient, "plan.get", routeplan.Empty{})
 		if err != nil {
 			return emitNavError("nav-plan-list", err)
 		}
+		stops, step := plan.Stops, plan.CurrentStep
 		if JSONOutput != nil && *JSONOutput {
 			output, _ := json.MarshalIndent(map[string]any{
 				"command":      "nav-plan-list",
@@ -93,14 +85,13 @@ Examples:
 			label = navPlanName
 		}
 
-		stops, step, err := readPlan()
+		plan, err := routeplan.Call(RedisClient, "plan.append", routeplan.AppendRequest{
+			Stop: routeplan.StopInput{Lat: lat, Lon: lon, Label: label},
+		})
 		if err != nil {
 			return emitNavError("nav-plan-add", err)
 		}
-		stops = append(stops, planStop{Lat: lat, Lon: lon, Label: label})
-		if err := writePlan(stops, step); err != nil {
-			return emitNavError("nav-plan-add", err)
-		}
+		stops, step := plan.Stops, plan.CurrentStep
 
 		if JSONOutput != nil && *JSONOutput {
 			output, _ := json.Marshal(map[string]any{
@@ -127,22 +118,21 @@ var navPlanRemoveCmd = &cobra.Command{
 		if err != nil {
 			return emitNavError("nav-plan-remove", fmt.Errorf("index must be a number"))
 		}
-		stops, step, err := readPlan()
+		plan, err := routeplan.Call(RedisClient, "plan.get", routeplan.Empty{})
 		if err != nil {
 			return emitNavError("nav-plan-remove", err)
 		}
-		if index < 1 || index > len(stops) {
+		if index < 1 || index > len(plan.Stops) {
 			return emitNavError("nav-plan-remove",
-				fmt.Errorf("index %d out of range (plan has %d stops)", index, len(stops)))
+				fmt.Errorf("index %d out of range (plan has %d stops)", index, len(plan.Stops)))
 		}
-		zero := index - 1
-		stops = append(stops[:zero], stops[zero+1:]...)
-		if zero < step {
-			step--
-		}
-		if err := writePlan(stops, step); err != nil {
+		plan, err = routeplan.Call(RedisClient, "plan.remove", routeplan.RemoveRequest{
+			Index: index - 1, ExpectedRevision: plan.Revision,
+		})
+		if err != nil {
 			return emitNavError("nav-plan-remove", err)
 		}
+		stops, step := plan.Stops, plan.CurrentStep
 
 		if JSONOutput != nil && *JSONOutput {
 			output, _ := json.Marshal(map[string]any{
@@ -163,20 +153,25 @@ var navPlanSkipCmd = &cobra.Command{
 	Use:   "skip",
 	Short: "Advance the plan to the next stop",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		stops, step, err := readPlan()
+		plan, err := routeplan.Call(RedisClient, "plan.get", routeplan.Empty{})
 		if err != nil {
 			return emitNavError("nav-plan-skip", err)
 		}
-		if len(stops) == 0 {
+		if len(plan.Stops) == 0 {
 			return emitNavError("nav-plan-skip", fmt.Errorf("no route plan set"))
 		}
-		if step+1 >= len(stops) {
+		if plan.CurrentStep+1 >= len(plan.Stops) {
 			return emitNavError("nav-plan-skip", fmt.Errorf("already at the last stop"))
 		}
-		step++
-		if err := writePlan(stops, step); err != nil {
+		request := routeplan.ProgressRequest{ExpectedPlanID: plan.ID, ExpectedStopID: plan.Stops[plan.CurrentStep].ID}
+		if _, err := routeplan.Call(RedisClient, "plan.reached", request); err != nil {
 			return emitNavError("nav-plan-skip", err)
 		}
+		plan, err = routeplan.Call(RedisClient, "plan.advance", request)
+		if err != nil {
+			return emitNavError("nav-plan-skip", err)
+		}
+		step, stops := plan.CurrentStep, plan.Stops
 
 		if JSONOutput != nil && *JSONOutput {
 			output, _ := json.Marshal(map[string]any{
@@ -190,63 +185,6 @@ var navPlanSkipCmd = &cobra.Command{
 		}
 		return nil
 	},
-}
-
-// readPlan reads the waypoints JSON and current step from the navigation hash.
-func readPlan() ([]planStop, int, error) {
-	data, err := RedisClient.HGetAll("navigation")
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read navigation hash: %w", err)
-	}
-	var stops []planStop
-	if raw := data["waypoints"]; raw != "" {
-		if err := json.Unmarshal([]byte(raw), &stops); err != nil {
-			return nil, 0, fmt.Errorf("navigation waypoints are not valid JSON: %w", err)
-		}
-	}
-	step, _ := strconv.Atoi(data["current-step"])
-	return stops, step, nil
-}
-
-// writePlan stores the stop list and current step, plus the target fields the
-// dashboard reads for the current hop. An empty list clears the plan.
-func writePlan(stops []planStop, step int) error {
-	if len(stops) == 0 {
-		fields := map[string]string{
-			"destination":  "",
-			"latitude":     "",
-			"longitude":    "",
-			"address":      "",
-			"timestamp":    "",
-			"waypoints":    "",
-			"current-step": "",
-		}
-		return setNavFields(fields)
-	}
-	if step < 0 {
-		step = 0
-	}
-	if step >= len(stops) {
-		step = len(stops) - 1
-	}
-
-	encoded, err := json.Marshal(stops)
-	if err != nil {
-		return fmt.Errorf("failed to encode waypoints: %w", err)
-	}
-	target := stops[step]
-	fields := map[string]string{
-		"waypoints":    string(encoded),
-		"current-step": strconv.Itoa(step),
-		"latitude":     fmt.Sprintf("%.6f", target.Lat),
-		"longitude":    fmt.Sprintf("%.6f", target.Lon),
-		"destination":  fmt.Sprintf("%.6f,%.6f", target.Lat, target.Lon),
-		"timestamp":    time.Now().UTC().Format(time.RFC3339),
-	}
-	if target.Label != "" {
-		fields["address"] = target.Label
-	}
-	return setNavFields(fields)
 }
 
 func init() {

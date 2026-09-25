@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/routeplan"
 
 	"github.com/spf13/cobra"
 )
@@ -14,16 +15,7 @@ var navClearCmd = &cobra.Command{
 	Short: "Clear the navigation destination",
 	Long:  `Clear the current navigation destination and stop navigation on the dashboard.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fields := map[string]string{
-			"destination":  "",
-			"latitude":     "",
-			"longitude":    "",
-			"address":      "",
-			"timestamp":    "",
-			"waypoints":    "",
-			"current-step": "",
-		}
-		if err := setNavFields(fields); err != nil {
+		if _, err := routeplan.Call(RedisClient, "plan.clear", routeplan.ClearRequest{}); err != nil {
 			return emitNavError("nav-clear", err)
 		}
 

@@ -8,6 +8,7 @@ import (
 
 	"librescoot/lsc/cmd/lsc/locations"
 	"librescoot/lsc/internal/format"
+	"librescoot/lsc/internal/routeplan"
 
 	"github.com/spf13/cobra"
 )
@@ -30,11 +31,9 @@ Examples:
 		}
 
 		destination := fmt.Sprintf("%.6f,%.6f", lat, lon)
-		fields := map[string]string{"destination": destination}
-		if address != "" {
-			fields["address"] = address
-		}
-		if err := setNavFields(fields); err != nil {
+		if _, err := routeplan.Call(RedisClient, "plan.replace", routeplan.ReplaceRequest{
+			Stops: []routeplan.StopInput{{Lat: lat, Lon: lon, Label: address}},
+		}); err != nil {
 			return emitNavError("nav-set", err)
 		}
 

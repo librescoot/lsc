@@ -1,7 +1,6 @@
 package lsd
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -11,18 +10,13 @@ import (
 	"time"
 
 	"librescoot/lsc/internal/redis"
+	"librescoot/lsc/internal/routeplan"
 )
 
 // Saved locations live in the settings hash as
 // dashboard.saved-locations.<id>.<field>, the layout the dashboard and lsc
 // share. A change is announced with one publish of the id prefix.
 const locationsPrefix = "dashboard.saved-locations"
-
-// navFields is the navigation hash surface the dashboard reads, including the
-// multi-hop plan pointer. Every write touches all of them so a single
-// destination and a plan cannot leave stale fields behind.
-var navFields = []string{"latitude", "longitude", "address", "timestamp",
-	"destination", "waypoints", "current-step"}
 
 var locationKeyRe = regexp.MustCompile(`^dashboard\.saved-locations\.(\d+)\.(latitude|longitude|label|created-at|last-used-at)$`)
 
@@ -99,11 +93,7 @@ func (s *Server) handleNavigation(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// setDestination writes the navigation hash the way the dashboard and
-// radio-gaga do: lat/lon to six places, the legacy "lat,lon" destination,
-// an RFC 3339 timestamp, then one notification per field with destination
-// last, since that is the field the dashboard acts on. Clearing sets every
-// field to the empty string so watchers see it.
+// setDestination sends a replacement plan to settings-service.
 func (s *Server) setDestination(w http.ResponseWriter, r *http.Request) {
 	client := s.getRedis()
 	if client == nil {
@@ -125,65 +115,42 @@ func (s *Server) setDestination(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	fields := map[string]string{}
+	var method string
+	var request any
 	switch {
 	case req.Clear:
-		for _, f := range navFields {
-			fields[f] = ""
-		}
+		method, request = "plan.clear", routeplan.ClearRequest{}
 	case len(req.Waypoints) > 0:
-		// Multi-hop plan. The first stop is also the current target, so the
-		// dashboard and every other reader keep working unchanged.
-		type planStop struct {
-			Lat   float64 `json:"lat"`
-			Lon   float64 `json:"lon"`
-			Label string  `json:"label,omitempty"`
+		if len(req.Waypoints) > 32 {
+			writeErr(w, http.StatusBadRequest, "route plan exceeds 32 stops")
+			return
 		}
-		stops := make([]planStop, 0, len(req.Waypoints))
+		stops := make([]routeplan.StopInput, 0, len(req.Waypoints))
 		for _, wp := range req.Waypoints {
 			if err := validCoords(wp.Latitude, wp.Longitude); err != nil {
 				writeErr(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			stops = append(stops, planStop{Lat: wp.Latitude, Lon: wp.Longitude,
-				Label: strings.TrimSpace(wp.Label)})
+			stops = append(stops, routeplan.StopInput{Lat: wp.Latitude, Lon: wp.Longitude, Label: strings.TrimSpace(wp.Label)})
 		}
-		encoded, err := json.Marshal(stops)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "encode waypoints")
-			return
-		}
-		lat, lon := fmt.Sprintf("%.6f", stops[0].Lat), fmt.Sprintf("%.6f", stops[0].Lon)
-		fields["latitude"] = lat
-		fields["longitude"] = lon
-		fields["address"] = stops[0].Label
-		fields["timestamp"] = time.Now().UTC().Format(time.RFC3339)
-		fields["destination"] = lat + "," + lon
-		fields["waypoints"] = string(encoded)
-		fields["current-step"] = "0"
+		method, request = "plan.replace", routeplan.ReplaceRequest{Stops: stops}
 	default:
 		if err := validCoords(req.Latitude, req.Longitude); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		lat, lon := fmt.Sprintf("%.6f", req.Latitude), fmt.Sprintf("%.6f", req.Longitude)
-		fields["latitude"] = lat
-		fields["longitude"] = lon
-		fields["address"] = strings.TrimSpace(req.Address)
-		fields["timestamp"] = time.Now().UTC().Format(time.RFC3339)
-		fields["destination"] = lat + "," + lon
-		// A single destination replaces any plan.
-		fields["waypoints"] = ""
-		fields["current-step"] = ""
+		method, request = "plan.replace", routeplan.ReplaceRequest{Stops: []routeplan.StopInput{{
+			Lat: req.Latitude, Lon: req.Longitude, Label: strings.TrimSpace(req.Address),
+		}}}
 	}
-	for _, f := range navFields {
-		if err := client.HSet("navigation", f, fields[f]); err != nil {
-			writeErr(w, http.StatusBadGateway, "write navigation: "+err.Error())
-			return
-		}
+	if _, err := routeplan.Call(client, method, request); err != nil {
+		writeErr(w, http.StatusBadGateway, "route plan: "+err.Error())
+		return
 	}
-	for _, f := range navFields {
-		_ = client.Publish(r.Context(), "navigation", f)
+	fields, err := client.HGetAll("navigation")
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "read navigation: "+err.Error())
+		return
 	}
 	if req.LocationID != nil && !req.Clear {
 		key := fmt.Sprintf("%s.%d.last-used-at", locationsPrefix, *req.LocationID)
