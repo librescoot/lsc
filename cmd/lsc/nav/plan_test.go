@@ -1,6 +1,7 @@
 package nav
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
@@ -29,10 +30,21 @@ func TestRapidPlanAddUsesAtomicAppend(t *testing.T) {
 			plan.ID = "plan-1"
 		}
 		plan.Revision++
-		plan.Stops = append(plan.Stops, routeplan.Stop{ID: "stop", Lat: req.Stop.Lat, Lon: req.Stop.Lon, Label: req.Stop.Label})
+		plan.Stops = append(plan.Stops, routeplan.Stop{ID: strconv.Itoa(len(plan.Stops) + 1), Lat: req.Stop.Lat, Lon: req.Stop.Lon, Label: req.Stop.Label})
 		return plan, nil
 	})
 	ipc.RegisterCall[routeplan.Empty, routeplan.Plan](server, "plan.get", func(routeplan.Empty) (routeplan.Plan, error) { return plan, nil })
+	ipc.RegisterCall[routeplan.ProgressRequest, routeplan.Plan](server, "plan.advance", func(req routeplan.ProgressRequest) (routeplan.Plan, error) {
+		if req.ExpectedPlanID != plan.ID || req.ExpectedStopID != plan.Stops[plan.CurrentStep].ID {
+			return routeplan.Plan{}, fmt.Errorf("stale progress")
+		}
+		if plan.Stops[plan.CurrentStep].Reached {
+			t.Error("skip marked current stop reached")
+		}
+		plan.CurrentStep++
+		plan.Revision++
+		return plan, nil
+	})
 	server.Start()
 	defer server.Stop()
 	for _, coord := range []string{"52.5,13.4", "52.6,13.5"} {
@@ -46,6 +58,16 @@ func TestRapidPlanAddUsesAtomicAppend(t *testing.T) {
 	}
 	if len(got.Stops) != 2 || got.Stops[0].Lat != 52.5 || got.Stops[1].Lat != 52.6 {
 		t.Fatalf("plan = %+v", got)
+	}
+	if err := navPlanSkipCmd.RunE(navPlanSkipCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err = routeplan.Call(RedisClient, "plan.get", routeplan.Empty{})
+	if err != nil || got.CurrentStep != 1 || got.Stops[0].Reached {
+		t.Fatalf("skipped plan = %+v, err = %v", got, err)
+	}
+	if err := navPlanSkipCmd.RunE(navPlanSkipCmd, nil); err == nil {
+		t.Fatal("skip at final stop succeeded")
 	}
 	var calls sync.WaitGroup
 	for _, lat := range []float64{52.7, 52.8} {

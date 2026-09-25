@@ -164,9 +164,6 @@ var navPlanSkipCmd = &cobra.Command{
 			return emitNavError("nav-plan-skip", fmt.Errorf("already at the last stop"))
 		}
 		request := routeplan.ProgressRequest{ExpectedPlanID: plan.ID, ExpectedStopID: plan.Stops[plan.CurrentStep].ID}
-		if _, err := routeplan.Call(RedisClient, "plan.reached", request); err != nil {
-			return emitNavError("nav-plan-skip", err)
-		}
 		plan, err = routeplan.Call(RedisClient, "plan.advance", request)
 		if err != nil {
 			return emitNavError("nav-plan-skip", err)
