@@ -3,7 +3,9 @@ package doctor
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"librescoot/lsc/internal/format"
 )
@@ -52,6 +54,26 @@ type VerdictText struct {
 	Hint    string `json:"hint,omitempty"`
 }
 
+// LinkPath is the transport this board's routing table sends peer traffic over.
+type LinkPath int
+
+const (
+	// LinkUnknown means the command is not running on a board, so the
+	// scooter's own inter-board link cannot be judged from here.
+	LinkUnknown LinkPath = iota
+	LinkUSB
+	LinkBackup
+	LinkDown
+)
+
+// Link is the route the local board has to its peer.
+type Link struct {
+	// Peer names the other board: "DBC" when running on the MDB and the other
+	// way round.
+	Peer string
+	Path LinkPath
+}
+
 // stateReader is the part of the Redis client the checks use, so a test can drive
 // them without a server.
 type stateReader interface {
@@ -66,6 +88,10 @@ type env struct {
 	failedUnits func() []string
 	// freeBytes is the space left on a mounted filesystem.
 	freeBytes func(path string) (free, total uint64, err error)
+	// link reports how this board's routing table reaches its peer.
+	link func() (Link, error)
+	// now is the clock, so a test can age the last-lock record.
+	now func() time.Time
 }
 
 type check struct {
@@ -75,11 +101,185 @@ type check struct {
 
 func allChecks() []check {
 	return []check{
+		{"link", checkLink},
 		{"kernel", checkKernel},
 		{"services", checkServices},
 		{"ota", checkOTA},
 		{"faults", checkFaults},
 		{"storage", checkStorage},
+	}
+}
+
+// checkLink reports whether this board has a route to its peer, and which of
+// the two physically independent links carries it.
+//
+// The DBC reaches the MDB's Redis over the USB link (192.168.9.0/24), with a
+// PPP-over-UART backup (192.168.8.0/24) that survives the USB link being lost.
+// Both sides keep their stable service address (192.168.7.1/.2): the link
+// monitor installs a metric-50 route to the peer over USB while a probe answers,
+// and the PPP hooks install a metric-200 route over the backup. Reading those
+// /32 routes is therefore both the liveness and the transport answer, whereas
+// the connected /24 route stays in the table with the peer switched off.
+//
+// The live route is only meaningful while the DBC is on its own USB. To run lsc
+// a person plugs a laptop into the MDB's USB port, which takes the DBC's place
+// there, so the live answer during a support session says nothing about normal
+// operation. The verdict therefore comes from the transport vehicle-service
+// recorded when the DBC was last powered off, and the live route is context.
+func checkLink(e env) Result {
+	result := Result{Name: "link"}
+	if e.link == nil {
+		result.Verdict = VerdictUnknown
+		result.Detail = "routing table not available"
+		return result
+	}
+	link, err := e.link()
+	if err != nil {
+		result.Verdict = VerdictUnknown
+		result.Detail = "routing table not readable"
+		return result
+	}
+
+	if last, ok := readLastLink(e); ok {
+		return lastLockResult(result, last, link, e.now)
+	}
+
+	switch link.Path {
+	case LinkUSB:
+		result.Verdict = VerdictOK
+		result.Detail = link.Peer + " over the USB link"
+	case LinkBackup:
+		result.Verdict = VerdictWarning
+		result.Detail = link.Peer + " over the PPP backup link"
+		result.Hint = "The USB link is down. Check the USB cable and the DBC's power."
+	case LinkDown:
+		result.Verdict = VerdictAttention
+		result.Detail = "no route to the " + link.Peer
+		result.Hint = "Check that the DBC is powered and its USB cable is seated; the backup link needs ppp-link."
+	default:
+		result.Verdict = VerdictUnknown
+		result.Detail = "not running on a board"
+	}
+	return result
+}
+
+// lastLink is the link state vehicle-service recorded in the system hash when the
+// DBC was last powered off.
+type lastLink struct {
+	transport string // "usb0", "ppp0" or "none"
+	usb       string // "up", "down" or "" when not recorded
+	ppp       string // "up", "down" or "" when not recorded
+	at        int64  // unix seconds, 0 when unknown
+}
+
+func readLastLink(e env) (lastLink, bool) {
+	if e.state == nil {
+		return lastLink{}, false
+	}
+	system, err := e.state.HGetAll("system")
+	if err != nil || system["dbc-link"] == "" {
+		return lastLink{}, false
+	}
+	last := lastLink{
+		transport: system["dbc-link"],
+		usb:       system["dbc-usb"],
+		ppp:       system["dbc-ppp"],
+	}
+	if at, err := strconv.ParseInt(system["dbc-link-at"], 10, 64); err == nil {
+		last.at = at
+	}
+	return last, true
+}
+
+// lastLockResult judges the scooter on the session that just ended, with the
+// live route as context. A support session where the laptop holds the USB port,
+// or a switched-off DBC, must not read as a fault.
+func lastLockResult(result Result, last lastLink, link Link, now func() time.Time) Result {
+	var detail string
+	switch last.transport {
+	case "usb0":
+		result.Verdict = VerdictOK
+		detail = "DBC over the USB link at last lock"
+	case "ppp0":
+		result.Verdict = VerdictWarning
+		detail = "DBC over the PPP backup link at last lock"
+		result.Hint = "The DBC ran on the UART backup, so the USB link was down. Check the USB cable and connector."
+	case "none":
+		result.Verdict = VerdictAttention
+		detail = "no DBC link at last lock"
+		result.Hint = "The DBC was unreachable when it was last powered off. Check its power and the USB cable."
+	default:
+		result.Verdict = VerdictUnknown
+		detail = "DBC link unclear at last lock (" + last.transport + ")"
+	}
+
+	// The active link working says nothing about the fallback. Surface a PPP
+	// route that never came up, so a reader does not assume it is there.
+	if last.transport == "usb0" && last.ppp == "down" {
+		result.Verdict = VerdictWarning
+		result.Hint = "The USB link carried the traffic, but the PPP fallback did not come up: if USB fails, the DBC loses Redis."
+	}
+
+	if health := linkHealthText(last); health != "" {
+		detail += " (" + health + ")"
+	}
+	if age := ageText(last.at, now); age != "" {
+		detail += ", " + age
+	}
+	detail += liveContext(last, link)
+	result.Detail = detail
+	return result
+}
+
+// linkHealthText names whether each link had a route at the last lock, so a
+// reader can judge whether the fallback was usable at all. An unrecorded link
+// is left out rather than guessed at.
+func linkHealthText(last lastLink) string {
+	var parts []string
+	if last.usb != "" {
+		parts = append(parts, "USB "+last.usb)
+	}
+	if last.ppp != "" {
+		parts = append(parts, "PPP "+last.ppp)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// liveContext names the current transport when it differs from the recorded
+// one, so a reader can tell "the scooter runs on USB" from "it was on USB and is
+// on the backup right now".
+func liveContext(last lastLink, link Link) string {
+	switch link.Path {
+	case LinkUSB:
+		if last.transport != "usb0" {
+			return "; USB now"
+		}
+	case LinkBackup:
+		if last.transport != "ppp0" {
+			return "; PPP now"
+		}
+	case LinkDown:
+		return "; no route now"
+	}
+	return ""
+}
+
+// ageText is a coarse age for a unix timestamp, so a stale record is not read as
+// a fresh one. An unknown timestamp yields nothing.
+func ageText(unix int64, now func() time.Time) string {
+	if unix <= 0 || now == nil {
+		return ""
+	}
+	age := now().Sub(time.Unix(unix, 0))
+	switch {
+	case age < time.Minute:
+		return "just now"
+	case age < time.Hour:
+		return fmt.Sprintf("%dm ago", int(age.Minutes()))
+	case age < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(age.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(age.Hours()/24))
 	}
 }
 

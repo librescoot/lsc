@@ -3,9 +3,11 @@ package doctor
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"librescoot/lsc/internal/cli"
 	"librescoot/lsc/internal/format"
@@ -40,8 +42,8 @@ var DoctorCmd = &cobra.Command{
 	Long: `Run read-only checks and report anything that looks wrong.
 
 Exits non-zero if a check needs attention, so a script or a support runbook can
-use it as a gate. Warnings (an update waiting for its reboot, low space in /data)
-are printed without failing.`,
+use it as a gate. Warnings (an update waiting for its reboot, low space in /data,
+a link running on its backup transport) are printed without failing.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return run(cmd)
 	},
@@ -52,9 +54,11 @@ func run(cmd *cobra.Command) error {
 		state:       RedisClient,
 		failedUnits: failedUnits,
 		freeBytes:   freeBytes,
+		link:        localLink,
+		now:         time.Now,
 	}
 
-	results := make([]Result, 0, 5)
+	results := make([]Result, 0, 6)
 	for _, c := range allChecks() {
 		result := c.run(e)
 		if result.Name == "" {
@@ -148,6 +152,58 @@ func verdictText(v Verdict) string {
 		return format.Error("attention")
 	}
 	return format.Dim("unknown")
+}
+
+// localLink reports how this board routes traffic to its peer, read from the
+// routing table and named from the image variant.
+func localLink() (Link, error) {
+	variant, err := boardVariant()
+	if err != nil {
+		return Link{}, err
+	}
+
+	var link Link
+	peerAddress := ""
+	switch {
+	case strings.Contains(variant, "mdb"):
+		link.Peer, peerAddress = "DBC", "192.168.7.2"
+	case strings.Contains(variant, "dbc"):
+		link.Peer, peerAddress = "MDB", "192.168.7.1"
+	default:
+		return Link{}, nil
+	}
+
+	out, err := exec.Command("ip", "route", "show", peerAddress+"/32").Output()
+	if err != nil {
+		return Link{}, err
+	}
+	// Both routes can be present; USB carries the lower metric and is the one
+	// the kernel picks.
+	switch {
+	case strings.Contains(string(out), "dev usb0"):
+		link.Path = LinkUSB
+	case strings.Contains(string(out), "dev ppp0"):
+		link.Path = LinkBackup
+	default:
+		link.Path = LinkDown
+	}
+	return link, nil
+}
+
+// boardVariant is VARIANT_ID from os-release, which the images set to the
+// machine name (unu-mdb, unu-dbc, librescoot-dbc-rpi4). An empty result means
+// this is not a scooter board.
+func boardVariant() (string, error) {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if value, ok := strings.CutPrefix(line, "VARIANT_ID="); ok {
+			return strings.Trim(strings.TrimSpace(value), `"`), nil
+		}
+	}
+	return "", nil
 }
 
 // failedUnits lists systemd units in the failed state. --no-legend also drops the
