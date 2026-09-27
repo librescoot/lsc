@@ -80,12 +80,13 @@ live in `internal/lsd/static/de.js`, keyed by the English text.
 ## Running it
 
 ```sh
-lsd [-addr ADDRESS] [-redis-addr ADDRESS] [-data DIRECTORY] [-token TOKEN] [-sunshine-url URL]
+lsd [-addr ADDRESS] [-wg-interface NAME] [-redis-addr ADDRESS] [-data DIRECTORY] [-token TOKEN] [-sunshine-url URL]
 ```
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `-addr` | `192.168.7.1:8090` | HTTP listen address. The default is the MDB's usb0 address, so the daemon is reachable exactly when the usb0 management network is. |
+| `-addr` | `192.168.7.1:8090` | Primary HTTP listen address (MDB usb0). The default also listens on `wg0` if it has an IPv4 address. |
+| `-wg-interface` | `wg0` with default `-addr`; otherwise *(none)* | Additional WireGuard interface to listen on; its IPv4 address is followed as it appears or changes. |
 | `-redis-addr` | `localhost:6379` | Redis/Valkey address. |
 | `-data` | `/data` | Directory exposed in the file browser. |
 | `-token` | *(empty)* | When set, every request must carry this bearer token (`Authorization` header, or `?token=` for the SSE stream and downloads). |
@@ -94,14 +95,14 @@ lsd [-addr ADDRESS] [-redis-addr ADDRESS] [-data DIRECTORY] [-token TOKEN] [-sun
 
 ### Availability and the usb0 gate
 
-The daemon serves whenever its address can be bound. If usb0 is not up yet
-(early boot, UMS mode active) it retries every 5 seconds instead of exiting,
-so it comes back by itself when the management network returns. Like the
-data-server it has no gate of its own: reachability is decided by the usb0
-link, which vehicle-service owns (`system[usb0-gate]` records the decision,
+The primary listener retries every 5 seconds until its address is available.
+The optional WireGuard listener starts independently when its interface has
+an IPv4 address, and follows address changes. Neither listener binds to the
+mobile-network interface. The USB address follows the usb0 link, which
+vehicle-service owns (`system[usb0-gate]` records the decision;
 `scooter.usb0-policy` can pin it `always-on` for servicing). The dashboard
 shows the current gate state. [docs/lsd-always-on.md](docs/lsd-always-on.md)
-discusses making the interface reachable without usb0.
+discusses USB reachability without usb0.
 
 ### Security posture
 
@@ -109,11 +110,12 @@ The daemon has full control over the scooter: it queues power and vehicle
 commands, writes settings, manipulates `/data`, restarts services and, on the
 Shell page, runs arbitrary commands as root. That last one is a root shell in
 a browser tab, so treat reaching lsd as equal to having the board's shell;
-`-no-shell` removes the page and the API when that is too much. It is meant
-for the usb0 management network only. Bind it away from other
-interfaces (the default does), firewall the port, and set `-token` when the
-network is not fully trusted. There is no TLS; usb0 is a point-to-point
-cable.
+`-no-shell` removes the page and the API when that is too much. The default
+binds only usb0 and an assigned `wg0` IPv4 address, not the mobile-network
+interface. Every WireGuard peer that can reach the port can control the
+scooter and run the shell unless `-token` or `-no-shell` is configured; use
+those flags or firewall the port when peers are not fully trusted. lsd has no
+TLS; the USB link is point-to-point and WireGuard encrypts its own traffic.
 
 State-changing requests are rejected when the browser marks them as
 cross-origin (`Origin` or `Sec-Fetch-Site`), so a page open in another tab

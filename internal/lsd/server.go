@@ -2,9 +2,8 @@
 // front end over the Redis interfaces the Librescoot services already expose.
 //
 // The daemon is deliberately boring: net/http, an embedded single-page UI and
-// one Redis connection. It runs on the MDB and, by default, listens only on
-// the usb0 management address (192.168.7.1), so its reachability matches the
-// usb0 link, the same exposure the data-server has.
+// one Redis connection. It runs on the MDB and binds the usb0 management
+// address (192.168.7.1), plus the WireGuard address when configured.
 package lsd
 
 import (
@@ -134,11 +133,39 @@ func (s *Server) getSchema() *schema.Schema {
 	return s.schema
 }
 
-// ListenAndServe binds addr and serves until Shutdown. If the address cannot
-// be bound, usually because usb0 is not up yet, it retries every 5 seconds
-// rather than exiting: the daemon is expected to be available exactly when
-// the management network comes back.
+// ListenAndServe binds addr and serves until Shutdown.
 func (s *Server) ListenAndServe(addr string) error {
+	return s.ListenAndServeOn(addr, "")
+}
+
+// ListenAndServeOn serves the management address and, if named, the WireGuard
+// interface's IPv4 address. Both listeners come and go independently.
+func (s *Server) ListenAndServeOn(addr, wgInterface string) error {
+	var wgPort string
+	if wgInterface != "" {
+		var err error
+		_, wgPort, err = net.SplitHostPort(addr)
+		if err != nil {
+			return err
+		}
+	}
+	srv := &http.Server{
+		Handler:           s.routes(),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	s.mu.Lock()
+	s.httpServer = srv
+	stopping := s.stopping
+	s.mu.Unlock()
+	if stopping {
+		return nil
+	}
+	go s.runStreamBridge()
+	if wgInterface != "" {
+		go s.serveWireGuard(srv, wgInterface, wgPort)
+	}
+
 	var ln net.Listener
 	logged := false
 	for {
@@ -157,28 +184,97 @@ func (s *Server) ListenAndServe(addr string) error {
 		case <-time.After(5 * time.Second):
 		}
 	}
-	log.Printf("Listening on http://%s", addr)
-
-	go s.runStreamBridge()
-
-	srv := &http.Server{
-		Handler:           s.routes(),
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       120 * time.Second,
-	}
-	s.mu.Lock()
-	s.httpServer = srv
-	stopping := s.stopping
-	s.mu.Unlock()
-	if stopping {
+	select {
+	case <-s.doneCh:
 		_ = ln.Close()
 		return nil
+	default:
 	}
+	log.Printf("Listening on http://%s", ln.Addr())
 	err := srv.Serve(ln)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
 	return err
+}
+
+// serveWireGuard follows an interface whose address may appear after boot or
+// change on reconfiguration without exposing the HTTP server on other links.
+func (s *Server) serveWireGuard(srv *http.Server, iface, port string) {
+	s.followAddress(srv, port, func() string { return wireGuardIPv4(iface) }, 5*time.Second)
+}
+
+func (s *Server) followAddress(srv *http.Server, port string, address func() string, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	var ln net.Listener
+	current := ""
+	ended := make(chan net.Listener, 1)
+	for {
+		ip := address()
+		if ip != current || (ip != "" && ln == nil) {
+			if ln != nil {
+				_ = ln.Close()
+				ln = nil
+			}
+			current = ip
+			if ip != "" {
+				addr := net.JoinHostPort(ip, port)
+				var err error
+				ln, err = net.Listen("tcp", addr)
+				if err != nil {
+					log.Printf("Cannot bind WireGuard address %s yet: %v", addr, err)
+					ln = nil
+				} else {
+					log.Printf("Listening on http://%s (WireGuard)", addr)
+					go func(listener net.Listener) {
+						if err := srv.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
+							log.Printf("WireGuard listener: %v", err)
+						}
+						select {
+						case ended <- listener:
+						default:
+						}
+					}(ln)
+				}
+			}
+		}
+		select {
+		case <-s.doneCh:
+			if ln != nil {
+				_ = ln.Close()
+			}
+			return
+		case stopped := <-ended:
+			if stopped == ln {
+				ln = nil
+			}
+		case <-ticker.C:
+		}
+	}
+}
+
+func wireGuardIPv4(name string) string {
+	iface, err := net.InterfaceByName(name)
+	if err != nil || iface.Flags&net.FlagUp == 0 {
+		return ""
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+	return firstGlobalIPv4(addrs)
+}
+
+func firstGlobalIPv4(addrs []net.Addr) string {
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok {
+			if ip := ipNet.IP.To4(); ip != nil && ip.IsGlobalUnicast() {
+				return ip.String()
+			}
+		}
+	}
+	return ""
 }
 
 // Shutdown stops the HTTP server and closes Redis. Safe to call twice.

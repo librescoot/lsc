@@ -1,12 +1,9 @@
 // lsd, the Librescoot Daemon.
 //
 // A small web server that runs on the MDB and exposes scooter configuration,
-// control and status over the usb0 management network. It is the web-based
-// complement to the lsc CLI: same Redis interfaces, browser front end.
-//
-// By default lsd binds to 192.168.7.1, the MDB's usb0 address, so it is
-// reachable exactly when usb0 is. If that address is not present yet (early
-// boot, UMS mode active) the daemon retries binding in the background.
+// control and status over the usb0 management network and, when configured,
+// WireGuard. It is the web-based complement to the lsc CLI: same Redis
+// interfaces, browser front end.
 package main
 
 import (
@@ -27,6 +24,7 @@ var version = "dev"
 func main() {
 	var (
 		addr     = flag.String("addr", "192.168.7.1:8090", "HTTP listen address (default is the MDB usb0 address)")
+		wgIface  = flag.String("wg-interface", "", "Also listen on this WireGuard interface (default wg0 with the default -addr)")
 		redisAdr = flag.String("redis-addr", "localhost:6379", "Redis server address (host:port)")
 		dataDir  = flag.String("data", "/data", "Data directory to expose in the file browser")
 		token    = flag.String("token", "", "Require a bearer token for all requests (empty disables auth)")
@@ -78,9 +76,13 @@ func main() {
 		}
 	}()
 
+	iface := *wgIface
+	if iface == "" && *addr == "192.168.7.1:8090" {
+		iface = "wg0"
+	}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- srv.ListenAndServe(*addr)
+		errCh <- srv.ListenAndServeOn(*addr, iface)
 	}()
 
 	sig := make(chan os.Signal, 1)
