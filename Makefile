@@ -62,14 +62,10 @@ deploy-test: deploy
 	@echo "Testing basic status command..."
 	@ssh deep-blue "/data/lsc-* status"
 
-# Deploy lsd to Deep Blue's /data partition and run it from there, bound to
-# all interfaces so it is reachable over wireguard (10.7.0.4) as well as usb0.
-# pkill -x matches the process name only: a -f pattern would also match the
-# remote shell running this very command and kill the deploy.
+# Stage the ARM binary, keep a rollback copy, and restart the systemd service.
 deploy-lsd:
 	@echo "Building lsd for ARM..."
-	@make build-arm
-	@echo "Copying to Deep Blue..."
+	@$(MAKE) build-arm
 	@ssh deep-blue 'mkdir -p /data/lsd'
 	@scp $(BUILD_DIR)/lsd deep-blue:/data/lsd/lsd-new
-	@ssh deep-blue 'pkill -x lsd; sleep 1; mv /data/lsd/lsd-new /data/lsd/lsd && chmod +x /data/lsd/lsd; nohup /data/lsd/lsd -addr :8090 >>/data/lsd/lsd.log 2>&1 & sleep 1; tail -3 /data/lsd/lsd.log; echo; echo "lsd is up on http://192.168.7.1:8090 and http://10.7.0.4:8090"'
+	@ssh deep-blue 'set -e; cp /usr/bin/lsd /data/lsd/lsd-prev; install -m 755 /data/lsd/lsd-new /usr/bin/lsd.next; mv -f /usr/bin/lsd.next /usr/bin/lsd; if ! systemctl restart librescoot-lsd || ! systemctl is-active --quiet librescoot-lsd; then install -m 755 /data/lsd/lsd-prev /usr/bin/lsd.next; mv -f /usr/bin/lsd.next /usr/bin/lsd; systemctl restart librescoot-lsd; exit 1; fi; systemctl --no-pager status librescoot-lsd | head -10'
