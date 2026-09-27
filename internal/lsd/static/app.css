@@ -382,9 +382,11 @@ tr:hover .row-actions, tr:focus-within .row-actions { opacity: 1; }
 .crumbs a:hover { background: var(--surface-2); text-decoration: none; color: var(--text); }
 .crumbs .sep { color: var(--border-strong); padding: 0 0.1rem; }
 .crumbs .here { color: var(--text); padding: 0.1rem 0.25rem; }
-.dropzone { position: relative; border: 1px dashed transparent; border-radius: var(--radius-lg); transition: border-color 0.15s ease, background 0.15s ease; }
+.dropzone { border: 2px dashed var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); padding: 1rem; transition: border-color 0.15s ease, background 0.15s ease; }
 .dropzone.is-drag { border-color: var(--accent); background: var(--accent-subtle); }
-.drop-hint { color: var(--text-3); font-size: 0.85rem; margin: 1rem 0 0; }
+.drop-hint { color: var(--text-2); font-size: 0.9rem; margin: 0 0 0.75rem; }
+.dropzone.is-drag .drop-hint { color: var(--accent); font-weight: 600; }
+#upd-dropzone .inline-form { margin-bottom: 0; }
 table.files td:first-child a { color: var(--text); display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
 table.files td:first-child a svg { flex: none; width: 16px; height: 16px; }
 table.files .fname { min-width: 0; }

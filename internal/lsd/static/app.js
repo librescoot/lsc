@@ -767,6 +767,42 @@ $("#raw-filter").addEventListener("input", renderRawHashes);
 
 function debounce(fn, ms) { let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), ms); }; }
 
+// ---------- file drop targets ----------
+
+function fileDropzone(zone, onFiles) {
+  let depth = 0;
+  const reset = () => { depth = 0; zone.classList.remove("is-drag"); };
+  const carryingFiles = e => [...(e.dataTransfer?.types || [])].includes("Files");
+  zone.addEventListener("dragenter", e => {
+    if (!carryingFiles(e)) return;
+    e.preventDefault();
+    depth++;
+    zone.classList.add("is-drag");
+  });
+  zone.addEventListener("dragover", e => {
+    if (!carryingFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    zone.classList.add("is-drag");
+  });
+  zone.addEventListener("dragleave", e => {
+    if (!carryingFiles(e)) return;
+    if (--depth <= 0) reset();
+  });
+  zone.addEventListener("drop", e => {
+    if (!carryingFiles(e)) return;
+    e.preventDefault();
+    reset();
+    onFiles([...e.dataTransfer.files]);
+  });
+  window.addEventListener("blur", reset);
+  document.addEventListener("drop", reset);
+}
+
+// Do not navigate away from the console when a file misses its drop target.
+document.addEventListener("dragover", e => { if ([...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); });
+document.addEventListener("drop", e => { if ([...(e.dataTransfer?.types || [])].includes("Files")) e.preventDefault(); });
+
 // ---------- updates ----------
 
 const upd = { data: null, chosen: {} };
@@ -898,26 +934,40 @@ $("#view-updates").addEventListener("click", async e => {
   finally { btn.classList.remove("is-busy"); }
 });
 
-$("#upd-upload-form").addEventListener("submit", e => {
-  e.preventDefault();
-  const file = $("#upd-upload-file").files[0];
+let updateUploading = false;
+function uploadUpdate(file) {
+  if (updateUploading) return notify(t("Upload already in progress"), true);
   if (!file) return notify(t("Choose a file first"), true);
   if (!/\.(mender|delta)$/.test(file.name)) return notify(t("Only .mender and .delta files"), true);
   const board = $("#upd-upload-board").value;
   const prog = $("#upd-upload-progress"), bar = $("span", prog);
+  const button = $("#upd-upload-form button[type=submit]");
+  updateUploading = true;
+  button.disabled = true;
   prog.hidden = false; bar.style.width = "0%";
   const xhr = new XMLHttpRequest();
   xhr.open("PUT", `/api/updates/upload?board=${board}&name=${encodeURIComponent(file.name)}`);
   for (const [k, v] of Object.entries(API.headers(false))) xhr.setRequestHeader(k, v);
   xhr.upload.onprogress = ev => { if (ev.lengthComputable) bar.style.width = `${Math.round(ev.loaded / ev.total * 100)}%`; };
+  const done = () => { updateUploading = false; button.disabled = false; prog.hidden = true; };
   xhr.onload = () => {
-    prog.hidden = true;
+    done();
     let data = {}; try { data = JSON.parse(xhr.responseText); } catch { /* not json */ }
     if (xhr.status >= 200 && xhr.status < 300) { notify(t("Uploaded {name}", { name: file.name })); $("#upd-upload-file").value = ""; Views.updates(); }
     else notify(data.error || t("Upload failed (HTTP {status})", { status: xhr.status }), true);
   };
-  xhr.onerror = () => { prog.hidden = true; notify(t("Upload failed"), true); };
+  xhr.onerror = () => { done(); notify(t("Upload failed"), true); };
   xhr.send(file);
+}
+
+$("#upd-upload-form").addEventListener("submit", e => {
+  e.preventDefault();
+  uploadUpdate($("#upd-upload-file").files[0]);
+});
+fileDropzone($("#upd-dropzone"), files => {
+  if (files.length !== 1) return notify(t("Drop one update file at a time"), true);
+  $("#upd-upload-file").value = "";
+  uploadUpdate(files[0]);
 });
 
 // ---------- system ----------
@@ -1356,10 +1406,7 @@ async function uploadFiles(files) {
   renderFiles();
 }
 
-const dz = $("#dropzone");
-dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("is-drag"); });
-dz.addEventListener("dragleave", () => dz.classList.remove("is-drag"));
-dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("is-drag"); await uploadFiles([...e.dataTransfer.files]); });
+fileDropzone($("#dropzone"), uploadFiles);
 
 $("#files-mkdir").addEventListener("click", async () => {
   const name = await promptDialog({ title: t("New folder"), body: `In /data${filesPath ? "/" + filesPath : ""}`, placeholder: t("Folder name"), ok: t("Create") });

@@ -270,11 +270,11 @@
     </div>
     <nav data-i18n-attr="aria-label" id="files-crumbs" class="crumbs" aria-label="Path"></nav>
     <div id="dropzone" class="dropzone">
+      <p data-i18n class="drop-hint">Drop files here to upload them to this folder.</p>
       <table id="files-table" class="data files">
         <thead><tr><th data-i18n>Name</th><th data-i18n class="num">Size</th><th data-i18n>Modified</th><th class="actions"></th></tr></thead>
         <tbody></tbody>
       </table>
-      <p data-i18n class="drop-hint">Drop files here to upload them to this folder.</p>
     </div>
   </section>
 
@@ -331,13 +331,17 @@
 
     <section class="block">
       <h2 data-i18n>Install a file</h2>
+      <p><a data-i18n href="https://downloads.librescoot.org/#firmware" target="_blank" rel="noopener noreferrer">Browse firmware downloads (opens in a new tab)</a></p>
       <p data-i18n-html>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. Files for the display are copied over when you install them; the display is switched on for that if needed.</p>
-      <form id="upd-upload-form" class="inline-form">
-        <select data-i18n-attr="aria-label" id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option data-i18n value="dbc">Display (DBC)</option></select>
-        <input data-i18n-attr="aria-label" type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
-        <button data-i18n type="submit" class="btn btn-primary">Upload</button>
-      </form>
-      <div id="upd-upload-progress" class="progress" hidden><span></span></div>
+      <div id="upd-dropzone" class="dropzone">
+        <p data-i18n class="drop-hint">Drop a .mender or .delta file here to upload it to the selected board.</p>
+        <form id="upd-upload-form" class="inline-form">
+          <select data-i18n-attr="aria-label" id="upd-upload-board" class="narrow" aria-label="Board"><option value="mdb">MDB</option><option data-i18n value="dbc">Display (DBC)</option></select>
+          <input data-i18n-attr="aria-label" type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
+          <button data-i18n type="submit" class="btn btn-primary">Upload</button>
+        </form>
+        <div id="upd-upload-progress" class="progress" hidden><span></span></div>
+      </div>
       <div id="upd-files"></div>
     </section>
   </section>
