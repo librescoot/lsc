@@ -119,17 +119,17 @@
             <button data-i18n type="button" class="cmd cmd-small" data-cmd="power-run" id="cmd-cancel-power" hidden>Cancel power-off</button>
             <button data-i18n type="button" class="cmd cmd-small" data-cmd="power-hibernate-cancel" id="cmd-cancel-wake" hidden>Cancel wake timer</button>
           </div>
-          <p data-i18n class="cmd-hint">Hibernate powers off the scooter until a keycard or button wakes it. Wake after adds a timer. Rebooting takes about one minute.</p>
+          <p data-i18n class="cmd-hint">Hibernate turns the scooter off until you wake it with a keycard or button. Wake after sets a timer. A reboot takes about a minute.</p>
           <p class="cmd-hint" id="power-hint"></p>
         </div>
 
         <div class="cmd-label" data-i18n>Service mode</div>
         <div>
           <div class="cmd-row">
-            <button data-i18n data-i18n-attr="data-confirm data-title" type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="Service mode keeps the scooter awake and the USB link active. The alarm and automatic handlebar locking remain disabled until service mode ends or the scooter reboots.">Enable</button>
+            <button data-i18n data-i18n-attr="data-confirm data-title" type="button" class="cmd cmd-small" data-cmd="service-mode-on" data-title="Enable service mode" data-confirm="Service mode keeps the scooter awake and USB connected. The alarm and automatic handlebar locking stay off until you leave service mode or reboot.">Enable</button>
             <button data-i18n type="button" class="cmd cmd-small" data-cmd="service-mode-off">Disable</button>
           </div>
-          <p data-i18n class="cmd-hint">Keeps the scooter awake and the USB link active. The alarm and automatic handlebar locking remain disabled until service mode ends.</p>
+          <p data-i18n class="cmd-hint">The scooter stays awake and USB stays connected. The alarm and automatic handlebar locking stay off until you leave service mode.</p>
         </div>
       </div>
     </section>
@@ -163,7 +163,7 @@
           <input data-i18n-attr="placeholder aria-label" id="raw-filter" type="search" placeholder="Filter fields" aria-label="Filter fields">
         </div>
       </div>
-      <p data-i18n class="lede">Shows the current contents of the Redis hashes used by lsd.</p>
+      <p data-i18n class="lede">Live Redis values from the scooter.</p>
       <div id="raw-hashes"></div>
     </section>
   </section>
@@ -176,14 +176,14 @@
         <label class="check" data-i18n><input id="settings-advanced" type="checkbox"> Advanced mode</label>
       </div>
     </div>
-    <p data-i18n class="lede">Changes take effect when saved. Empty fields use their default values.</p>
+    <p data-i18n class="lede">Save to apply your changes. Leave a field empty to use its default.</p>
     <nav data-i18n-attr="aria-label" id="settings-jump" class="jump" data-prefix="group-" aria-label="Services"></nav>
     <div id="settings-groups"></div>
   </section>
 
   <section id="view-navigation" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Navigation</h1></div>
-    <p data-i18n class="lede">Set a route with ordered stops, or navigate to a single destination. Manage the locations shown on the dashboard.</p>
+    <p data-i18n class="lede">Plan several stops, or set a single destination. Saved locations also appear on the scooter's display.</p>
 
     <section class="block nav-dest">
       <h2 data-i18n>Destination</h2>
@@ -227,7 +227,7 @@
 
   <section id="view-keycards" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Keycards</h1></div>
-    <p data-i18n class="lede">Authorized keycards unlock the scooter. To add keycards at the reader, present a master keycard followed by each new keycard.</p>
+    <p data-i18n class="lede">Only authorized keycards can unlock the scooter. To add one at the reader, tap a master card, then the new card.</p>
 
     <div class="two-col">
       <section class="block">
@@ -251,7 +251,7 @@
           <button data-i18n type="button" class="btn" id="kc-master-start">Add a master by tapping</button>
           <button data-i18n type="button" class="btn" id="kc-master-stop" hidden>Cancel</button>
         </div>
-        <p data-i18n class="cmd-hint">Adds a master keycard without removing existing ones.</p>
+        <p data-i18n class="cmd-hint">Add a master card without removing the others.</p>
 
         <h2 data-i18n class="kc-sub">Last card at the reader</h2>
         <div id="kc-last" class="kc-last muted">Nothing tapped yet.</div>
@@ -260,7 +260,7 @@
 
     <details class="block advanced adv-only">
       <summary><h2 data-i18n>Start over</h2></summary>
-      <p data-i18n>Removes all cards. The next card tapped at the reader becomes the new master; until then no card unlocks the scooter.</p>
+      <p data-i18n>This removes every card. The next card you tap at the reader becomes the new master. Until then, no card can unlock the scooter.</p>
       <button data-i18n type="button" class="btn btn-danger" id="kc-reset">Forget all cards</button>
     </details>
   </section>
@@ -276,7 +276,7 @@
     </div>
     <nav data-i18n-attr="aria-label" id="files-crumbs" class="crumbs" aria-label="Path"></nav>
     <div id="dropzone" class="dropzone">
-      <p data-i18n class="drop-hint">Drop files here to upload them to this folder.</p>
+      <p data-i18n class="drop-hint">Drop files here to upload to this folder.</p>
       <table id="files-table" class="data files">
         <thead><tr><th data-i18n>Name</th><th data-i18n class="num">Size</th><th data-i18n>Modified</th><th class="actions"></th></tr></thead>
         <tbody></tbody>
@@ -286,7 +286,7 @@
 
   <section id="view-cloud" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Cloud</h1></div>
-    <p data-i18n class="lede">Sunshine provides remote vehicle control, location, telemetry and companion-app access. radio-gaga connects to Sunshine; uplink-service connects to a custom backend.</p>
+    <p data-i18n class="lede">Use Sunshine for remote access from the companion app. Or connect uplink-service to your own backend.</p>
 
     <div class="two-col">
       <section class="block">
@@ -302,7 +302,7 @@
     <section class="block" id="cloud-connect">
       <h2 data-i18n>Connect to Sunshine</h2>
       <div id="cloud-connected" class="notice notice-ok" hidden></div>
-      <p data-i18n-html>Create a bootstrap token in <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/settings" target="_blank" rel="noopener">your Sunshine settings</a> and paste it here. The scooter registers with its IMEI and board serials, Sunshine adds it to your account, and radio-gaga is configured and started.</p>
+      <p data-i18n-html>Get a bootstrap token from <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/settings" target="_blank" rel="noopener">your Sunshine settings</a> and paste it here. Sunshine links this scooter to your account using its IMEI and board serials, then configures and starts radio-gaga.</p>
       <form id="cloud-bootstrap-form" class="inline-form">
         <input data-i18n-attr="placeholder aria-label" id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="Bootstrap token" aria-label="Bootstrap token" required>
         <button data-i18n type="submit" class="btn btn-primary">Connect</button>
@@ -312,7 +312,7 @@
 
     <details class="block advanced adv-only">
       <summary><h2 data-i18n>Install a config file</h2></summary>
-      <p data-i18n>For uplink-service, or a radio-gaga config downloaded from Sunshine. The service restarts with it.</p>
+      <p data-i18n>Paste a config for uplink-service or radio-gaga. The service restarts when you install it.</p>
       <form id="cloud-config-form">
         <div class="inline-form">
           <select data-i18n-attr="aria-label" id="cloud-service" aria-label="Service">
@@ -332,13 +332,13 @@
 
   <section id="view-updates" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Updates</h1></div>
-    <p data-i18n class="lede">MDB and DBC install updates independently. Select a channel to preview its available version. Changing channels downloads a full image; later updates on the same channel use smaller deltas.</p>
+    <p data-i18n class="lede">The main computer (MDB) and display (DBC) update separately. Pick a channel to see its latest release. Switching channels downloads a full image; later updates can use smaller deltas.</p>
     <div class="two-col" id="upd-boards"></div>
 
     <section class="block">
       <h2 data-i18n>Install a file</h2>
-      <p><a data-i18n href="https://downloads.librescoot.org/#firmware" target="_blank" rel="noopener noreferrer">Browse firmware downloads (opens in a new tab)</a></p>
-      <p data-i18n-html>A <span class="mono">.mender</span> image or a <span class="mono">.delta</span> patch. Files for the display are copied over when you install them; the display is switched on for that if needed.</p>
+      <p><a data-i18n href="https://downloads.librescoot.org/#firmware" target="_blank" rel="noopener noreferrer">Get firmware files (opens in a new tab)</a></p>
+      <p data-i18n-html>Upload a <span class="mono">.mender</span> image or <span class="mono">.delta</span> patch. Display updates are copied over when you install them; the display turns on if needed.</p>
       <div id="upd-dropzone" class="dropzone">
         <p data-i18n class="drop-hint">Drop a .mender or .delta file here, or choose one below.</p>
         <form id="upd-upload-form" class="inline-form">
@@ -383,7 +383,7 @@
     <div class="two-col">
       <section class="block" id="sys-logs">
         <h2 data-i18n>Log bundles</h2>
-        <p data-i18n>A snapshot of the scooter's logs and state, for troubleshooting. Takes a moment to build.</p>
+        <p data-i18n>Make a bundle of recent logs and scooter status for troubleshooting. This may take a moment.</p>
         <form id="log-bundle-form" class="inline-form">
           <select data-i18n-attr="aria-label" id="log-since" aria-label="Time range">
             <option data-i18n value="1h">Last hour</option>
@@ -438,7 +438,7 @@
 
     <details id="sys-shell" class="block advanced adv-only" hidden>
       <summary><h2 data-i18n>Shell</h2></summary>
-      <p data-i18n class="lede">Commands run as root on the MDB in separate, non-interactive shells. The working directory is preserved between commands.</p>
+      <p data-i18n class="lede">Commands run as root on the main computer (MDB). Each starts a new shell; only the working directory carries over. Interactive programs won't work.</p>
       <div class="term">
         <div data-i18n-attr="aria-label" id="shell-out" class="term-out" tabindex="0" role="log" aria-label="Output"></div>
         <form id="shell-form" class="term-line">

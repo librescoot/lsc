@@ -56,7 +56,7 @@ let tokenPrompting = false;
 async function askToken() {
   if (tokenPrompting) return;
   tokenPrompting = true;
-  const tok = await promptDialog({ title: t("Access token"), body: t("This lsd requires a token (its -token flag)."), placeholder: t("Token"), password: true });
+  const tok = await promptDialog({ title: t("Access token"), body: t("Enter this scooter's access token."), placeholder: t("Token"), password: true });
   tokenPrompting = false;
   if (tok === null) return;
   API.token = tok.trim();
@@ -626,7 +626,7 @@ function renderSettings() {
   container.innerHTML = "";
   $("#settings-jump").innerHTML = [...groups.keys()].map(s => `<a href="#settings/${esc(s)}" data-jump="${esc(s)}">${esc(s)}</a>`).join("");
   if (!groups.size) {
-    container.innerHTML = `<div class="settings-empty">${t("Nothing matches.")}${advanced ? "" : " " + t("Advanced settings are hidden.")}</div>`;
+    container.innerHTML = `<div class="settings-empty">${t("Nothing matches.")}${advanced ? "" : " " + t("Turn on Advanced mode to see more settings.")}</div>`;
   }
   for (const [svc, keys] of groups) {
     const g = document.createElement("section");
@@ -848,11 +848,11 @@ function renderUpdates() {
     const pc = ota[`preview-channel:${b}`];
     const previewFor = pc === chosen ? preview : "";
     const previewLine = chosen === ch ? ""
-      : previewFor === "checking" ? `<span class="muted">${t("Looking up {channel}", { channel: esc(chosen) })}</span>`
+      : previewFor === "checking" ? `<span class="muted">${t("Checking {channel}", { channel: esc(chosen) })}</span>`
       : previewFor === "ready" ? t("{channel} has {version}{size}", { channel: esc(chosen), version: `<span class="mono">${esc(ota[`preview-version:${b}`])}</span>`, size: has(ota[`preview-size:${b}`]) ? t(", a {size} full download", { size: esc(humanSize(num(ota[`preview-size:${b}`]))) }) : "" })
-      : previewFor === "unavailable" ? `<span class="muted">${t("{channel} has nothing for this board", { channel: esc(chosen) })}</span>`
-      : previewFor === "error" ? `<span class="status is-bad">${t("Could not read the {channel} channel", { channel: esc(chosen) })}</span>`
-      : `<span class="muted">${t("Looking up {channel}", { channel: esc(chosen) })}</span>`;
+      : previewFor === "unavailable" ? `<span class="muted">${t("No {channel} release for this board.", { channel: esc(chosen) })}</span>`
+      : previewFor === "error" ? `<span class="status is-bad">${t("Couldn't check {channel}.", { channel: esc(chosen) })}</span>`
+      : `<span class="muted">${t("Checking {channel}", { channel: esc(chosen) })}</span>`;
     return `<section class="block board" data-board="${b}">
       <h2>${NAMES[b]}</h2>
       <dl class="facts">${rows.filter(r => r && has(r[1])).map(([l, val, aside]) => `<dt>${esc(l)}</dt><dd>${val}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`).join("")}</dl>
@@ -880,7 +880,7 @@ function renderUpdates() {
       </span>
       <span class="fmeta">${esc(humanSize(f.size))}, ${esc(new Date(f.mtime * 1000).toLocaleString())}</span>
     </div>`).join("")}</div>`;
-  }).join("") || `<p class="cmd-hint">${t("No update files on the scooter.")}</p>`;
+  }).join("") || `<p class="cmd-hint">${t("No update files staged.")}</p>`;
 }
 
 $("#view-updates").addEventListener("change", async e => {
@@ -902,7 +902,7 @@ $("#view-updates").addEventListener("click", async e => {
   if (action === "switch") body.channel = upd.chosen[board];
   if (action === "install" || action === "delete") body.file = file;
   if (action === "switch") {
-    const ok = await confirmDialog({ title: t("Switch {board} to {channel}", { board: board.toUpperCase(), channel: body.channel }), body: t("The full {channel} image is downloaded and installed now. That takes a while and, for the MDB, ends in a reboot.", { channel: body.channel }), ok: t("Switch and update") });
+    const ok = await confirmDialog({ title: t("Switch {board} to {channel}", { board: board.toUpperCase(), channel: body.channel }), body: t("Switching to {channel} downloads and installs a full image. This may take a while; the MDB reboots after installation.", { channel: body.channel }), ok: t("Switch and update") });
     if (!ok) return;
     btn.classList.add("is-busy");
     try {
@@ -917,8 +917,8 @@ $("#view-updates").addEventListener("click", async e => {
   }
   if (action === "install") {
     const ok = await confirmDialog({ title: t("Install on {board}", { board: board.toUpperCase() }), body: board === "dbc"
-      ? t("{file} is copied to the display (switched on if needed) and installed. It takes effect the next time the display powers up.", { file })
-      : t("{file} is installed now. The MDB reboots when the installation is done and this page comes back after that.", { file }), ok: t("Install"), danger: board === "mdb" });
+      ? t("Copy {file} to the display and install it? The display turns on if needed. The update takes effect the next time it starts.", { file })
+      : t("Install {file} on the MDB? It reboots after installation, and this page reconnects.", { file }), ok: t("Install"), danger: board === "mdb" });
     if (!ok) return;
   }
   if (action === "delete") {
@@ -928,7 +928,7 @@ $("#view-updates").addEventListener("click", async e => {
   btn.classList.add("is-busy");
   try {
     const res = await API.post("/api/updates/action", body);
-    notify(t({ check: "Checking for updates", install: "Update queued", delete: "File deleted" }[action]));
+    notify(t({ check: "Checking for updates", install: "Install requested", delete: "File deleted" }[action]));
     if (res && res.status) Views.updates();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
@@ -947,7 +947,7 @@ function updateTargetHint() {
   const chosen = $("#upd-upload-board").value;
   const boardName = b => b === "mdb" ? "MDB" : t("Display (DBC)");
   hint.textContent = detected
-    ? t("Filename identifies {board}.", { board: boardName(detected) })
+    ? t("Detected: {board}.", { board: boardName(detected) })
     : chosen === "detect" ? t("Choose a board for {name}.", { name: file.name })
     : t("Upload {name} to {board}.", { name: file.name, board: boardName(chosen) });
 }
@@ -957,7 +957,7 @@ function uploadUpdate(file) {
   if (!/\.(mender|delta)$/.test(file.name)) return notify(t("Only .mender and .delta files"), true);
   const selected = $("#upd-upload-board").value;
   const detected = updateFileBoard(file.name);
-  if (selected !== "detect" && detected && selected !== detected) return notify(t("Filename identifies {board}; choose that board or Detect.", { board: detected.toUpperCase() }), true);
+  if (selected !== "detect" && detected && selected !== detected) return notify(t("This file is for {board}. Choose {board} or Detect.", { board: detected.toUpperCase() }), true);
   const board = selected === "detect" ? detected : selected;
   if (!board) return notify(t("Choose a board for this file"), true);
   const prog = $("#upd-upload-progress"), bar = $("span", prog);
@@ -1139,7 +1139,7 @@ function renderPlan() {
   }
   const stops = nav.plan.stops || [];
   const el = $("#nav-plan");
-  if (!stops.length) { el.innerHTML = `<div class="kc-empty">${t("No route plan set.")}</div>`; return; }
+  if (!stops.length) { el.innerHTML = `<div class="kc-empty">${t("No stops yet.")}</div>`; return; }
   const step = nav.plan.current_step;
   el.innerHTML = stops.map((stop, i) => `<div class="loc nav-stop ${i === step ? "is-current" : ""}">
     <div><span class="name">${i + 1}. ${esc(stop.label || fmtCoord(stop.lat, stop.lon))}</span>${i === step ? ` <span class="status is-info">${t("Current stop")}</span>` : stop.reached ? ` <span class="muted">${t("Reached")}</span>` : ""}</div>
@@ -1177,13 +1177,13 @@ function renderLocations() {
 
 function readCoords(latEl, lonEl) {
   const lat = Number(latEl.value.trim().replace(",", ".")), lon = Number(lonEl.value.trim().replace(",", "."));
-  if (!isFinite(lat) || !isFinite(lon) || latEl.value.trim() === "" || lonEl.value.trim() === "") throw new Error(t("Latitude and longitude are needed, as decimal degrees"));
+  if (!isFinite(lat) || !isFinite(lon) || latEl.value.trim() === "" || lonEl.value.trim() === "") throw new Error(t("Enter latitude and longitude in decimal degrees"));
   return { latitude: lat, longitude: lon };
 }
 
 async function navigateTo(latitude, longitude, address, locationId) {
   if ((nav.plan.stops || []).length > 1) {
-    const ok = await confirmDialog({ title: t("Replace route plan?"), body: t("Navigating to one destination replaces all stops in the current route."), ok: t("Replace route") });
+    const ok = await confirmDialog({ title: t("Replace route plan?"), body: t("This replaces all stops in the current route with one destination."), ok: t("Replace route") });
     if (!ok) return;
   }
   await API.post("/api/navigation", { latitude, longitude, address: address || "", "location-id": locationId ?? null });
@@ -1218,7 +1218,7 @@ $("#nav-plan").addEventListener("click", async e => {
     await changePlan({ action: "remove", index, expected_revision: revision });
   } else if (stops[step] && step + 1 < stops.length) {
     const planId = nav.plan.id, stopId = stops[step].id;
-    const ok = await confirmDialog({ title: t("Skip to next stop?"), body: t("Guidance will continue to stop {n}.", { n: step + 2 }), ok: t("Skip to next") });
+    const ok = await confirmDialog({ title: t("Skip to next stop?"), body: t("Navigation will move to stop {n}.", { n: step + 2 }), ok: t("Skip to next") });
     if (!ok) return;
     btn.disabled = true;
     await changePlan({ action: "skip", expected_plan_id: planId, expected_stop_id: stopId });
@@ -1323,14 +1323,14 @@ function renderKeycards() {
     ...kc.authorized.map(u => row(u, "")),
     ...learned.map(u => row(u, "tapped, unsaved", "is-new")),
   ].join("") || `<div class="kc-empty">${t("No authorized cards yet.")}</div>`;
-  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">${t("No master card. The next card tapped at the reader becomes one.")}</div>`;
+  $("#kc-master").innerHTML = kc.master.map(u => row(u, "master")).join("") || `<div class="kc-empty">${t("No master card. The next card you tap at the reader becomes the master.")}</div>`;
 
   const learn = $("#kc-learn-start").closest(".kc-learn");
   learn.classList.toggle("is-active", kc.learning === "cards");
   $("#kc-learn-start").hidden = kc.learning === "cards";
   $("#kc-learn-stop").hidden = kc.learning !== "cards";
   $("#kc-learn-hint").textContent = kc.learning === "cards"
-    ? (learned.length ? t("Tap cards at the reader, {n} so far.", { n: learned.length }) : t("Tap cards at the reader."))
+    ? (learned.length ? t("{n} cards tapped. Tap another or save.", { n: learned.length }) : t("Tap cards at the reader."))
     : "";
   $("#kc-master-start").hidden = kc.learning === "master";
   $("#kc-master-stop").hidden = kc.learning !== "master";
@@ -1567,7 +1567,7 @@ function renderCloud(data) {
   const box = $("#cloud-connected");
   if (connected.length) {
     box.hidden = false;
-    box.textContent = t("Already connected to Sunshine as {id}. Connecting again moves the scooter to the token owner's account and replaces the config.", { id: connected[0].identifier });
+    box.textContent = t("This scooter is linked to Sunshine as {id}. Connecting with another token moves it to that account and replaces its config.", { id: connected[0].identifier });
     $("#cloud-bootstrap-form button").textContent = t("Reconnect");
   } else {
     box.hidden = true;
@@ -1693,7 +1693,7 @@ $("#services-table").addEventListener("click", async e => {
   const name = svc.replace(/\.service$/, "");
   const critical = ["valkey.service", "redis.service", "librescoot-vehicle.service", "librescoot-pm.service"].includes(svc);
   if (act !== "start" && critical) {
-    const ok = await confirmDialog({ title: `${human(act)} ${name}`, body: t("{name} is a core service. Stopping or restarting it interrupts the whole scooter briefly and may disconnect this page.", { name }), ok: human(act), danger: true });
+    const ok = await confirmDialog({ title: `${human(act)} ${name}`, body: t("Stopping or restarting {name} briefly interrupts scooter services and may disconnect this page.", { name }), ok: human(act), danger: true });
     if (!ok) return;
   }
   btn.classList.add("is-busy");
