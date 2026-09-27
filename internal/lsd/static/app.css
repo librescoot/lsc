@@ -385,10 +385,7 @@ tr:hover .row-actions, tr:focus-within .row-actions { opacity: 1; }
 .drop-hint { color: var(--text-2); font-size: 0.9rem; margin: 0 0 0.75rem; }
 .dropzone.is-drag .drop-hint { color: var(--accent); font-weight: 600; }
 #upd-dropzone .inline-form { margin-bottom: 0; }
-.upd-board-override { margin-top: 0.5rem; color: var(--text-3); font-size: 0.85rem; }
-.upd-board-override summary { cursor: pointer; width: max-content; }
-.upd-board-override label { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-.upd-board-override select { min-width: 8rem; }
+#upd-upload-board { flex: 0 1 13rem; min-width: 11rem; color: var(--text-2); font-size: 0.85rem; }
 table.files td:first-child a { color: var(--text); display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
 table.files td:first-child a svg { flex: none; width: 16px; height: 16px; }
 table.files .fname { min-width: 0; }

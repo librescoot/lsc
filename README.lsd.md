@@ -41,8 +41,9 @@ contracts.
   writes and starts. A pasted config file can be installed for either
   service instead.
 - **Updates**: per-board update status, progress and errors from
-  update-service, channel look-up and switch, check now, and installing an
-  uploaded `.mender` or `.delta`. MDB files install in place; DBC files are
+  update-service, planned full/delta download size on the current channel,
+  channel look-up and switch, check now, and installing an uploaded `.mender`
+  or `.delta`. MDB files install in place; DBC files are
   staged on the MDB and copied to the dashboard over usb0 on install.
 - **System**: log bundles (created with `lsc logs`, downloadable), a
   journal viewer per unit, installed map and routing tiles, and modem

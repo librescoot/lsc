@@ -212,6 +212,15 @@ function connectStream() {
       if (ev.v === undefined || ev.v === null) delete h[ev.f]; else h[ev.f] = ev.v;
       if (ev.h === "settings") onSettingChanged(ev.f, ev.v);
       if (ev.h === "keycard" && ev.f === "uid") kc.lastSeenAt = Date.now();
+      if (ev.h === "ota" && ev.f.startsWith("preview-status:") && ["ready", "error", "unavailable"].includes(ev.v)) {
+        const board = ev.f.split(":")[1];
+        if (upd.currentChecking[board] && h[`preview-channel:${board}`] === channelOf(board)) {
+          upd.currentChecking[board] = false;
+          const pending = upd.pending[board];
+          delete upd.pending[board];
+          if (pending && pending === upd.chosen[board] && pending !== channelOf(board)) sendUpdatePreview(board, pending);
+        }
+      }
     }
     scheduleRender(ev.set !== undefined ? null : ev.h);
   };
@@ -230,7 +239,7 @@ const VIEW_HASHES = {
   dashboard: new Set(["vehicle", "alarm", "battery:0", "battery:1", "aux-battery", "cb-battery", "engine-ecu", "power-manager", "system", "gps", "internet", "modem", "version:mdb", "settings"]),
   keycards: new Set(["keycard", "keycard:events"]),
   navigation: new Set(["navigation"]),
-  updates: new Set(["ota", "settings", "internet", "version:mdb", "version:dbc"]),
+  updates: new Set(["ota", "settings", "internet", "vehicle", "version:mdb", "version:dbc"]),
   system: new Set(["maps", "modem", "internet", "version:mdb", "version:dbc", "engine-ecu", "system"]),
 };
 let renderQueued = false;
@@ -309,6 +318,7 @@ function patchHTML(el, html) {
     for (const next of [...desired.childNodes]) {
       if (!current) { parent.appendChild(next.cloneNode(true)); continue; }
       if (!sameKind(current, next)) {
+        if (next.nodeType === 3 && !next.nodeValue.trim()) { parent.insertBefore(next.cloneNode(true), current); continue; }
         let later = current.nextSibling;
         while (later && !sameKind(later, next)) later = later.nextSibling;
         if (!later) { parent.insertBefore(next.cloneNode(true), current); continue; }
@@ -850,7 +860,7 @@ document.addEventListener("drop", e => { if ([...(e.dataTransfer?.types || [])].
 
 // ---------- updates ----------
 
-const upd = { data: null, chosen: {}, open: {}, releases: null };
+const upd = { data: null, chosen: {}, open: {}, currentRequested: {}, currentChecking: {}, pending: {}, previewFailed: {} };
 
 function scooterOnline() {
   const net = H("internet");
@@ -859,21 +869,44 @@ function scooterOnline() {
 
 Views.updates = async function () {
   try { upd.data = await API.get("/api/updates"); renderUpdates(); } catch (err) { notify(err.message, true); }
-  if (!upd.releases) {
-    try {
-      const response = await fetch("https://downloads.librescoot.org/releases/latest.json");
-      if (response.ok) {
-        upd.releases = await response.json();
-        if (currentView === "updates") renderUpdates();
-      }
-    } catch { /* release sizes remain unavailable offline */ }
-  }
 };
+
+function sendUpdatePreview(board, channel) {
+  API.post("/api/updates/action", { board, action: "preview", channel }).catch(err => notify(err.message, true));
+}
+
+function requestCurrentPreviews() {
+  if (!scooterOnline()) return;
+  const ota = state.hashes.ota || upd.data.ota || {};
+  for (const board of ["mdb", "dbc"]) {
+    const channel = channelOf(board);
+    if (!channel || upd.currentChecking[board] || upd.currentRequested[board] === channel || (upd.open[board] && upd.chosen[board] && upd.chosen[board] !== channel)) continue;
+    if (board === "dbc" && H("vehicle")["dashboard:power"] !== "on") continue;
+    if (ota[`preview-status:${board}`] === "checking" && ota[`preview-channel:${board}`] !== channel) continue;
+    upd.currentRequested[board] = channel;
+    upd.currentChecking[board] = true;
+    API.post("/api/updates/action", { board, action: "preview", channel }).catch(err => {
+      upd.currentChecking[board] = false;
+      upd.previewFailed[board] = true;
+      notify(err.message, true);
+      renderUpdates();
+    });
+    setTimeout(() => {
+      if (!upd.currentChecking[board]) return;
+      upd.currentChecking[board] = false;
+      upd.previewFailed[board] = true;
+      const pending = upd.pending[board];
+      delete upd.pending[board];
+      if (pending && pending === upd.chosen[board] && pending !== channel) sendUpdatePreview(board, pending);
+      if (currentView === "updates") renderUpdates();
+    }, 25000);
+  }
+}
 
 const OTA_STATUS = { idle: ["Idle", ""], downloading: ["Downloading", "is-info"], preparing: ["Preparing", "is-info"], installing: ["Installing", "is-info"], "pending-reboot": ["Installed, waiting for reboot", "is-warn"], error: ["Error", "is-bad"] };
 
 function channelOf(board) {
-  const st = upd.data.settings[`updates.${board}.channel`];
+  const st = H("settings")[`updates.${board}.channel`] || upd.data.settings[`updates.${board}.channel`];
   if (st) return st;
   const v = (Object.keys(H(`version:${board}`)).length ? H(`version:${board}`) : upd.data.versions[board] || {}).version_id || "";
   const m = v.match(/^(stable|testing|nightly)/);
@@ -897,24 +930,28 @@ function renderUpdates() {
     const err = ota[`error:${b}`];
     const preview = ota[`preview-status:${b}`];
     const ch = channelOf(b);
-    const lastCheck = d.settings[`updates.${b}.last-check-time`];
+    const settings = { ...d.settings, ...H("settings") };
+    const lastCheck = settings[`updates.${b}.last-check-time`];
     const rows = [
-      [t("Installed"), has(v.version) ? esc(v.version) : `<span class="muted">${t("unknown")}</span>`],
+      [t("Installed"), has(v.version || v.version_id) ? esc(v.version || v.version_id) : `<span class="muted">${t("unknown")}</span>`],
       [t("Status"), `<span class="status ${tone}">${esc(label)}</span>`, has(ota[`update-version:${b}`]) && st !== "idle" ? `${ota[`update-version:${b}`]}${has(ota[`update-method:${b}`]) ? `, ${ota[`update-method:${b}`]}` : ""}` : null],
       err ? [t("Error"), `<span class="status is-bad">${esc(human(err))}</span>`, ota[`error-message:${b}`] || null] : null,
       has(ota[`download-abort-reason:${b}`]) ? [t("Download"), `<span class="muted">${t("paused")}: ${esc(human(ota[`download-abort-reason:${b}`]))}</span>`, has(ota[`download-skip-checks:${b}`]) ? t("retries after {n} more checks", { n: ota[`download-skip-checks:${b}`] }) : null] : null,
-      [t("Last check"), has(lastCheck) ? esc(ago(lastCheck)) : `<span class="muted">${t("never")}</span>`, d.settings[`updates.${b}.check-interval`] === "0s" ? t("automatic checks off") : has(d.settings[`updates.${b}.check-interval`]) ? t("every {interval}", { interval: d.settings[`updates.${b}.check-interval`] }) : null],
+      [t("Last check"), has(lastCheck) ? esc(ago(lastCheck)) : `<span class="muted">${t("never")}</span>`, settings[`updates.${b}.check-interval`] === "0s" ? t("automatic checks off") : has(settings[`updates.${b}.check-interval`]) ? t("every {interval}", { interval: settings[`updates.${b}.check-interval`] }) : null],
     ];
     const bar = (label, p, warn) => p === null ? "" : `<div class="muted" style="font-size:.85rem">${label} ${p} %</div><div class="progress ${warn ? "is-warn" : ""}"><span style="width:${p}%"></span></div>`;
     const chosen = upd.chosen[b] || ch;
     const pc = ota[`preview-channel:${b}`];
     const previewFor = pc === chosen ? preview : "";
-    const release = upd.releases?.[ch];
-    const variant = v.variant_id || `unu-${b}`;
-    const fullImage = release?.assets?.find(a => a.name.startsWith(`librescoot-${variant}-`) && a.name.endsWith(".mender"));
-    const currentSize = fullImage ? t("Latest {channel}: {version}, full image {size}", { channel: esc(ch), version: esc(release.tag_name), size: esc(humanSize(fullImage.size)) })
-      : previewFor === "ready" && has(ota[`preview-size:${b}`]) ? t("Latest {channel}: {version}, full image {size}", { channel: esc(ch), version: esc(ota[`preview-version:${b}`]), size: esc(humanSize(num(ota[`preview-size:${b}`]))) }) : "";
-    const previewLine = !online || chosen === ch ? currentSize
+    const planMethod = ota[`preview-method:${b}`];
+    const planSize = ota[`preview-download-size:${b}`];
+    const currentLine = pc === ch && preview === "ready" && planMethod === "none" ? t("Up to date — no download")
+      : pc === ch && preview === "ready" && ["full", "delta"].includes(planMethod) && has(planSize)
+        ? t("Planned download: {size} ({method})", { size: esc(humanSize(num(planSize))), method: t(planMethod === "delta" ? "delta chain" : "full image") })
+      : upd.previewFailed[b] || (pc === ch && ["error", "unavailable", "ready"].includes(preview)) ? t("Download estimate unavailable.")
+      : b === "dbc" && H("vehicle")["dashboard:power"] !== "on" ? t("Display is off; download estimate unavailable.")
+      : !online ? t("Download estimate needs scooter internet.") : t("Calculating download size…");
+    const previewLine = !online || chosen === ch ? `<span class="muted">${currentLine}</span>`
       : previewFor === "checking" ? `<span class="muted">${t("Checking {channel}", { channel: esc(chosen) })}</span>`
       : previewFor === "ready" ? t("{channel} has {version}{size}", { channel: esc(chosen), version: `<span class="mono">${esc(ota[`preview-version:${b}`])}</span>`, size: has(ota[`preview-size:${b}`]) ? t(", a {size} full download", { size: esc(humanSize(num(ota[`preview-size:${b}`]))) }) : "" })
       : previewFor === "unavailable" ? `<span class="muted">${t("No {channel} release for this board.", { channel: esc(chosen) })}</span>`
@@ -928,8 +965,8 @@ function renderUpdates() {
         <button type="button" class="btn" data-upd="check" data-board="${b}" ${online ? "" : "disabled"}>${t("Check now")}</button>
         ${online ? upd.open[b] ? `<label class="channel-pick">${t("Channel")}
           <select data-upd-channel="${b}" aria-label="${t("Release channel")}">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === chosen ? "selected" : ""}>${c}${c === ch ? ` (${t("current")})` : ""}</option>`).join("")}</select>
-        </label><button type="button" class="btn btn-quiet" data-upd-cancel="${b}">${t("Cancel")}</button>`
-          : `<button type="button" class="btn btn-quiet" data-upd-switch="${b}">${t("Switch channel")}</button>` : ""}
+        </label><button type="button" class="btn" data-upd-cancel="${b}">${t("Cancel")}</button>`
+          : `<button type="button" class="btn" data-upd-switch="${b}">${t("Switch channel")}</button>` : ""}
         ${online && upd.open[b] && chosen !== ch && previewFor === "ready" ? `<button type="button" class="btn btn-primary" data-upd="switch" data-board="${b}">${t("Switch to {channel} and update now", { channel: esc(chosen) })}</button>` : ""}
       </div>
       ${previewLine ? `<p class="cmd-hint">${previewLine}</p>` : ""}
@@ -950,6 +987,7 @@ function renderUpdates() {
       <span class="fmeta">${esc(humanSize(f.size))}, ${esc(new Date(f.mtime * 1000).toLocaleString())}</span>
     </div>`).join("")}</div>`;
   }).join("") || `<p class="cmd-hint">${t("No update files staged.")}</p>`);
+  requestCurrentPreviews();
 }
 
 $("#upd-boards").addEventListener("focusout", e => {
@@ -963,7 +1001,11 @@ $("#upd-boards").addEventListener("click", e => {
   const board = open?.dataset.updSwitch || cancel.dataset.updCancel;
   if (open && !scooterOnline()) return;
   upd.open[board] = !!open;
-  if (cancel) delete upd.chosen[board];
+  if (cancel) {
+    delete upd.chosen[board];
+    delete upd.pending[board];
+    delete upd.currentRequested[board];
+  }
   renderUpdates();
 });
 
@@ -975,7 +1017,8 @@ $("#view-updates").addEventListener("change", async e => {
   upd.chosen[board] = sel.value;
   renderUpdates();
   if (sel.value !== channelOf(board)) {
-    try { await API.post("/api/updates/action", { board, action: "preview", channel: sel.value }); } catch (err) { notify(err.message, true); }
+    if (upd.currentChecking[board]) upd.pending[board] = sel.value;
+    else sendUpdatePreview(board, sel.value);
   }
 });
 
@@ -996,6 +1039,7 @@ $("#view-updates").addEventListener("click", async e => {
       await API.post("/api/updates/action", { board, action: "check" });
       notify(t("{board} switching to {channel}", { board: board.toUpperCase(), channel: body.channel }));
       delete upd.chosen[board];
+      delete upd.currentRequested[board];
       upd.open[board] = false;
       Views.updates();
     } catch (err) { notify(err.message, true); }
@@ -1016,6 +1060,7 @@ $("#view-updates").addEventListener("click", async e => {
   try {
     const res = await API.post("/api/updates/action", body);
     notify(t({ check: "Checking for updates", install: "Install requested", delete: "File deleted" }[action]));
+    if (action === "check") delete upd.currentRequested[board];
     if (res && res.status) Views.updates();
   } catch (err) { notify(err.message, true); }
   finally { btn.classList.remove("is-busy"); }
@@ -1032,7 +1077,6 @@ function updateTargetHint() {
   if (!file) return;
   const detected = updateFileBoard(file.name);
   const chosen = $("#upd-upload-board").value;
-  if (!detected && chosen === "detect") $("#upd-board-override").open = true;
   const boardName = b => b === "mdb" ? "MDB" : t("Display (DBC)");
   hint.textContent = detected
     ? t("Detected: {board}.", { board: boardName(detected) })
@@ -1064,7 +1108,7 @@ function uploadUpdate(file) {
     if (xhr.status >= 200 && xhr.status < 300) {
       notify(t("Uploaded {name}", { name: file.name }));
       updateDroppedFile = null; $("#upd-upload-file").value = "";
-      $("#upd-upload-board").value = "detect"; $("#upd-board-override").open = false; updateTargetHint();
+      $("#upd-upload-board").value = "detect"; updateTargetHint();
       Views.updates();
     } else notify(data.error || t("Upload failed (HTTP {status})", { status: xhr.status }), true);
   };
@@ -1075,7 +1119,6 @@ function uploadUpdate(file) {
 $("#upd-upload-file").addEventListener("change", () => {
   updateDroppedFile = null;
   $("#upd-upload-board").value = "detect";
-  $("#upd-board-override").open = false;
   updateTargetHint();
 });
 $("#upd-upload-board").addEventListener("change", updateTargetHint);
@@ -1089,7 +1132,6 @@ fileDropzone($("#upd-dropzone"), files => {
   updateDroppedFile = files[0];
   $("#upd-upload-file").value = "";
   $("#upd-upload-board").value = "detect";
-  $("#upd-board-override").open = false;
   updateTargetHint();
   if (updateFileBoard(files[0].name)) uploadUpdate(files[0]);
 });

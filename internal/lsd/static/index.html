@@ -346,14 +346,9 @@
         <p data-i18n class="drop-hint">Drop a .mender or .delta file here, or choose one below.</p>
         <form id="upd-upload-form" class="inline-form">
           <input data-i18n-attr="aria-label" type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
+          <select data-i18n-attr="aria-label" id="upd-upload-board" aria-label="Target board"><option data-i18n value="detect" selected>Auto-detect target board</option><option data-i18n value="mdb">Install on MDB</option><option data-i18n value="dbc">Install on DBC</option></select>
           <button data-i18n type="submit" class="btn btn-primary">Upload</button>
         </form>
-        <details id="upd-board-override" class="upd-board-override">
-          <summary data-i18n>Choose board manually</summary>
-          <label><span data-i18n>Board</span>
-            <select data-i18n-attr="aria-label" id="upd-upload-board" aria-label="Board"><option data-i18n value="detect" selected>Detect</option><option value="mdb">MDB</option><option data-i18n value="dbc">Display (DBC)</option></select>
-          </label>
-        </details>
         <p id="upd-upload-target" class="cmd-hint" aria-live="polite" hidden></p>
         <div id="upd-upload-progress" class="progress" hidden><span></span></div>
       </div>
