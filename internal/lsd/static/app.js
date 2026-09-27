@@ -934,12 +934,32 @@ $("#view-updates").addEventListener("click", async e => {
   finally { btn.classList.remove("is-busy"); }
 });
 
-let updateUploading = false;
+let updateUploading = false, updateDroppedFile = null;
+function updateFileBoard(name) {
+  return name.match(/^librescoot-unu-(mdb|dbc)-[A-Za-z0-9._-]+\.(?:mender|delta)$/)?.[1] || "";
+}
+function chosenUpdateFile() { return updateDroppedFile || $("#upd-upload-file").files[0]; }
+function updateTargetHint() {
+  const file = chosenUpdateFile(), hint = $("#upd-upload-target");
+  hint.hidden = !file;
+  if (!file) return;
+  const detected = updateFileBoard(file.name);
+  const chosen = $("#upd-upload-board").value;
+  const boardName = b => b === "mdb" ? "MDB" : t("Display (DBC)");
+  hint.textContent = detected
+    ? t("Filename identifies {board}.", { board: boardName(detected) })
+    : chosen === "detect" ? t("Choose a board for {name}.", { name: file.name })
+    : t("Upload {name} to {board}.", { name: file.name, board: boardName(chosen) });
+}
 function uploadUpdate(file) {
   if (updateUploading) return notify(t("Upload already in progress"), true);
   if (!file) return notify(t("Choose a file first"), true);
   if (!/\.(mender|delta)$/.test(file.name)) return notify(t("Only .mender and .delta files"), true);
-  const board = $("#upd-upload-board").value;
+  const selected = $("#upd-upload-board").value;
+  const detected = updateFileBoard(file.name);
+  if (selected !== "detect" && detected && selected !== detected) return notify(t("Filename identifies {board}; choose that board or Detect.", { board: detected.toUpperCase() }), true);
+  const board = selected === "detect" ? detected : selected;
+  if (!board) return notify(t("Choose a board for this file"), true);
   const prog = $("#upd-upload-progress"), bar = $("span", prog);
   const button = $("#upd-upload-form button[type=submit]");
   updateUploading = true;
@@ -953,21 +973,35 @@ function uploadUpdate(file) {
   xhr.onload = () => {
     done();
     let data = {}; try { data = JSON.parse(xhr.responseText); } catch { /* not json */ }
-    if (xhr.status >= 200 && xhr.status < 300) { notify(t("Uploaded {name}", { name: file.name })); $("#upd-upload-file").value = ""; Views.updates(); }
-    else notify(data.error || t("Upload failed (HTTP {status})", { status: xhr.status }), true);
+    if (xhr.status >= 200 && xhr.status < 300) {
+      notify(t("Uploaded {name}", { name: file.name }));
+      updateDroppedFile = null; $("#upd-upload-file").value = "";
+      $("#upd-upload-board").value = "detect"; updateTargetHint();
+      Views.updates();
+    } else notify(data.error || t("Upload failed (HTTP {status})", { status: xhr.status }), true);
   };
   xhr.onerror = () => { done(); notify(t("Upload failed"), true); };
   xhr.send(file);
 }
 
+$("#upd-upload-file").addEventListener("change", () => {
+  updateDroppedFile = null;
+  $("#upd-upload-board").value = "detect";
+  updateTargetHint();
+});
+$("#upd-upload-board").addEventListener("change", updateTargetHint);
 $("#upd-upload-form").addEventListener("submit", e => {
   e.preventDefault();
-  uploadUpdate($("#upd-upload-file").files[0]);
+  uploadUpdate(chosenUpdateFile());
 });
 fileDropzone($("#upd-dropzone"), files => {
   if (files.length !== 1) return notify(t("Drop one update file at a time"), true);
+  if (updateUploading) return notify(t("Upload already in progress"), true);
+  updateDroppedFile = files[0];
   $("#upd-upload-file").value = "";
-  uploadUpdate(files[0]);
+  $("#upd-upload-board").value = "detect";
+  updateTargetHint();
+  if (updateFileBoard(files[0].name)) uploadUpdate(files[0]);
 });
 
 // ---------- system ----------

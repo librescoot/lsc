@@ -143,7 +143,7 @@ and service actions only reach systemd for Librescoot unit names.
 | `GET /files/<path>?download=1` | Download a file, or a folder as tar. |
 | `GET /api/services`, `POST /api/services/action` | Units and start/stop/restart/enable/disable. |
 | `GET /api/updates` | The `ota` hash, board versions, `updates.*` settings and staged update files. |
-| `PUT /api/updates/upload?board=&name=` | Store a `.mender` or `.delta` under `/data/ota/<board>/`, returns its SHA-256. |
+| `PUT /api/updates/upload?name=&board=` | Store a `.mender` or `.delta` under `/data/ota/<board>/`, returns its SHA-256. Official filenames identify the board; other names require `board=mdb` or `board=dbc`. A conflicting board is rejected. |
 | `POST /api/updates/action` | `{board, action}`: `check`, `preview`/`channel` with `channel`, `install`/`delete` with `file`. DBC installs copy the file to the dashboard's data-server first. |
 | `GET/POST /api/system/logs` | List log bundles; create one with `{since}` via `lsc logs`. |
 | `GET /api/system/journal?unit=&lines=` | Journal tail for a known unit, all units, or `dmesg`. |

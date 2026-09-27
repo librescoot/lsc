@@ -29,6 +29,15 @@ const dbcDataServer = "http://192.168.7.2:8080"
 
 var otaBoards = map[string]bool{"mdb": true, "dbc": true}
 var otaFileRe = regexp.MustCompile(`^[A-Za-z0-9._-]+\.(mender|delta)$`)
+var otaBoardFileRe = regexp.MustCompile(`^librescoot-unu-(mdb|dbc)-[A-Za-z0-9._-]+\.(mender|delta)$`)
+
+func boardFromFile(name string) string {
+	match := otaBoardFileRe.FindStringSubmatch(name)
+	if match == nil {
+		return ""
+	}
+	return match[1]
+}
 
 type otaFile struct {
 	Name  string `json:"name"`
@@ -96,12 +105,19 @@ func (s *Server) handleUpdatesUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	board := r.URL.Query().Get("board")
 	name := filepath.Base(r.URL.Query().Get("name"))
-	if !otaBoards[board] {
-		writeErr(w, http.StatusBadRequest, "board must be mdb or dbc")
-		return
-	}
 	if !otaFileRe.MatchString(name) {
 		writeErr(w, http.StatusBadRequest, "file must be a .mender or .delta artifact")
+		return
+	}
+	if detected := boardFromFile(name); detected != "" {
+		if board != "" && board != detected {
+			writeErr(w, http.StatusBadRequest, "board does not match artifact filename")
+			return
+		}
+		board = detected
+	}
+	if !otaBoards[board] {
+		writeErr(w, http.StatusBadRequest, "board required for unrecognized artifact filename (mdb or dbc)")
 		return
 	}
 	dst := filepath.Join(s.otaDir(), board, name)
