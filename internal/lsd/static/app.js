@@ -231,7 +231,7 @@ function scheduleRender() {
     renderQueued = false;
     if (currentView === "dashboard") renderDashboard();
     if (currentView === "keycards") renderLastCard();
-    if (currentView === "navigation") renderDestination();
+    if (currentView === "navigation") { renderDestination(); renderPlan(); }
     if (currentView === "updates") renderUpdates();
     if (currentView === "system") renderSystemFacts();
   });
@@ -1070,7 +1070,7 @@ $("#journal-form").addEventListener("submit", async e => {
 
 // ---------- navigation ----------
 
-const nav = { locations: [], editing: null };
+const nav = { locations: [], editing: null, plan: { stops: [], current_step: 0 } };
 const fmtCoord = (lat, lon) => `${Number(lat).toFixed(5)}, ${Number(lon).toFixed(5)}`;
 
 Views.navigation = async function () {
@@ -1078,7 +1078,9 @@ Views.navigation = async function () {
     const data = await API.get("/api/navigation");
     state.hashes.navigation = data.destination || {};
     nav.locations = data.locations || [];
+    nav.plan = data.plan || { stops: [], current_step: 0 };
     renderDestination();
+    renderPlan();
     renderLocations();
   } catch (err) { notify(err.message, true); }
 };
@@ -1093,6 +1095,28 @@ function renderDestination() {
   el.innerHTML = `${has(d.address) ? `<div class="name">${esc(d.address)}</div>` : ""}<div class="coords">${esc(fmtCoord(d.latitude, d.longitude))}</div>${has(d.timestamp) ? `<div class="when">${t("set")} ${esc(ago(d.timestamp))}</div>` : ""}`;
 }
 
+function renderPlan() {
+  const projection = H("navigation").plan;
+  if (projection) {
+    try {
+      const projected = JSON.parse(projection);
+      if (projected.revision >= (nav.plan.revision || 0)) nav.plan = projected;
+    } catch { /* keep the last readable plan */ }
+  }
+  const stops = nav.plan.stops || [];
+  const el = $("#nav-plan");
+  if (!stops.length) { el.innerHTML = `<div class="kc-empty">${t("No route plan set.")}</div>`; return; }
+  const step = nav.plan.current_step;
+  el.innerHTML = stops.map((stop, i) => `<div class="loc nav-stop ${i === step ? "is-current" : ""}">
+    <div><span class="name">${i + 1}. ${esc(stop.label || fmtCoord(stop.lat, stop.lon))}</span>${i === step ? ` <span class="status is-info">${t("Current stop")}</span>` : stop.reached ? ` <span class="muted">${t("Reached")}</span>` : ""}</div>
+    <div class="coords">${esc(fmtCoord(stop.lat, stop.lon))}</div>
+    <div class="row-actions">
+      ${i === step && i + 1 < stops.length ? `<button type="button" class="btn btn-small" data-plan-skip>${t("Skip to next")}</button>` : ""}
+      <button type="button" class="btn btn-small btn-quiet" data-plan-remove="${i}">${t("Remove")}</button>
+    </div>
+  </div>`).join("");
+}
+
 function renderLocations() {
   const el = $("#nav-locations");
   if (!nav.locations.length) { el.innerHTML = `<div class="kc-empty">${t("None saved.")}</div>`; return; }
@@ -1102,6 +1126,7 @@ function renderLocations() {
       <div><span class="name">${esc(l.label || t("Unnamed"))}</span>${l["last-used-at"] ? `<span class="when">${t("last used")} ${esc(ago(l["last-used-at"]))}</span>` : ""}</div>
       <span class="row-actions">
         <button type="button" class="btn btn-small btn-quiet" data-loc-go="${l.id}">${t("Navigate")}</button>
+        <button type="button" class="btn btn-small btn-quiet" data-loc-add="${l.id}">${t("Add stop")}</button>
         <button type="button" class="btn btn-small btn-quiet" data-loc-edit="${l.id}">${editing ? t("Cancel") : t("Edit")}</button>
         <button type="button" class="btn btn-small btn-quiet" data-loc-del="${l.id}">${t("Delete")}</button>
       </span>
@@ -1123,16 +1148,60 @@ function readCoords(latEl, lonEl) {
 }
 
 async function navigateTo(latitude, longitude, address, locationId) {
+  if ((nav.plan.stops || []).length > 1) {
+    const ok = await confirmDialog({ title: t("Replace route plan?"), body: t("Navigating to one destination replaces all stops in the current route."), ok: t("Replace route") });
+    if (!ok) return;
+  }
   await API.post("/api/navigation", { latitude, longitude, address: address || "", "location-id": locationId ?? null });
   notify(address ? t("Navigating to {name}", { name: address }) : t("Destination set"));
   Views.navigation();
 }
+
+async function changePlan(body) {
+  try {
+    nav.plan = await API.post("/api/navigation/plan", body);
+    Views.navigation();
+    return true;
+  } catch (err) {
+    notify(err.message, true);
+    Views.navigation();
+    return false;
+  }
+}
+
+$("#nav-plan").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-plan-remove], [data-plan-skip]");
+  if (!btn || btn.disabled) return;
+  const stops = nav.plan.stops || [];
+  const step = nav.plan.current_step;
+  if (btn.hasAttribute("data-plan-remove")) {
+    const index = Number(btn.dataset.planRemove);
+    const stop = stops[index], revision = nav.plan.revision;
+    if (!stop) return;
+    const ok = await confirmDialog({ title: t("Remove stop?"), body: t("Remove stop {n}: {name}?", { n: index + 1, name: stop.label || fmtCoord(stop.lat, stop.lon) }), ok: t("Remove") });
+    if (!ok) return;
+    btn.disabled = true;
+    await changePlan({ action: "remove", index, expected_revision: revision });
+  } else if (stops[step] && step + 1 < stops.length) {
+    const planId = nav.plan.id, stopId = stops[step].id;
+    const ok = await confirmDialog({ title: t("Skip to next stop?"), body: t("Guidance will continue to stop {n}.", { n: step + 2 }), ok: t("Skip to next") });
+    if (!ok) return;
+    btn.disabled = true;
+    await changePlan({ action: "skip", expected_plan_id: planId, expected_stop_id: stopId });
+  }
+});
 
 $("#nav-form").addEventListener("submit", async e => {
   e.preventDefault();
   try {
     const c = readCoords($("#nav-lat"), $("#nav-lon"));
     await navigateTo(c.latitude, c.longitude, $("#nav-label").value.trim(), null);
+  } catch (err) { notify(err.message, true); }
+});
+$("#nav-add-stop").addEventListener("click", async () => {
+  try {
+    const c = readCoords($("#nav-lat"), $("#nav-lon"));
+    if (await changePlan({ action: "append", stop: { lat: c.latitude, lon: c.longitude, label: $("#nav-label").value.trim() } })) $("#nav-form").reset();
   } catch (err) { notify(err.message, true); }
 });
 $("#nav-save").addEventListener("click", async () => {
@@ -1153,14 +1222,21 @@ $("#nav-use-gps").addEventListener("click", () => {
   $("#nav-lon").value = Number(g.longitude).toFixed(6);
 });
 $("#nav-clear").addEventListener("click", async () => {
+  if ((nav.plan.stops || []).length > 1) {
+    const ok = await confirmDialog({ title: t("Clear route plan?"), body: t("This removes every stop in the current route."), ok: t("Clear") });
+    if (!ok) return;
+  }
   try { await API.post("/api/navigation", { clear: true }); notify(t("Destination cleared")); Views.navigation(); }
   catch (err) { notify(err.message, true); }
 });
 $("#nav-locations").addEventListener("click", async e => {
-  const go = e.target.closest("[data-loc-go]"), ed = e.target.closest("[data-loc-edit]"), del = e.target.closest("[data-loc-del]");
+  const go = e.target.closest("[data-loc-go]"), add = e.target.closest("[data-loc-add]"), ed = e.target.closest("[data-loc-edit]"), del = e.target.closest("[data-loc-del]");
   if (go) {
     const l = nav.locations.find(x => x.id === Number(go.dataset.locGo));
     try { await navigateTo(l.latitude, l.longitude, l.label, l.id); } catch (err) { notify(err.message, true); }
+  } else if (add) {
+    const l = nav.locations.find(x => x.id === Number(add.dataset.locAdd));
+    if (l) await changePlan({ action: "append", stop: { lat: l.latitude, lon: l.longitude, label: l.label } });
   } else if (ed) {
     const id = Number(ed.dataset.locEdit);
     nav.editing = nav.editing === id ? null : id;

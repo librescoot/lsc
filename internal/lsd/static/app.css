@@ -425,6 +425,8 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
 .nav-current .name { font-family: var(--display); font-size: 1.6rem; line-height: 1.15; }
 .nav-current .coords { font-family: var(--mono); font-size: 0.9rem; color: var(--text-2); }
 .nav-current .when { color: var(--text-3); font-size: 0.85rem; }
+.nav-stop.is-current { border-left: 3px solid var(--accent); padding-left: 0.75rem; background: var(--accent-subtle); }
+.nav-stop .status { margin-left: 0.5rem; }
 .nav-form { display: flex; flex-direction: column; gap: 0.25rem; }
 .nav-form > input { width: 100%; }
 .nav-form .inline-form input { flex: 1 1 8rem; }

@@ -80,12 +80,17 @@ func (s *Server) handleNavigation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		dest, _ := client.HGetAll("navigation")
+		plan, err := routeplan.Call(client, "plan.get", routeplan.Empty{})
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, err.Error())
+			return
+		}
 		locs, err := loadLocations(client)
 		if err != nil {
 			writeErr(w, http.StatusBadGateway, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]interface{}{"destination": dest, "locations": locs})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"destination": dest, "plan": plan, "locations": locs})
 	case http.MethodPost:
 		s.setDestination(w, r)
 	default:
@@ -163,6 +168,63 @@ func (s *Server) setDestination(w http.ResponseWriter, r *http.Request) {
 		status = "cleared"
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"status": status, "destination": fields})
+}
+
+// handleNavigationPlan edits the owner's route plan without replacing its
+// progress or stop IDs.
+func (s *Server) handleNavigationPlan(w http.ResponseWriter, r *http.Request) {
+	if !method(w, r, http.MethodPost) {
+		return
+	}
+	client := s.getRedis()
+	if client == nil {
+		writeErr(w, http.StatusServiceUnavailable, "redis not connected")
+		return
+	}
+	var req struct {
+		Action           string              `json:"action"`
+		Stop             routeplan.StopInput `json:"stop"`
+		Index            int                 `json:"index"`
+		ExpectedRevision uint64              `json:"expected_revision"`
+		ExpectedPlanID   string              `json:"expected_plan_id"`
+		ExpectedStopID   string              `json:"expected_stop_id"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	var (
+		plan routeplan.Plan
+		err  error
+	)
+	switch req.Action {
+	case "append":
+		if err = validCoords(req.Stop.Lat, req.Stop.Lon); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		req.Stop.Label = strings.TrimSpace(req.Stop.Label)
+		plan, err = routeplan.Call(client, "plan.append", routeplan.AppendRequest{Stop: req.Stop})
+	case "remove":
+		if req.Index < 0 || req.ExpectedRevision == 0 {
+			writeErr(w, http.StatusBadRequest, "index and expected_revision required")
+			return
+		}
+		plan, err = routeplan.Call(client, "plan.remove", routeplan.RemoveRequest{Index: req.Index, ExpectedRevision: req.ExpectedRevision})
+	case "skip":
+		if req.ExpectedPlanID == "" || req.ExpectedStopID == "" {
+			writeErr(w, http.StatusBadRequest, "expected_plan_id and expected_stop_id required")
+			return
+		}
+		plan, err = routeplan.Call(client, "plan.advance", routeplan.ProgressRequest{ExpectedPlanID: req.ExpectedPlanID, ExpectedStopID: req.ExpectedStopID})
+	default:
+		writeErr(w, http.StatusBadRequest, "unknown route plan action")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
 }
 
 // handleLocations implements PUT (create or update) and DELETE on saved

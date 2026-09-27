@@ -256,6 +256,7 @@ func (s *Server) routes() http.Handler {
 	api("/api/system/journal", s.handleJournal)
 
 	api("/api/navigation", s.handleNavigation)
+	api("/api/navigation/plan", s.handleNavigationPlan)
 	api("/api/navigation/locations", s.handleLocations)
 
 	api("/api/keycards", s.handleKeycards)

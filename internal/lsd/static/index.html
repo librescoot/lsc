@@ -183,7 +183,7 @@
 
   <section id="view-navigation" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Navigation</h1></div>
-    <p data-i18n class="lede">Set the dashboard's navigation destination and manage the locations shown in its menu.</p>
+    <p data-i18n class="lede">Set a route with ordered stops, or navigate to a single destination. Manage the locations shown on the dashboard.</p>
 
     <section class="block nav-dest">
       <h2 data-i18n>Destination</h2>
@@ -195,6 +195,11 @@
       </div>
     </section>
 
+    <section class="block">
+      <h2 data-i18n>Route plan</h2>
+      <div id="nav-plan" class="nav-locations"></div>
+    </section>
+
     <div class="two-col">
       <section class="block">
         <h2 data-i18n>Saved locations</h2>
@@ -202,7 +207,7 @@
       </section>
 
       <section class="block">
-        <h2 data-i18n>New destination</h2>
+        <h2 data-i18n>New destination or stop</h2>
         <form id="nav-form" class="nav-form">
           <input data-i18n-attr="placeholder aria-label" id="nav-label" placeholder="Name (optional)" aria-label="Name" autocomplete="off">
           <div class="inline-form">
@@ -212,6 +217,7 @@
           </div>
           <div class="inline-form">
             <button data-i18n type="submit" class="btn btn-primary">Navigate</button>
+            <button data-i18n type="button" class="btn" id="nav-add-stop">Add stop</button>
             <button data-i18n type="button" class="btn" id="nav-save">Save as location</button>
           </div>
         </form>

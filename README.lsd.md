@@ -47,9 +47,10 @@ contracts.
 - **System**: log bundles (created with `lsc logs`, downloadable), a
   journal viewer per unit, installed map and routing tiles, and modem
   details.
-- **Navigation**: the dashboard's current destination (set from
-  coordinates, the scooter's own position, or a saved location; clear), and
-  the saved locations the dashboard menu offers, with add, edit and delete.
+- **Navigation**: the dashboard's current destination and ordered route plan,
+  with stops added from coordinates, the scooter's position, or saved locations.
+  Stops can be removed or skipped; setting a single destination replaces the
+  plan. Saved locations can be added, edited and deleted.
 - **Keycards**: the authorized and master card lists, authorizing by UID or
   by tapping cards at the reader (keycard-service's learn mode, with per-tap
   events streamed live), adding a master by teach-in, and the last card the
@@ -146,7 +147,8 @@ and service actions only reach systemd for Librescoot unit names.
 | `POST /api/updates/action` | `{board, action}`: `check`, `preview`/`channel` with `channel`, `install`/`delete` with `file`. DBC installs copy the file to the dashboard's data-server first. |
 | `GET/POST /api/system/logs` | List log bundles; create one with `{since}` via `lsc logs`. |
 | `GET /api/system/journal?unit=&lines=` | Journal tail for a known unit, all units, or `dmesg`. |
-| `GET /api/navigation`, `POST /api/navigation` | Current destination and saved locations; set `{latitude, longitude, address?, location-id?}` or `{clear: true}`. |
+| `GET /api/navigation`, `POST /api/navigation` | Current destination, route plan and saved locations; set `{latitude, longitude, address?, location-id?}`, replace with `{waypoints: [{latitude, longitude, label?}, ...]}`, or clear with `{clear: true}`. |
+| `POST /api/navigation/plan` | Append `{action: "append", stop: {lat, lon, label?}}`, remove `{action: "remove", index, expected_revision}`, or skip `{action: "skip", expected_plan_id, expected_stop_id}`. Returns the owner's route plan. |
 | `PUT/DELETE /api/navigation/locations` | Create or update `{id?, label, latitude, longitude}`; delete by `?id=`. Stored as `dashboard.saved-locations.<id>.*` in settings. |
 | `GET /api/keycards` | Authorized and master card UIDs from keycard-service's files, plus the last card seen. |
 | `POST /api/keycards/command` | `{command, uid?}`: add, remove, set-master, learn:start/stop, learn:master:start/stop, reset via `scooter:keycard`; waits for `command-result`. |
