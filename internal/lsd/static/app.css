@@ -139,7 +139,7 @@ main { max-width: var(--content); margin: 0 auto; padding: 1.75rem 24px 6rem; }
 .view { display: block; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .page-tools { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.lede { color: var(--text-2); max-width: 66ch; margin-bottom: 1.5rem; }
+.lede { color: var(--text-2); margin-bottom: 1.5rem; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
 @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; gap: 0; } }
 .block { margin: 0 0 2.25rem; min-width: 0; }
@@ -387,6 +387,10 @@ tr:hover .row-actions, tr:focus-within .row-actions { opacity: 1; }
 .drop-hint { color: var(--text-2); font-size: 0.9rem; margin: 0 0 0.75rem; }
 .dropzone.is-drag .drop-hint { color: var(--accent); font-weight: 600; }
 #upd-dropzone .inline-form { margin-bottom: 0; }
+.upd-board-override { margin-top: 0.5rem; color: var(--text-3); font-size: 0.85rem; }
+.upd-board-override summary { cursor: pointer; width: max-content; }
+.upd-board-override label { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.upd-board-override select { min-width: 8rem; }
 table.files td:first-child a { color: var(--text); display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
 table.files td:first-child a svg { flex: none; width: 16px; height: 16px; }
 table.files .fname { min-width: 0; }
@@ -479,6 +483,10 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
   height: 30rem; overflow: auto;
 }
 .term-out .is-cmd { color: var(--accent-bright); }
+.term-run { padding: 0.25rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.term-run-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.term-run-head .is-cmd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.term-run-head button { flex: none; background: transparent; border: 0; color: #FCA5A5; cursor: pointer; font: inherit; padding: 0; }
 .term-out .is-err { color: #FCA5A5; }
 .term-out .is-note { color: #A3A3A3; }
 .term-line { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.12); }
@@ -488,7 +496,6 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
   font-size: 0.82rem; padding: 0.3rem 0;
 }
 .term-line input:focus { outline: 0; }
-.term.is-busy .term-cwd { opacity: 0.5; }
 .term-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-top: 0.75rem; }
 .term-presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .term-foot .term-presets { flex: 1; }

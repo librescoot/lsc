@@ -333,6 +333,7 @@
   <section id="view-updates" class="view" hidden>
     <div class="page-head"><h1 data-i18n>Updates</h1></div>
     <p data-i18n class="lede">The main computer (MDB) and display (DBC) update separately. Pick a channel to see its latest release. Switching channels downloads a full image; later updates can use smaller deltas.</p>
+    <p data-i18n id="upd-offline" class="notice notice-warn" hidden>Channel switching needs a working internet connection on the scooter.</p>
     <div class="two-col" id="upd-boards"></div>
 
     <section class="block">
@@ -342,12 +343,15 @@
       <div id="upd-dropzone" class="dropzone">
         <p data-i18n class="drop-hint">Drop a .mender or .delta file here, or choose one below.</p>
         <form id="upd-upload-form" class="inline-form">
-          <label id="upd-board-choice"><span data-i18n>Board</span>
-            <select data-i18n-attr="aria-label" id="upd-upload-board" aria-label="Board"><option data-i18n value="detect" selected>Detect</option><option value="mdb">MDB</option><option data-i18n value="dbc">Display (DBC)</option></select>
-          </label>
           <input data-i18n-attr="aria-label" type="file" id="upd-upload-file" accept=".mender,.delta" aria-label="Update file">
           <button data-i18n type="submit" class="btn btn-primary">Upload</button>
         </form>
+        <details id="upd-board-override" class="upd-board-override">
+          <summary data-i18n>Choose board manually</summary>
+          <label><span data-i18n>Board</span>
+            <select data-i18n-attr="aria-label" id="upd-upload-board" aria-label="Board"><option data-i18n value="detect" selected>Detect</option><option value="mdb">MDB</option><option data-i18n value="dbc">Display (DBC)</option></select>
+          </label>
+        </details>
         <p id="upd-upload-target" class="cmd-hint" aria-live="polite" hidden></p>
         <div id="upd-upload-progress" class="progress" hidden><span></span></div>
       </div>

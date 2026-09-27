@@ -200,17 +200,20 @@ function connectStream() {
   });
   es.onmessage = e => {
     const ev = JSON.parse(e.data);
-    if (ev.h === "keycard:events") { onKeycardEvent(ev.f, ev.ts); scheduleRender(); return; }
+    if (ev.h === "keycard:events") { onKeycardEvent(ev.f, ev.ts); scheduleRender(ev.h); return; }
     if (ev.set !== undefined) {
+      const previous = state.faults[ev.h] || [];
+      if (previous.length === ev.set.length && ev.set.every(f => previous.includes(f))) return;
       if (ev.set.length) state.faults[ev.h] = ev.set; else delete state.faults[ev.h];
       if (currentView === "dashboard") loadEvents();
     } else {
       const h = state.hashes[ev.h] || (state.hashes[ev.h] = {});
+      if (h[ev.f] === ev.v || (!Object.hasOwn(h, ev.f) && ev.v == null)) return;
       if (ev.v === undefined || ev.v === null) delete h[ev.f]; else h[ev.f] = ev.v;
       if (ev.h === "settings") onSettingChanged(ev.f, ev.v);
       if (ev.h === "keycard" && ev.f === "uid") kc.lastSeenAt = Date.now();
     }
-    scheduleRender();
+    scheduleRender(ev.set !== undefined ? null : ev.h);
   };
   es.onopen = () => setConn("live");
   es.onerror = () => setConn("offline");
@@ -223,8 +226,16 @@ function setConn(s) {
   if (currentView === "dashboard") syncCommandAvailability();
 }
 
+const VIEW_HASHES = {
+  dashboard: new Set(["vehicle", "alarm", "battery:0", "battery:1", "aux-battery", "cb-battery", "engine-ecu", "power-manager", "system", "gps", "internet", "modem", "version:mdb", "settings"]),
+  keycards: new Set(["keycard", "keycard:events"]),
+  navigation: new Set(["navigation"]),
+  updates: new Set(["ota", "settings", "internet", "version:mdb", "version:dbc"]),
+  system: new Set(["maps", "modem", "internet", "version:mdb", "version:dbc", "engine-ecu", "system"]),
+};
 let renderQueued = false;
-function scheduleRender() {
+function scheduleRender(hash = null) {
+  if (hash && !VIEW_HASHES[currentView]?.has(hash)) return;
   if (renderQueued) return;
   renderQueued = true;
   requestAnimationFrame(() => {
@@ -277,11 +288,45 @@ function tone(v) {
 const simState = (v) => v === "locked" ? t("SIM locked") : v === "ready" ? t("SIM ready") : v === "missing" ? t("SIM missing") : undefined;
 const status = (v, label) => has(v) ? `<span class="status ${tone(v)}">${esc(label ?? human(v))}</span>` : null;
 
+function patchHTML(el, html) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const sameKind = (a, b) => a.nodeType === b.nodeType && (a.nodeType !== 1 ||
+    (a.tagName === b.tagName && a.id === b.id && a.getAttribute("data-board") === b.getAttribute("data-board") &&
+      (a.getAttribute("class") || "").split(" ")[0] === (b.getAttribute("class") || "").split(" ")[0]));
+  function patchNode(a, b) {
+    if (a.isEqualNode(b)) return;
+    if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+    // A live update must not replace an open picker or an in-progress edit.
+    if (a === document.activeElement && a.matches("input, select, textarea")) return;
+    if (a.matches("button.is-busy")) return;
+    for (const attr of [...a.attributes]) if (!b.hasAttribute(attr.name)) a.removeAttribute(attr.name);
+    for (const attr of b.attributes) if (a.getAttribute(attr.name) !== attr.value) a.setAttribute(attr.name, attr.value);
+    patchChildren(a, b);
+  }
+  function patchChildren(parent, desired) {
+    let current = parent.firstChild;
+    for (const next of [...desired.childNodes]) {
+      if (!current) { parent.appendChild(next.cloneNode(true)); continue; }
+      if (!sameKind(current, next)) {
+        let later = current.nextSibling;
+        while (later && !sameKind(later, next)) later = later.nextSibling;
+        if (!later) { parent.insertBefore(next.cloneNode(true), current); continue; }
+        while (current !== later) { const old = current; current = current.nextSibling; old.remove(); }
+      }
+      patchNode(current, next);
+      current = current.nextSibling;
+    }
+    while (current) { const old = current; current = current.nextSibling; old.remove(); }
+  }
+  patchChildren(el, template.content);
+}
+
 // Facts: array of [label, valueHTML|null, asideText?]; null values are skipped.
 function renderFacts(el, rows) {
   const out = rows.filter(r => r && has(r[1])).map(([label, value, aside]) =>
     `<dt>${esc(label)}</dt><dd>${value}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`);
-  el.innerHTML = out.join("") || `<div class="empty">${t("No data yet.")}</div>`;
+  patchHTML(el, out.join("") || `<div class="empty">${t("No data yet.")}</div>`);
 }
 
 // ---------- dashboard ----------
@@ -318,7 +363,7 @@ function renderDashboard() {
   if (sys["usb0-gate"] === "open") chips.push(`<span class="status is-good">${t("USB link held on")}</span>`);
   const nFaults = Object.values(state.faults).reduce((n, l) => n + l.length, 0);
   if (nFaults) chips.push(`<a class="status is-bad" href="#dashboard/faults">${nFaults === 1 ? t("1 fault") : t("{n} faults", { n: nFaults })}</a>`);
-  $("#hero-sub").innerHTML = `${has(vmdb.pretty_name) ? `<div class="hero-version">${esc(vmdb.pretty_name)}</div>` : ""}${chips.length ? `<div class="hero-chips">${chips.join("")}</div>` : ""}`;
+  patchHTML($("#hero-sub"), `${has(vmdb.pretty_name) ? `<div class="hero-version">${esc(vmdb.pretty_name)}</div>` : ""}${chips.length ? `<div class="hero-chips">${chips.join("")}</div>` : ""}`);
 
   // Batteries.
   const batts = [];
@@ -345,7 +390,7 @@ function renderDashboard() {
     batts.push(battRow(t("Connectivity (CBB)"), present ? num(cbb.charge) : null, present ? cbb["charge-status"] : "not present",
       present ? [fmtTemp(cbb.temperature), has(cbb["state-of-health"]) ? `${t("health")} ${cbb["state-of-health"]} %` : null] : [], !present));
   }
-  $("#hero-batteries").innerHTML = batts.join("") || `<div class="muted">${t("No battery data.")}</div>`;
+  patchHTML($("#hero-batteries"), batts.join("") || `<div class="muted">${t("No battery data.")}</div>`);
 
   // Vehicle facts.
   const ecuTemp = fmtTemp(ecu.temperature);
@@ -385,9 +430,9 @@ function renderDashboard() {
   const SRC = { "vehicle": t("Vehicle"), "engine-ecu": t("Motor controller"), "battery:0": t("Battery {n}", { n: 1 }), "battery:1": t("Battery {n}", { n: 2 }) };
   const rows = [];
   for (const [src, list] of Object.entries(state.faults)) for (const f of list) rows.push([SRC[src] || src, f]);
-  $("#faults").innerHTML = rows.length
+  patchHTML($("#faults"), rows.length
     ? rows.map(([s, f]) => `<div class="fault"><span class="src">${esc(s)}</span><code>${esc(f)}</code></div>`).join("")
-    : `<div class="none">${t("None.")}</div>`;
+    : `<div class="none">${t("None.")}</div>`);
 
   renderRawHashes();
   syncCommandAvailability();
@@ -408,7 +453,7 @@ function renderRawHashes() {
       fields.map(f => `<tr><td class="mono">${esc(f)}</td><td class="mono">${esc(h[f])}</td></tr>`).join("") +
       "</tbody>");
   }
-  box.innerHTML = out.length ? `<table class="data raw">${out.join("")}</table>` : `<div class="empty">${t("Nothing matches.")}</div>`;
+  patchHTML(box, out.length ? `<table class="data raw">${out.join("")}</table>` : `<div class="empty">${t("Nothing matches.")}</div>`);
 }
 
 function battRow(name, pct, stateText, meta, absent = false, coarse = false, low = false) {
@@ -805,10 +850,24 @@ document.addEventListener("drop", e => { if ([...(e.dataTransfer?.types || [])].
 
 // ---------- updates ----------
 
-const upd = { data: null, chosen: {} };
+const upd = { data: null, chosen: {}, open: {}, releases: null };
+
+function scooterOnline() {
+  const net = H("internet");
+  return net.status === "connected" && net.reachability === "ok";
+}
 
 Views.updates = async function () {
   try { upd.data = await API.get("/api/updates"); renderUpdates(); } catch (err) { notify(err.message, true); }
+  if (!upd.releases) {
+    try {
+      const response = await fetch("https://downloads.librescoot.org/releases/latest.json");
+      if (response.ok) {
+        upd.releases = await response.json();
+        if (currentView === "updates") renderUpdates();
+      }
+    } catch { /* release sizes remain unavailable offline */ }
+  }
 };
 
 const OTA_STATUS = { idle: ["Idle", ""], downloading: ["Downloading", "is-info"], preparing: ["Preparing", "is-info"], installing: ["Installing", "is-info"], "pending-reboot": ["Installed, waiting for reboot", "is-warn"], error: ["Error", "is-bad"] };
@@ -816,22 +875,25 @@ const OTA_STATUS = { idle: ["Idle", ""], downloading: ["Downloading", "is-info"]
 function channelOf(board) {
   const st = upd.data.settings[`updates.${board}.channel`];
   if (st) return st;
-  const v = (upd.data.versions[board] || {}).version_id || "";
+  const v = (Object.keys(H(`version:${board}`)).length ? H(`version:${board}`) : upd.data.versions[board] || {}).version_id || "";
   const m = v.match(/^(stable|testing|nightly)/);
-  return m ? m[1] : "";
+  return m ? m[1] : /^v?\d/.test(v) ? "stable" : "";
 }
 
 function renderUpdates() {
   const d = upd.data; if (!d) return;
   const ota = state.hashes.ota || d.ota || {};
+  const online = scooterOnline();
+  $("#upd-offline").hidden = online;
   const NAMES = { mdb: "MDB", dbc: t("Display (DBC)") };
-  $("#upd-boards").innerHTML = ["mdb", "dbc"].map(b => {
-    const v = d.versions[b] || {};
+  const boardHTML = ["mdb", "dbc"].map(b => {
+    const v = Object.keys(H(`version:${b}`)).length ? H(`version:${b}`) : d.versions[b] || {};
     const st = ota[`status:${b}`] || "";
     const [label, tone] = OTA_STATUS[st] ? [t(OTA_STATUS[st][0]), OTA_STATUS[st][1]] : [human(st) || t("Unknown"), ""];
     const busy = ["downloading", "preparing", "installing"].includes(st);
     const dl = busy && has(ota[`download-progress:${b}`]) ? num(ota[`download-progress:${b}`]) : null;
     const inst = busy && has(ota[`install-progress:${b}`]) ? num(ota[`install-progress:${b}`]) : null;
+    const dlTotal = busy && has(ota[`download-total:${b}`]) ? num(ota[`download-total:${b}`]) : null;
     const err = ota[`error:${b}`];
     const preview = ota[`preview-status:${b}`];
     const ch = channelOf(b);
@@ -847,7 +909,12 @@ function renderUpdates() {
     const chosen = upd.chosen[b] || ch;
     const pc = ota[`preview-channel:${b}`];
     const previewFor = pc === chosen ? preview : "";
-    const previewLine = chosen === ch ? ""
+    const release = upd.releases?.[ch];
+    const variant = v.variant_id || `unu-${b}`;
+    const fullImage = release?.assets?.find(a => a.name.startsWith(`librescoot-${variant}-`) && a.name.endsWith(".mender"));
+    const currentSize = fullImage ? t("Latest {channel}: {version}, full image {size}", { channel: esc(ch), version: esc(release.tag_name), size: esc(humanSize(fullImage.size)) })
+      : previewFor === "ready" && has(ota[`preview-size:${b}`]) ? t("Latest {channel}: {version}, full image {size}", { channel: esc(ch), version: esc(ota[`preview-version:${b}`]), size: esc(humanSize(num(ota[`preview-size:${b}`]))) }) : "";
+    const previewLine = !online || chosen === ch ? currentSize
       : previewFor === "checking" ? `<span class="muted">${t("Checking {channel}", { channel: esc(chosen) })}</span>`
       : previewFor === "ready" ? t("{channel} has {version}{size}", { channel: esc(chosen), version: `<span class="mono">${esc(ota[`preview-version:${b}`])}</span>`, size: has(ota[`preview-size:${b}`]) ? t(", a {size} full download", { size: esc(humanSize(num(ota[`preview-size:${b}`]))) }) : "" })
       : previewFor === "unavailable" ? `<span class="muted">${t("No {channel} release for this board.", { channel: esc(chosen) })}</span>`
@@ -856,20 +923,22 @@ function renderUpdates() {
     return `<section class="block board" data-board="${b}">
       <h2>${NAMES[b]}</h2>
       <dl class="facts">${rows.filter(r => r && has(r[1])).map(([l, val, aside]) => `<dt>${esc(l)}</dt><dd>${val}${has(aside) ? `<span class="aside">${esc(aside)}</span>` : ""}</dd>`).join("")}</dl>
-      ${bar(t("Download"), dl, false)}${bar(t("Install"), inst, false)}
+      ${bar(dlTotal > 0 ? `${t("Download")} · ${esc(humanSize(dlTotal))}` : t("Download"), dl, false)}${bar(t("Install"), inst, false)}
       <div class="cmd-row">
-        <button type="button" class="btn" data-upd="check" data-board="${b}">${t("Check now")}</button>
-        <label class="channel-pick">${t("Channel")}
+        <button type="button" class="btn" data-upd="check" data-board="${b}" ${online ? "" : "disabled"}>${t("Check now")}</button>
+        ${online ? upd.open[b] ? `<label class="channel-pick">${t("Channel")}
           <select data-upd-channel="${b}" aria-label="${t("Release channel")}">${["stable", "testing", "nightly"].map(c => `<option value="${c}" ${c === chosen ? "selected" : ""}>${c}${c === ch ? ` (${t("current")})` : ""}</option>`).join("")}</select>
-        </label>
-        ${chosen !== ch && previewFor === "ready" ? `<button type="button" class="btn btn-primary" data-upd="switch" data-board="${b}">${t("Switch to {channel} and update now", { channel: esc(chosen) })}</button>` : ""}
+        </label><button type="button" class="btn btn-quiet" data-upd-cancel="${b}">${t("Cancel")}</button>`
+          : `<button type="button" class="btn btn-quiet" data-upd-switch="${b}">${t("Switch channel")}</button>` : ""}
+        ${online && upd.open[b] && chosen !== ch && previewFor === "ready" ? `<button type="button" class="btn btn-primary" data-upd="switch" data-board="${b}">${t("Switch to {channel} and update now", { channel: esc(chosen) })}</button>` : ""}
       </div>
       ${previewLine ? `<p class="cmd-hint">${previewLine}</p>` : ""}
     </section>`;
   }).join("");
+  patchHTML($("#upd-boards"), boardHTML);
 
   const files = d.files || {};
-  $("#upd-files").innerHTML = ["mdb", "dbc"].map(b => {
+  patchHTML($("#upd-files"), ["mdb", "dbc"].map(b => {
     const list = files[b] || [];
     if (!list.length) return "";
     return `<div class="upd-group"><h3>${NAMES[b]}</h3>${list.map(f => `<div class="upd-row">
@@ -880,13 +949,29 @@ function renderUpdates() {
       </span>
       <span class="fmeta">${esc(humanSize(f.size))}, ${esc(new Date(f.mtime * 1000).toLocaleString())}</span>
     </div>`).join("")}</div>`;
-  }).join("") || `<p class="cmd-hint">${t("No update files staged.")}</p>`;
+  }).join("") || `<p class="cmd-hint">${t("No update files staged.")}</p>`);
 }
+
+$("#upd-boards").addEventListener("focusout", e => {
+  if (e.target.matches("[data-upd-channel]")) requestAnimationFrame(renderUpdates);
+});
+
+$("#upd-boards").addEventListener("click", e => {
+  const open = e.target.closest("[data-upd-switch]");
+  const cancel = e.target.closest("[data-upd-cancel]");
+  if (!open && !cancel) return;
+  const board = open?.dataset.updSwitch || cancel.dataset.updCancel;
+  if (open && !scooterOnline()) return;
+  upd.open[board] = !!open;
+  if (cancel) delete upd.chosen[board];
+  renderUpdates();
+});
 
 $("#view-updates").addEventListener("change", async e => {
   const sel = e.target.closest("[data-upd-channel]");
   if (!sel) return;
   const board = sel.dataset.updChannel;
+  if (!scooterOnline()) return;
   upd.chosen[board] = sel.value;
   renderUpdates();
   if (sel.value !== channelOf(board)) {
@@ -901,6 +986,7 @@ $("#view-updates").addEventListener("click", async e => {
   const body = { board, action };
   if (action === "switch") body.channel = upd.chosen[board];
   if (action === "install" || action === "delete") body.file = file;
+  if ((action === "switch" || action === "check") && !scooterOnline()) return;
   if (action === "switch") {
     const ok = await confirmDialog({ title: t("Switch {board} to {channel}", { board: board.toUpperCase(), channel: body.channel }), body: t("Switching to {channel} downloads and installs a full image. This may take a while; the MDB reboots after installation.", { channel: body.channel }), ok: t("Switch and update") });
     if (!ok) return;
@@ -910,6 +996,7 @@ $("#view-updates").addEventListener("click", async e => {
       await API.post("/api/updates/action", { board, action: "check" });
       notify(t("{board} switching to {channel}", { board: board.toUpperCase(), channel: body.channel }));
       delete upd.chosen[board];
+      upd.open[board] = false;
       Views.updates();
     } catch (err) { notify(err.message, true); }
     finally { btn.classList.remove("is-busy"); }
@@ -945,6 +1032,7 @@ function updateTargetHint() {
   if (!file) return;
   const detected = updateFileBoard(file.name);
   const chosen = $("#upd-upload-board").value;
+  if (!detected && chosen === "detect") $("#upd-board-override").open = true;
   const boardName = b => b === "mdb" ? "MDB" : t("Display (DBC)");
   hint.textContent = detected
     ? t("Detected: {board}.", { board: boardName(detected) })
@@ -976,7 +1064,7 @@ function uploadUpdate(file) {
     if (xhr.status >= 200 && xhr.status < 300) {
       notify(t("Uploaded {name}", { name: file.name }));
       updateDroppedFile = null; $("#upd-upload-file").value = "";
-      $("#upd-upload-board").value = "detect"; updateTargetHint();
+      $("#upd-upload-board").value = "detect"; $("#upd-board-override").open = false; updateTargetHint();
       Views.updates();
     } else notify(data.error || t("Upload failed (HTTP {status})", { status: xhr.status }), true);
   };
@@ -987,6 +1075,7 @@ function uploadUpdate(file) {
 $("#upd-upload-file").addEventListener("change", () => {
   updateDroppedFile = null;
   $("#upd-upload-board").value = "detect";
+  $("#upd-board-override").open = false;
   updateTargetHint();
 });
 $("#upd-upload-board").addEventListener("change", updateTargetHint);
@@ -1000,6 +1089,7 @@ fileDropzone($("#upd-dropzone"), files => {
   updateDroppedFile = files[0];
   $("#upd-upload-file").value = "";
   $("#upd-upload-board").value = "detect";
+  $("#upd-board-override").open = false;
   updateTargetHint();
   if (updateFileBoard(files[0].name)) uploadUpdate(files[0]);
 });
@@ -1029,9 +1119,9 @@ function renderSystemFacts() {
     [t("Motor controller"), has(ecu["fw-version"]) ? `${t("firmware")} ${ecu["fw-version"]}` : null, null],
     [t("Bluetooth module"), has(sys["nrf-fw-version"]) ? `${t("firmware")} ${sys["nrf-fw-version"]}` : null, null],
   ].filter(r => has(r[1]));
-  $("#boards tbody").innerHTML = boards.map(([n, ver, sn]) =>
+  patchHTML($("#boards tbody"), boards.map(([n, ver, sn]) =>
     `<tr><td>${esc(n)}</td><td>${esc(ver)}${sn ? `<div class="serial">${esc(sn)}</div>` : ""}</td></tr>`).join("")
-    || `<tr><td class="muted">${t("Not reported yet.")}</td></tr>`;
+    || `<tr><td class="muted">${t("Not reported yet.")}</td></tr>`);
 
 
   const art = (p) => has(m[`${p}:size`])
@@ -1126,7 +1216,7 @@ function renderDestination() {
   $("#nav-current-actions").hidden = !set;
   if (!set) { el.className = "nav-current muted"; el.textContent = t("None."); return; }
   el.className = "nav-current";
-  el.innerHTML = `${has(d.address) ? `<div class="name">${esc(d.address)}</div>` : ""}<div class="coords">${esc(fmtCoord(d.latitude, d.longitude))}</div>${has(d.timestamp) ? `<div class="when">${t("set")} ${esc(ago(d.timestamp))}</div>` : ""}`;
+  patchHTML(el, `${has(d.address) ? `<div class="name">${esc(d.address)}</div>` : ""}<div class="coords">${esc(fmtCoord(d.latitude, d.longitude))}</div>${has(d.timestamp) ? `<div class="when">${t("set")} ${esc(ago(d.timestamp))}</div>` : ""}`);
 }
 
 function renderPlan() {
@@ -1139,16 +1229,16 @@ function renderPlan() {
   }
   const stops = nav.plan.stops || [];
   const el = $("#nav-plan");
-  if (!stops.length) { el.innerHTML = `<div class="kc-empty">${t("No stops yet.")}</div>`; return; }
+  if (!stops.length) { patchHTML(el, `<div class="kc-empty">${t("No stops yet.")}</div>`); return; }
   const step = nav.plan.current_step;
-  el.innerHTML = stops.map((stop, i) => `<div class="loc nav-stop ${i === step ? "is-current" : ""}">
+  patchHTML(el, stops.map((stop, i) => `<div class="loc nav-stop ${i === step ? "is-current" : ""}">
     <div><span class="name">${i + 1}. ${esc(stop.label || fmtCoord(stop.lat, stop.lon))}</span>${i === step ? ` <span class="status is-info">${t("Current stop")}</span>` : stop.reached ? ` <span class="muted">${t("Reached")}</span>` : ""}</div>
     <div class="coords">${esc(fmtCoord(stop.lat, stop.lon))}</div>
     <div class="row-actions">
       ${i === step && i + 1 < stops.length ? `<button type="button" class="btn btn-small" data-plan-skip>${t("Skip to next")}</button>` : ""}
       <button type="button" class="btn btn-small btn-quiet" data-plan-remove="${i}">${t("Remove")}</button>
     </div>
-  </div>`).join("");
+  </div>`).join(""));
 }
 
 function renderLocations() {
@@ -1346,8 +1436,8 @@ function renderLastCard() {
   const verdict = k.authentication === "passed" ? `<span class="status is-good">${t("Accepted")}</span>` : `<span class="status is-bad">${t("Rejected")}</span>`;
   const when = kc.lastSeenAt ? ago(new Date(kc.lastSeenAt).toISOString()) : "";
   el.classList.remove("muted");
-  el.innerHTML = `<span class="uid">${esc(fmtUID(k.uid))}</span>${verdict}${has(k.type) ? `<span class="muted">${esc(k.type)} ${t("card")}</span>` : ""}<span class="muted">${esc(when)}</span>
-    ${known ? "" : `<button type="button" class="btn btn-small" data-kc-authorize="${esc(k.uid)}">${t("Authorize this card")}</button>`}`;
+  patchHTML(el, `<span class="uid">${esc(fmtUID(k.uid))}</span>${verdict}${has(k.type) ? `<span class="muted">${esc(k.type)} ${t("card")}</span>` : ""}<span class="muted">${esc(when)}</span>
+    ${known ? "" : `<button type="button" class="btn btn-small" data-kc-authorize="${esc(k.uid)}">${t("Authorize this card")}</button>`}`);
 }
 
 function onKeycardEvent(ev, ts) {
@@ -1719,7 +1809,8 @@ const SHELL_PRESETS = [
 const ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[\x00-\x08\x0b-\x1f]/g;
 const deansi = (s) => s.replace(ANSI, "");
 
-const sh = { cwd: "/data", seq: 0, running: null, stops: 0, hist: [], pos: -1 };
+const sh = { cwd: "/data", seq: 0, runs: new Map(), hist: [], pos: -1 };
+const SHELL_LIMIT = 3;
 try { sh.hist = JSON.parse(localStorage.getItem("lsd-shell-hist")) || []; } catch { /* no history */ }
 
 // The console lives behind a collapsed section on the System page, so it is
@@ -1738,40 +1829,41 @@ $("#sys-shell").addEventListener("toggle", e => {
   if (open) { shellInit(); $("#shell-cmd").focus(); }
 });
 
-function shellWrite(text, cls = "") {
+function shellWrite(text, cls, run) {
   const out = $("#shell-out");
   const atEnd = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
-  const last = out.lastElementChild;
+  const target = run.output;
+  const last = target.lastElementChild;
   if (last && last.className === cls && last.textContent.length < 65536) last.appendChild(document.createTextNode(text));
   else {
     const span = document.createElement("span");
     span.className = cls;
     span.textContent = text;
-    out.appendChild(span);
+    target.appendChild(span);
   }
-  while (out.childElementCount > 600) out.removeChild(out.firstElementChild);
+  while (out.childElementCount > 100 && !out.firstElementChild.classList.contains("is-running")) out.firstElementChild.remove();
   if (atEnd) out.scrollTop = out.scrollHeight;
 }
 
-function shellBusy(busy) {
-  $(".term").classList.toggle("is-busy", busy);
-  $("#shell-send").hidden = busy;
-  $("#shell-stop").hidden = !busy;
+function shellBusy() {
+  const count = sh.runs.size;
+  $("#shell-send").hidden = count >= SHELL_LIMIT;
+  $("#shell-stop").hidden = !count;
+  $("#shell-stop").textContent = count > 1 ? t("Stop latest") : t("Stop");
 }
 
-function shellFrame(f) {
-  if (f.o !== undefined) shellWrite(deansi(f.o));
-  if (f.e !== undefined) shellWrite(deansi(f.e), "is-err");
+function shellFrame(f, run) {
+  if (f.o !== undefined) shellWrite(deansi(f.o), "", run);
+  if (f.e !== undefined) shellWrite(deansi(f.e), "is-err", run);
   if (f.x === undefined) return;
-  if (f.cwd && f.cwd !== sh.cwd) { sh.cwd = f.cwd; $("#shell-cwd").textContent = sh.cwd + " $"; }
-  if (f.trunc) shellWrite(t("Output truncated.") + "\n", "is-note");
-  if (f.err) shellWrite(f.err + "\n", "is-err");
-  if (f.x !== 0) shellWrite(t("Exit {code}", { code: f.x }) + "\n", "is-note");
+  if (f.cwd && run.seq === sh.seq && f.cwd !== sh.cwd) { sh.cwd = f.cwd; $("#shell-cwd").textContent = sh.cwd + " $"; }
+  if (f.trunc) shellWrite(t("Output truncated.") + "\n", "is-note", run);
+  if (f.err) shellWrite(f.err + "\n", "is-err", run);
+  if (f.x !== 0) shellWrite(t("Exit {code}", { code: f.x }) + "\n", "is-note", run);
 }
 
 async function shellExec(cmd) {
-  if (sh.running) return;
-  shellWrite(`${sh.cwd} $ ${cmd}\n`, "is-cmd");
+  if (sh.runs.size >= SHELL_LIMIT) return false;
   sh.hist = sh.hist.filter(h => h !== cmd);
   sh.hist.push(cmd);
   if (sh.hist.length > 100) sh.hist.shift();
@@ -1779,9 +1871,27 @@ async function shellExec(cmd) {
   try { localStorage.setItem("lsd-shell-hist", JSON.stringify(sh.hist)); } catch { /* private mode */ }
 
   const id = `${Date.now()}-${++sh.seq}`;
-  sh.running = id;
-  sh.stops = 0;
-  shellBusy(true);
+  const out = $("#shell-out");
+  const atEnd = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
+  const block = document.createElement("div");
+  block.className = "term-run is-running";
+  const head = document.createElement("div");
+  head.className = "term-run-head";
+  const label = document.createElement("span");
+  label.className = "is-cmd";
+  label.textContent = `${sh.cwd} $ ${cmd}`;
+  const stop = document.createElement("button");
+  stop.type = "button";
+  stop.textContent = t("Stop");
+  head.append(label, stop);
+  const output = document.createElement("div");
+  block.append(head, output);
+  out.appendChild(block);
+  if (atEnd) out.scrollTop = out.scrollHeight;
+  const run = { id, seq: sh.seq, stops: 0, block, output, stop };
+  sh.runs.set(id, run);
+  stop.addEventListener("click", () => shellStop(id));
+  shellBusy();
   try {
     const resp = await fetch(API.url("/api/shell"), { method: "POST", headers: API.shellHeaders(), body: JSON.stringify({ id, cmd, cwd: sh.cwd }) });
     if (!resp.ok || !resp.body) {
@@ -1800,28 +1910,37 @@ async function shellExec(cmd) {
       while ((nl = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
-        if (line) shellFrame(JSON.parse(line));
+        if (line) shellFrame(JSON.parse(line), run);
       }
     }
   } catch (err) {
-    shellWrite(err.message + "\n", "is-err");
+    shellWrite(err.message + "\n", "is-err", run);
   } finally {
-    sh.running = null;
-    shellBusy(false);
-    $("#shell-cmd").focus();
+    sh.runs.delete(id);
+    block.classList.remove("is-running");
+    stop.remove();
+    shellBusy();
   }
+  return true;
 }
 
 // First press interrupts, a second one kills: the same escalation a terminal
 // gives you, without a key for SIGKILL.
-async function shellStop() {
-  if (!sh.running) return;
-  const signal = sh.stops++ === 0 ? "int" : "kill";
-  shellWrite(signal === "int" ? "^C\n" : t("Killed.") + "\n", "is-note");
+async function shellStop(id = [...sh.runs.keys()].at(-1)) {
+  const run = sh.runs.get(id);
+  if (!run) return;
+  const signal = run.stops++ === 0 ? "int" : "kill";
+  run.stop.textContent = t("Kill");
+  shellWrite(signal === "int" ? "^C\n" : t("Killed.") + "\n", "is-note", run);
   try {
-    const resp = await fetch(API.url("/api/shell/signal"), { method: "POST", headers: API.shellHeaders(), body: JSON.stringify({ id: sh.running, signal }) });
+    const resp = await fetch(API.url("/api/shell/signal"), { method: "POST", headers: API.shellHeaders(), body: JSON.stringify({ id, signal }) });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   } catch (err) { notify(err.message, true); }
+}
+
+function shellClear() {
+  $("#shell-out").querySelectorAll(".term-run:not(.is-running)").forEach(el => el.remove());
+  for (const run of sh.runs.values()) run.output.textContent = "";
 }
 
 $("#shell-form").addEventListener("submit", e => {
@@ -1829,13 +1948,14 @@ $("#shell-form").addEventListener("submit", e => {
   const input = $("#shell-cmd");
   const cmd = input.value.trim();
   if (!cmd) return;
+  if (sh.runs.size >= SHELL_LIMIT) return;
   input.value = "";
   shellExec(cmd);
 });
 
 $("#shell-cmd").addEventListener("keydown", e => {
   if (e.key === "c" && e.ctrlKey) { e.preventDefault(); shellStop(); return; }
-  if (e.key === "l" && e.ctrlKey) { e.preventDefault(); $("#shell-out").textContent = ""; return; }
+  if (e.key === "l" && e.ctrlKey) { e.preventDefault(); shellClear(); return; }
   if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
   if (!sh.hist.length) return;
   e.preventDefault();
@@ -1845,8 +1965,8 @@ $("#shell-cmd").addEventListener("keydown", e => {
   e.target.setSelectionRange(e.target.value.length, e.target.value.length);
 });
 
-$("#shell-stop").addEventListener("click", shellStop);
-$("#shell-clear").addEventListener("click", () => { $("#shell-out").textContent = ""; $("#shell-cmd").focus(); });
+$("#shell-stop").addEventListener("click", () => shellStop());
+$("#shell-clear").addEventListener("click", () => { shellClear(); $("#shell-cmd").focus(); });
 $("#shell-presets").addEventListener("click", e => {
   const btn = e.target.closest("button[data-cmd]");
   if (!btn) return;
