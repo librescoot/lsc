@@ -1669,7 +1669,7 @@ Views.cloud = async function () {
 function renderCloud(data) {
   const id = data.identity || {};
   const sunshine = data["sunshine-url"] || "https://sunshine.rescoot.org";
-  $("#cloud-sunshine-link").href = sunshine + "/settings";
+  $("#cloud-sunshine-link").href = sunshine + "/account/developer";
   renderFacts($("#cloud-identity"), [
     [t("Identifier"), has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">${t("none yet")}</span>`],
     [t("IMEI"), has(id.imei) ? `<span class="mono">${esc(id.imei)}</span>` : `<span class="muted">${t("modem not ready")}</span>`],
