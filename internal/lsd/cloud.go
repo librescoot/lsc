@@ -239,14 +239,48 @@ func (s *Server) handleCloudStatus(w http.ResponseWriter, r *http.Request) {
 
 // cloudRequest is the body of both Cloud page POSTs.
 type cloudRequest struct {
-	// Bootstrap: the bootstrap token the user minted in their Sunshine
-	// settings. Same credential radio-gaga's -bootstrap mode takes.
+	// Bootstrap: a token or online installer link from Sunshine Account settings.
+	// Both carry the credential radio-gaga's -bootstrap mode takes.
 	Token string `json:"token"`
 
 	// Config: which service to configure and the YAML to write.
 	Service    string `json:"service"`
 	YAML       string `json:"yaml"`
 	ConfigPath string `json:"config-path"`
+}
+
+func bootstrapCredential(raw, sunshineURL string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", fmt.Errorf("bootstrap token or installer link required")
+	}
+	if !strings.Contains(value, "://") {
+		if strings.ContainsAny(value, " \t\r\n") {
+			return "", fmt.Errorf("paste only the bootstrap token or installer URL, not a shell command")
+		}
+		return value, nil
+	}
+
+	link, err := url.Parse(value)
+	base, baseErr := url.Parse(sunshineURL)
+	if err != nil || baseErr != nil || link.User != nil ||
+		(link.Scheme != "http" && link.Scheme != "https") ||
+		link.Scheme != base.Scheme || !strings.EqualFold(link.Host, base.Host) {
+		return "", fmt.Errorf("installer link must point to the configured Sunshine server")
+	}
+	if link.RawQuery != "" || link.Fragment != "" {
+		return "", fmt.Errorf("paste the online installer link without query parameters or a fragment")
+	}
+	path, ok := strings.CutPrefix(link.Path, strings.TrimRight(base.Path, "/")+"/")
+	if !ok {
+		return "", fmt.Errorf("not a Sunshine online installer link")
+	}
+	for _, prefix := range []string{"install/u/", "a/"} {
+		if token, ok := strings.CutPrefix(path, prefix); ok && token != "" && !strings.ContainsAny(token, "/ \t\r\n") {
+			return token, nil
+		}
+	}
+	return "", fmt.Errorf("use the bootstrap token or online installer link; offline claim links must run in the scooter's shell")
 }
 
 // handleCloudBootstrap claims the scooter into the token owner's Sunshine
@@ -260,9 +294,9 @@ func (s *Server) handleCloudBootstrap(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	token := strings.TrimSpace(req.Token)
-	if token == "" {
-		writeErr(w, http.StatusBadRequest, "bootstrap token required")
+	token, err := bootstrapCredential(req.Token, s.sunshineURL)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	id := s.identity()

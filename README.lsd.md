@@ -35,11 +35,13 @@ contracts.
 - **Cloud**: shows the scooter's identifiers (VIN, IMEI, MDB and DBC serials)
   and the state of radio-gaga and uplink-service. Connecting to Sunshine
   uses the same exchange radio-gaga's own bootstrap mode performs: the user
-  pastes a bootstrap token from their Sunshine settings, lsd posts the
-  hardware identifiers to `POST /api/v1/scooters/bootstrap`, Sunshine adds
-  the scooter to that account and returns the radio-gaga config, which lsd
-  writes and starts. A pasted config file can be installed for either
-  service instead.
+  generates an installer credential in Sunshine's Account settings (no
+  developer mode required), then pastes its bootstrap token or online installer
+  link. LSD posts the hardware identifiers to `POST /api/v1/scooters/bootstrap`
+  and installs the returned radio-gaga config. New scooters wait for the account
+  owner to accept their claim in Sunshine. Online installer links must point to
+  the configured Sunshine server; offline claim links run in the scooter's shell
+  instead. A pasted config file can be installed for either service instead.
 - **Updates**: per-board update status, progress and errors from
   update-service, planned full/delta download size on the current channel,
   channel look-up and switch, check now, and installing an uploaded `.mender`
@@ -158,7 +160,7 @@ and service actions only reach systemd for Librescoot unit names.
 | `POST /api/shell` | `{cmd, cwd, id}`: run one command, streaming newline-delimited JSON frames (`{"o"}` stdout, `{"e"}` stderr, `{"x", "cwd"}` last). Needs `Content-Type: application/json` and `X-Lsd-Shell: 1`. |
 | `POST /api/shell/signal` | `{id, signal}`: send `int`, `term` or `kill` to a running command's process group. Same two headers. |
 | `GET /api/cloud` | Identity, connectivity service states, Sunshine URL. |
-| `POST /api/cloud/bootstrap` | `{token}`: claim the scooter in Sunshine and install the returned radio-gaga config. |
+| `POST /api/cloud/bootstrap` | `{token}`: bootstrap token or online installer URL; register the scooter in Sunshine and install the returned radio-gaga config. |
 | `POST /api/cloud/config` | `{service, yaml, config-path?}`: write a pasted config and restart the service. |
 
 ## Build and test
@@ -201,9 +203,8 @@ systemctl and filesystem.
   write `/data`. Everything it can do, `lsc` can do from the board's shell.
 - The MDB suspends in standby like everything else: when the scooter sleeps
   the page loses its stream and reconnects on wake.
-- Sunshine's activation-code flow (a code minted in the web UI, redeemed by
-  the scooter) is not on Sunshine's main branch yet. The Cloud page moves to
-  it once it ships; until then bootstrap tokens are the supported path.
+- Installer credentials are reusable and revocable in Sunshine Account settings.
+  A credential cannot take ownership of a scooter registered to another account.
 
 ## License
 

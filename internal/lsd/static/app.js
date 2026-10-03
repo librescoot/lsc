@@ -1669,7 +1669,7 @@ Views.cloud = async function () {
 function renderCloud(data) {
   const id = data.identity || {};
   const sunshine = data["sunshine-url"] || "https://sunshine.rescoot.org";
-  $("#cloud-sunshine-link").href = sunshine + "/account/developer";
+  $("#cloud-sunshine-link").href = sunshine + "/account/security#bootstrap-tokens";
   renderFacts($("#cloud-identity"), [
     [t("Identifier"), has(id.vin) ? `<span class="mono">${esc(id.vin)}</span>` : `<span class="muted">${t("none yet")}</span>`],
     [t("IMEI"), has(id.imei) ? `<span class="mono">${esc(id.imei)}</span>` : `<span class="muted">${t("modem not ready")}</span>`],
@@ -1699,7 +1699,7 @@ function renderCloud(data) {
   const box = $("#cloud-connected");
   if (connected.length) {
     box.hidden = false;
-    box.textContent = t("This scooter is linked to Sunshine as {id}. Connecting with another token moves it to that account and replaces its config.", { id: connected[0].identifier });
+    box.textContent = t("This scooter is configured for Sunshine as {id}. Reconnecting replaces its configuration; use a token from the same account.", { id: connected[0].identifier });
     $("#cloud-bootstrap-form button").textContent = t("Reconnect");
   } else {
     box.hidden = true;

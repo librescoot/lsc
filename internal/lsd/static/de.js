@@ -241,7 +241,7 @@ I18N.dicts.de = {
   "Connected to Sunshine as": "Mit Sunshine verbunden als",
   "Custom backend,": "Eigenes Backend,",
   "Not configured": "Nicht konfiguriert",
-  "This scooter is linked to Sunshine as {id}. Connecting with another token moves it to that account and replaces its config.": "Dieser Roller ist als {id} mit Sunshine verbunden. Ein anderes Token verschiebt ihn in das zugehörige Konto und ersetzt seine Konfiguration.",
+  "This scooter is configured for Sunshine as {id}. Reconnecting replaces its configuration; use a token from the same account.": "Dieser Roller ist als {id} für Sunshine eingerichtet. Erneutes Verbinden ersetzt seine Konfiguration; nutze ein Token desselben Kontos.",
   "Reconnect": "Neu verbinden",
   "Connect": "Verbinden",
   "Config written, but {problems}": "Konfiguration geschrieben, aber {problems}",
@@ -513,7 +513,7 @@ I18N.dicts.de = {
   "This scooter": "Dieser Roller",
   "Connectivity services": "Verbindungsdienste",
   "Connect to Sunshine": "Mit Sunshine verbinden",
-  "Bootstrap token": "Bootstrap-Token",
+  "Bootstrap token or installer link": "Bootstrap-Token oder Installer-Link",
   "Install a config file": "Konfigurationsdatei installieren",
   "Paste a config for uplink-service or radio-gaga. The service restarts when you install it.": "Füge eine Konfiguration für uplink-service oder radio-gaga ein. Der Dienst startet nach der Installation neu.",
   "Service": "Dienst",
@@ -561,6 +561,6 @@ I18N.dicts.de = {
   "Discard": "Verwerfen",
   "Save changes": "Änderungen speichern",
   "OK": "OK",
-  "Get a bootstrap token from <a id=\"cloud-sunshine-link\" href=\"https://sunshine.rescoot.org/account/developer\" target=\"_blank\" rel=\"noopener\">your Sunshine settings</a> and paste it here. Sunshine links this scooter to your account using its IMEI and board serials, then configures and starts radio-gaga.": "Hol dir ein Bootstrap-Token aus <a id=\"cloud-sunshine-link\" href=\"https://sunshine.rescoot.org/account/developer\" target=\"_blank\" rel=\"noopener\">deinen Sunshine-Einstellungen</a> und füge es hier ein. Sunshine verbindet den Roller anhand seiner IMEI und Board-Seriennummern mit deinem Konto, richtet radio-gaga ein und startet den Dienst.",
+  "Generate an installer link in <a id=\"cloud-sunshine-link\" href=\"https://sunshine.rescoot.org/account/security#bootstrap-tokens\" target=\"_blank\" rel=\"noopener\">Sunshine Account settings</a>, then copy its bootstrap token or online installer link here. Developer mode is not required. This configures radio-gaga; accept any pending scooter claim in Sunshine to finish setup.": "Erzeuge einen Installer-Link in den <a id=\"cloud-sunshine-link\" href=\"https://sunshine.rescoot.org/account/security#bootstrap-tokens\" target=\"_blank\" rel=\"noopener\">Sunshine-Kontoeinstellungen</a> und füge dann dessen Bootstrap-Token oder Online-Installer-Link hier ein. Der Entwicklermodus ist nicht nötig. Dies richtet radio-gaga ein; nimm einen gegebenenfalls wartenden Roller in Sunshine an, um die Einrichtung abzuschließen.",
   "Upload a <span class=\"mono\">.mender</span> image or <span class=\"mono\">.delta</span> patch. Display updates are copied over when you install them; the display turns on if needed.": "Lade ein <span class=\"mono\">.mender</span>-Image oder einen <span class=\"mono\">.delta</span>-Patch hoch. Display-Updates werden beim Installieren hinüberkopiert; das Display schaltet sich dafür bei Bedarf ein."
 };
