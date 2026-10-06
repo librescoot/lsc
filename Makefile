@@ -3,7 +3,7 @@ BUILD_DIR := bin
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-w -s -X main.version=$(VERSION)"
 
-.PHONY: build build-host build-arm dist clean lint test fmt deps deploy deploy-test deploy-lsd run run-lsd run-lsd-remote
+.PHONY: build build-host build-arm dist clean lint test test-web fmt deps deploy deploy-test deploy-lsd run run-lsd run-lsd-remote
 
 build:
 	mkdir -p $(BUILD_DIR)
@@ -27,6 +27,9 @@ lint:
 
 test:
 	go test -v ./...
+
+test-web:
+	node --test internal/lsd/tests/*.test.cjs
 
 fmt:
 	go fmt ./...

@@ -176,6 +176,13 @@ The UI is plain HTML, CSS and JavaScript under `internal/lsd/static`,
 embedded into the binary. Fonts (Abel, Hanken Grotesk, JetBrains Mono, all
 SIL Open Font License) and the logo come from the Librescoot website.
 
+The hash router uses `#view/section` URLs, such as `#dashboard/faults`.
+Section navigation updates the URL, supports repeated clicks and browser
+back navigation, and waits for dynamically rendered sections when needed.
+
+Run `make test-web` with Node.js 18 or newer for the UI routing regression
+tests; they use Node's built-in test runner without browser dependencies.
+
 ## Deployment
 
 Packaging is not done yet. [deploy/librescoot-lsd.service](deploy/librescoot-lsd.service)

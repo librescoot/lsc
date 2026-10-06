@@ -168,7 +168,8 @@ function setAdvanced(on) {
 
 const Views = {};
 let currentView = "";
-function route() {
+let routeID = 0;
+async function route({ behavior = "auto" } = {}) {
   if (location.hash.startsWith("#services")) { location.replace("#system/services"); return; }
   if (location.hash === "#shell") { location.replace("#system/shell"); return; }
   const view = (location.hash.slice(1) || "dashboard").split("/")[0];
@@ -176,8 +177,15 @@ function route() {
   $$(".view").forEach(v => { v.hidden = v.id !== "view-" + known; });
   $$(".tabs a").forEach(a => a.classList.toggle("is-active", a.dataset.view === known));
   currentView = known;
+  const id = ++routeID;
   updateSavebar();
-  Views[known]();
+  const rendering = Views[known]();
+  measureSticky();
+  const scrolled = scrollToHashSection(known, behavior);
+  await rendering;
+  if (id !== routeID || scrolled) return;
+  measureSticky();
+  scrollToHashSection(known, behavior);
 }
 window.addEventListener("hashchange", route);
 
@@ -642,14 +650,14 @@ Views.settings = async function () {
     if (!schema) {
       [schema, values] = await Promise.all([API.get("/api/settings/schema"), API.get("/api/settings").then(r => r.values || {})]);
     }
-    const target = decodeURIComponent(location.hash.split("/")[1] || "");
+    if (currentView !== "settings") return;
+    const target = hashSection("settings");
     if (target && !document.getElementById("group-" + target)) {
       // The linked service only has advanced settings; reveal them.
       const advanced = Object.values(schema).some(m => m.service === target && !m["user-visible"]);
       if (advanced && !advancedMode) { setAdvanced(true); return; }
     }
     renderSettings();
-    if (target) document.getElementById("group-" + target)?.scrollIntoView({ block: "start" });
   } catch (err) { notify(t("Settings unavailable: {error}", { error: err.message }), true); }
 };
 
@@ -711,24 +719,31 @@ function markCurrentGroup() {
   if (currentView === "system") mark($$("#view-system [id^=sys-]").filter(el => el.tagName !== "DL"), /^sys-/, $("#view-system .jump"));
 }
 window.addEventListener("scroll", markCurrentGroup, { passive: true });
-// Every .jump strip scrolls to <prefix><id>; the hash keeps the target so
-// deep links like #system/services land on the section.
+// Changed hashes use hashchange; repeated links must route explicitly.
 document.addEventListener("click", e => {
-  const a = e.target.closest(".jump [data-jump]");
-  if (!a) return;
+  if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest('a[href^="#"]');
+  if (!a || a.hasAttribute("download") || (a.target && a.target !== "_self")) return;
+  const hash = a.getAttribute("href");
+  if (hash !== location.hash || !Views[hash.slice(1).split("/")[0]]) return;
   e.preventDefault();
-  const el = document.getElementById(a.closest(".jump").dataset.prefix + a.dataset.jump);
-  if (!el) return;
-  if (el.tagName === "DETAILS") el.open = true;
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  route({ behavior: "smooth" });
 });
-function scrollToHashSection(view, prefix) {
-  const target = decodeURIComponent(location.hash.split("/")[1] || "");
-  if (!target) return;
+function hashSection(view) {
+  const [name, target = ""] = location.hash.slice(1).split("/");
+  if (name !== view) return "";
+  try { return decodeURIComponent(target); } catch { return ""; }
+}
+function scrollToHashSection(view, behavior = "auto") {
+  if (view !== currentView) return false;
+  const prefix = { dashboard: "dash-", settings: "group-", system: "sys-" }[view];
+  const target = hashSection(view);
+  if (!prefix || !target) return false;
   const el = document.getElementById(prefix + target);
-  if (!el) return;
+  if (!el || el.hidden || el.getClientRects().length === 0) return false;
   if (el.tagName === "DETAILS") el.open = true;
-  el.scrollIntoView({ block: "start" });
+  el.scrollIntoView({ behavior, block: "start" });
+  return true;
 }
 
 function currentValue(key) {
@@ -1149,7 +1164,6 @@ Views.system = async function () {
   if (sel.options.length <= 2) {
     for (const u of units) sel.insertAdjacentHTML("beforeend", `<option value="${esc(u.unit)}">${esc(u.unit.replace(/\.service$/, ""))}</option>`);
   }
-  scrollToHashSection("system", "sys-");
 };
 
 function renderSystemFacts() {
@@ -2045,5 +2059,5 @@ API.get("/api/info").then(info => {
   $("#sys-shell").hidden = !info.shell;
   $("#jump-shell").hidden = !info.shell;
   if (info.shell && localStorage.getItem("lsd-shell-open")) $("#sys-shell").open = true;
-  if (info.shell && location.hash === "#system/shell") { $("#sys-shell").open = true; $("#sys-shell").scrollIntoView({ block: "start" }); }
+  if (info.shell && location.hash === "#system/shell") { measureSticky(); scrollToHashSection("system"); }
 }).catch(() => {});
