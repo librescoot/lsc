@@ -497,10 +497,11 @@ func readOSRelease(path string) (string, string) {
 }
 
 func createTarball(sourceDir, bundleName, tarballPath string) error {
-	file, err := os.Create(tarballPath)
+	file, err := os.CreateTemp(filepath.Dir(tarballPath), ".logs-*.part")
 	if err != nil {
 		return err
 	}
+	defer os.Remove(file.Name())
 	defer file.Close()
 
 	gzipWriter := gzip.NewWriter(file)
@@ -509,7 +510,7 @@ func createTarball(sourceDir, bundleName, tarballPath string) error {
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
-	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	walkErr := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -552,6 +553,31 @@ func createTarball(sourceDir, bundleName, tarballPath string) error {
 
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
+	if err := tarWriter.Close(); err != nil {
+		return err
+	}
+	if err := gzipWriter.Close(); err != nil {
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	// Download clients must never observe an archive still being written.
+	if err := os.Rename(file.Name(), tarballPath); err != nil {
+		return err
+	}
+	dir, err := os.Open(filepath.Dir(tarballPath))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
 }
 
 func init() {
