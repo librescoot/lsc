@@ -424,8 +424,9 @@ function renderDashboard() {
     [t("Blinkers"), has(v["blinker:state"]) ? esc(human(v["blinker:state"])) : null],
     [t("Keycards"), has(sys["keycard-authorized-count"]) ? t("{n} authorized", { n: esc(sys["keycard-authorized-count"]) }) : null,
       has(sys["keycard-master-count"]) ? t("{n} master", { n: sys["keycard-master-count"] }) : null],
-    [t("Energy"), has(ecu["energy:consumed"]) ? `${(num(ecu["energy:consumed"]) / 1000).toFixed(1)} kWh ${t("used")}` : null,
-      has(ecu["energy:recovered"]) ? `${(num(ecu["energy:recovered"]) / 1000).toFixed(1)} kWh ${t("recovered")}` : null],
+    // ECU energy counters are in mWh.
+    [t("Energy"), has(ecu["energy:consumed"]) ? `${(num(ecu["energy:consumed"]) / 1000000).toFixed(1)} kWh ${t("used")}` : null,
+      has(ecu["energy:recovered"]) ? `${(num(ecu["energy:recovered"]) / 1000000).toFixed(1)} kWh ${t("recovered")}` : null],
   ]);
 
   // Connectivity.
