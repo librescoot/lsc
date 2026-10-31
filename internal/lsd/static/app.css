@@ -85,6 +85,7 @@ p { margin: 0 0 0.75rem; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code, .mono { font-family: var(--mono); font-size: 0.86em; }
+.pairing-code { font-size: clamp(1.4rem, 5vw, 2rem); letter-spacing: 0.06em; user-select: all; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 ::selection { background: rgba(34, 211, 238, 0.25); }

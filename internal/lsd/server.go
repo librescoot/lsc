@@ -51,6 +51,7 @@ type Server struct {
 	sunshineURL string
 	shell       bool
 	shells      *shellRegistry
+	pairingRun  func(context.Context, string) (pairingStatus, error)
 
 	mu       sync.RWMutex
 	rdb      *redis.Client
@@ -162,6 +163,7 @@ func (s *Server) ListenAndServeOn(addr, wgInterface string) error {
 		return nil
 	}
 	go s.runStreamBridge()
+	go s.runPairingBridge()
 	if wgInterface != "" {
 		go s.serveWireGuard(srv, wgInterface, wgPort)
 	}
@@ -362,6 +364,7 @@ func (s *Server) routes() http.Handler {
 	api("/api/shell/signal", s.handleShellSignal)
 
 	api("/api/cloud", s.handleCloudStatus)
+	api("/api/cloud/pairing", s.handleCloudPairing)
 	api("/api/cloud/bootstrap", s.handleCloudBootstrap)
 	api("/api/cloud/config", s.handleCloudConfig)
 

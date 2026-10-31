@@ -49,6 +49,12 @@ lsc --json gps status
 lsc watch vehicle battery:0
 ```
 
+## Web interface and cloud pairing
+
+The `lsd` web interface serves the management address and, when configured, WireGuard. Its Cloud page can explicitly start Connect pairing, show the short code and expiry, and observe completion after browser approval. Stopping requests a pause between steps rather than interrupting an in-progress configuration transaction. The Connect CLI and radio-gaga must be installed, and the scooter needs network access. The existing optional management token and same-origin protections apply to these endpoints.
+
+The dashboard's Settings > Cloud > Connect account screen uses the same local worker. It requests a fresh status when opened; opening the screen never starts pairing. Its static QR opens the Connect page, where the rider enters the displayed short code. Pairing requests from the dashboard are admitted only while the vehicle state is `stand-by` or `parked`.
+
 ## Event extensions
 
 `lsc ext` manages rules through the event-service RPC API on the selected Redis

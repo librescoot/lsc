@@ -1678,8 +1678,64 @@ $("#files-mkdir").addEventListener("click", async () => {
 // ---------- cloud ----------
 
 Views.cloud = async function () {
+  loadCloudPairing();
   try { renderCloud(await API.get("/api/cloud")); } catch (err) { notify(err.message, true); }
 };
+
+let cloudPairingTimer;
+function renderCloudPairing(pairing) {
+  const messages = {
+    not_registered: "Ready to pair", registered: "Ready to pair",
+    starting: "Starting pairing…", waiting_for_web_setup: "Approve this scooter in your browser",
+    applying: "Applying the approved connection…", connected: "Account connected",
+    stopping: "Stopping after the current step…", paused: "Pairing paused",
+    error: "Pairing stopped before completion. Check connectivity and keep the scooter stationary, then retry.",
+  };
+  $("#cloud-pairing-status").textContent = t(!pairing.running && pairing.state === "waiting_for_web_setup" ? "Pairing paused" : messages[pairing.state] || "Ready to pair");
+  $("#cloud-pairing-code-box").hidden = !pairing.running || !pairing.code;
+  $("#cloud-pairing-code").textContent = pairing.code || "";
+  $("#cloud-pairing-expiry").textContent = pairing.expires_at ? t("Code expires at {time}", { time: new Date(pairing.expires_at * 1000).toLocaleTimeString() }) : "";
+  $("#cloud-pairing-start").disabled = pairing.running || pairing.state === "connected";
+  $("#cloud-pairing-stop").hidden = !pairing.running;
+  $("#cloud-pairing-stop").disabled = pairing.state === "stopping";
+  $("#cloud-pairing-error").hidden = true;
+}
+
+async function loadCloudPairing() {
+  clearTimeout(cloudPairingTimer);
+  if (currentView !== "cloud") return;
+  try {
+    const pairing = await API.get("/api/cloud/pairing");
+    if (currentView !== "cloud") return;
+    renderCloudPairing(pairing);
+    if (pairing.running) cloudPairingTimer = setTimeout(loadCloudPairing, 2000);
+  } catch (err) {
+    if (currentView !== "cloud") return;
+    $("#cloud-pairing-error").textContent = t("Connect is unavailable. Check that the current Connect CLI and radio-gaga are installed.");
+    $("#cloud-pairing-error").hidden = false;
+    $("#cloud-pairing-code-box").hidden = true;
+    $("#cloud-pairing-code").textContent = "";
+    cloudPairingTimer = setTimeout(loadCloudPairing, 3000);
+  }
+}
+
+async function cloudPairingAction(action) {
+  clearTimeout(cloudPairingTimer);
+  $("#cloud-pairing-start").disabled = true;
+  $("#cloud-pairing-stop").disabled = true;
+  let result;
+  try {
+    result = await API.post("/api/cloud/pairing", { action });
+    renderCloudPairing(result);
+    if (currentView === "cloud") cloudPairingTimer = setTimeout(loadCloudPairing, 500);
+  } catch (err) {
+    $("#cloud-pairing-error").textContent = t("Connect is unavailable. Check that the current Connect CLI and radio-gaga are installed.");
+    $("#cloud-pairing-error").hidden = false;
+    $("#cloud-pairing-start").disabled = false;
+  } finally { $("#cloud-pairing-stop").disabled = result?.state === "stopping"; }
+}
+$("#cloud-pairing-start").addEventListener("click", () => cloudPairingAction("start"));
+$("#cloud-pairing-stop").addEventListener("click", () => cloudPairingAction("stop"));
 
 function renderCloud(data) {
   const id = data.identity || {};

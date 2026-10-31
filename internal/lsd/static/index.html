@@ -301,8 +301,24 @@
       </section>
     </div>
 
-    <section class="block" id="cloud-connect">
-      <h2 data-i18n>Connect to Sunshine</h2>
+    <section class="block" id="cloud-pairing">
+      <h2 data-i18n>Connect your account</h2>
+      <p data-i18n>Keep the scooter online and stationary. Start pairing, open Connect on your phone or computer, enter the code and approve in Sunshine. Existing scooters require their current owner's approval; their credentials are retained.</p>
+      <p id="cloud-pairing-status" role="status" aria-live="polite"></p>
+      <div id="cloud-pairing-code-box" hidden>
+        <p id="cloud-pairing-code" class="mono pairing-code"></p>
+        <p id="cloud-pairing-expiry" class="muted"></p>
+        <a data-i18n class="btn" href="https://connect.librescoot.org/pair" target="_blank" rel="noopener noreferrer">Open Connect</a>
+      </div>
+      <div class="inline-form">
+        <button data-i18n id="cloud-pairing-start" type="button" class="btn btn-primary">Start pairing</button>
+        <button data-i18n id="cloud-pairing-stop" type="button" class="btn" hidden>Stop waiting</button>
+      </div>
+      <p id="cloud-pairing-error" class="notice notice-warn" role="alert" hidden></p>
+    </section>
+
+    <details class="block" id="cloud-connect">
+      <summary><h2 data-i18n>Use an installer token</h2></summary>
       <div id="cloud-connected" class="notice notice-ok" hidden></div>
       <p data-i18n-html>Generate an installer link in <a id="cloud-sunshine-link" href="https://sunshine.rescoot.org/account/security#bootstrap-tokens" target="_blank" rel="noopener">Sunshine Account settings</a>, then copy its bootstrap token or online installer link here. Developer mode is not required. This configures radio-gaga; accept any pending scooter claim in Sunshine to finish setup.</p>
       <form id="cloud-bootstrap-form" class="inline-form">
@@ -310,7 +326,7 @@
         <button data-i18n type="submit" class="btn btn-primary">Connect</button>
       </form>
       <pre id="cloud-bootstrap-out" class="result" hidden></pre>
-    </section>
+    </details>
 
     <details class="block advanced adv-only">
       <summary><h2 data-i18n>Install a config file</h2></summary>
