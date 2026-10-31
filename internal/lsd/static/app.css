@@ -524,7 +524,7 @@ table.files td:nth-child(3) { color: var(--text-3); white-space: nowrap; font-si
 .svc:last-child { border-bottom: 0; }
 .svc .svc-name { font-weight: 500; }
 .svc .svc-unit { display: block; font-family: var(--mono); font-size: 0.78rem; color: var(--text-3); font-weight: 400; }
-.svc .svc-lines { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.92rem; }
+.svc .svc-lines { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.92rem; min-width: 0; overflow-wrap: anywhere; }
 .svc .svc-lines .muted { color: var(--text-3); }
 details.advanced > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 0.9rem; }
 details.advanced > summary::-webkit-details-marker { display: none; }

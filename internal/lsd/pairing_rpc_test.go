@@ -3,6 +3,10 @@ package lsd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -39,6 +43,49 @@ func TestPairingRPCRejectsExpiredCallsArgumentsAndArbitraryReplyChannels(t *test
 	if _, err := parsePairingRPC(string(data)+`{}`, now); err == nil {
 		t.Fatal("trailing JSON accepted")
 	}
+}
+
+func TestPairingBrowserFixture(t *testing.T) {
+	if testing.Short() {
+		t.Skip("real-browser test")
+	}
+	if os.Getenv("LSD_PAIRING_BROWSER_FIXTURE") != "1" {
+		t.Skip("opt-in real-browser fixture")
+	}
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(mr.Addr())
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := New(Options{DataDir: t.TempDir()})
+	var started atomic.Bool
+	s.pairingRun = func(_ context.Context, action string) (pairingStatus, error) {
+		if action == "start" {
+			started.Store(true)
+			return pairingStatus{State: "starting", Running: true}, nil
+		}
+		if action == "stop" {
+			started.Store(false)
+			return pairingStatus{State: "paused"}, nil
+		}
+		if started.Load() {
+			return pairingStatus{State: "waiting_for_web_setup", Running: true, Code: "01234-56789", ExpiresAt: time.Now().Add(10 * time.Minute).Unix()}, nil
+		}
+		return pairingStatus{State: "not_registered"}, nil
+	}
+	s.mu.Lock()
+	s.rdb = client
+	s.mu.Unlock()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpServer := &http.Server{Handler: s.routes()}
+	go httpServer.Serve(listener)
+	defer httpServer.Close()
+	defer client.Close()
+	fmt.Printf("PAIRING_FIXTURE_URL=http://%s/#cloud\n", listener.Addr())
+	time.Sleep(35 * time.Second)
 }
 
 func TestPairingRPCBridgeUsesCurrentVehicleStateAndSanitizedView(t *testing.T) {
