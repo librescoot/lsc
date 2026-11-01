@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"sync"
 	"time"
 
 	rdb "github.com/redis/go-redis/v9"
@@ -69,9 +70,57 @@ func (s *Server) pairingRPC(ctx context.Context, request pairingRPCRequest) (pai
 	return sanitizePairing(result)
 }
 
+type pairingJob struct {
+	request pairingRPCRequest
+	client  *rdb.Client
+}
+
+func (s *Server) pairingWorker(ctx context.Context, jobs <-chan pairingJob) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-jobs:
+			// Requests may expire while waiting behind another mutation.
+			if ctx.Err() != nil || time.Now().UnixMilli() >= job.request.Deadline {
+				continue
+			}
+			callCtx, done := context.WithDeadline(ctx, time.UnixMilli(job.request.Deadline))
+			status, err := s.pairingRPC(callCtx, job.request)
+			done()
+			if ctx.Err() != nil {
+				return
+			}
+			publishPairingReply(ctx, job, status, err)
+		}
+	}
+}
+
+func publishPairingReply(ctx context.Context, job pairingJob, status pairingStatus, err error) {
+	var reply any
+	if err != nil {
+		reply = map[string]any{"ok": false, "error": "pairing unavailable or scooter not stationary"}
+	} else {
+		reply = map[string]any{"ok": true, "payload": status}
+	}
+	data, encodeErr := json.Marshal(reply)
+	if encodeErr == nil {
+		_ = job.client.Publish(ctx, job.request.Reply, data).Err()
+	}
+}
+
 func (s *Server) runPairingBridge() {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// One worker per lane keeps status independent and mutations FIFO. Fixed
+	// queues bound memory and process creation under a flood.
+	statusJobs := make(chan pairingJob, 1)
+	mutationJobs := make(chan pairingJob, 16)
+	var workers sync.WaitGroup
+	for _, jobs := range []<-chan pairingJob{statusJobs, mutationJobs} {
+		workers.Add(1)
+		go func(jobs <-chan pairingJob) { defer workers.Done(); s.pairingWorker(ctx, jobs) }(jobs)
+	}
+	defer func() { cancel(); workers.Wait() }()
 	go func() {
 		select {
 		case <-s.doneCh:
@@ -106,23 +155,19 @@ func (s *Server) runPairingBridge() {
 		if len(values) != 2 {
 			continue
 		}
-		// A single consumer validates deadlines after dequeue, so old writes never run.
 		request, err := parsePairingRPC(values[1], time.Now())
 		if err != nil {
 			continue
 		}
-		callCtx, done := context.WithDeadline(ctx, time.UnixMilli(request.Deadline))
-		status, err := s.pairingRPC(callCtx, request)
-		done()
-		var reply any
-		if err != nil {
-			reply = map[string]any{"ok": false, "error": "pairing unavailable or scooter not stationary"}
-		} else {
-			reply = map[string]any{"ok": true, "payload": status}
+		job := pairingJob{request: request, client: client.GetClient()}
+		jobs := mutationJobs
+		if request.Method == "status" {
+			jobs = statusJobs
 		}
-		data, encodeErr := json.Marshal(reply)
-		if encodeErr == nil {
-			_ = client.GetClient().Publish(ctx, request.Reply, data).Err()
+		select {
+		case jobs <- job:
+		default:
+			publishPairingReply(ctx, job, pairingStatus{}, errors.New("pairing queue full"))
 		}
 	}
 }

@@ -88,6 +88,57 @@ func TestPairingBrowserFixture(t *testing.T) {
 	time.Sleep(35 * time.Second)
 }
 
+func TestPairingStatusDoesNotDelayMutation(t *testing.T) {
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(mr.Addr())
+	if err := client.Connect(); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	s, _ := New(Options{DataDir: t.TempDir()})
+	s.mu.Lock()
+	s.rdb = client
+	s.mu.Unlock()
+	mr.HSet("vehicle", "state", "parked")
+	statusStarted, releaseStatus, startCalled := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	s.pairingRun = func(ctx context.Context, action string) (pairingStatus, error) {
+		if action == "status" {
+			close(statusStarted)
+			select {
+			case <-releaseStatus:
+			case <-ctx.Done():
+				return pairingStatus{}, ctx.Err()
+			}
+		}
+		if action == "start" {
+			close(startCalled)
+		}
+		return pairingStatus{State: "starting", Running: true}, nil
+	}
+	done := make(chan struct{})
+	go func() { defer close(done); s.runPairingBridge() }()
+	defer func() { close(releaseStatus); s.Shutdown(); <-done }()
+	push := func(id, method string) {
+		request := pairingRPCRequest{ID: id, Method: method, Reply: pairingChannel + ":reply:" + id, Deadline: time.Now().Add(4 * time.Second).UnixMilli(), Payload: json.RawMessage(`{}`)}
+		data, _ := json.Marshal(request)
+		if err := client.GetClient().LPush(context.Background(), pairingChannel, data).Err(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	push("00000000000000000000000000000001", "status")
+	select {
+	case <-statusStarted:
+	case <-time.After(time.Second):
+		t.Fatal("status did not start")
+	}
+	push("00000000000000000000000000000002", "start")
+	select {
+	case <-startCalled:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("start blocked behind status")
+	}
+}
+
 func TestPairingRPCBridgeUsesCurrentVehicleStateAndSanitizedView(t *testing.T) {
 	mr := miniredis.RunT(t)
 	client := redis.NewClient(mr.Addr())
