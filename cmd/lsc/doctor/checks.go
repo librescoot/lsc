@@ -85,7 +85,8 @@ type stateReader interface {
 type env struct {
 	state stateReader
 	// failedUnits lists systemd units in the failed state.
-	failedUnits func() []string
+	failedUnits      func() ([]string, error)
+	inactiveServices func() ([]string, error)
 	// freeBytes is the space left on a mounted filesystem.
 	freeBytes func(path string) (free, total uint64, err error)
 	// link reports how this board's routing table reaches its peer.
@@ -330,26 +331,32 @@ func checkKernel(e env) Result {
 	return result
 }
 
-// checkServices reports systemd units in the failed state. Units that are enabled
-// but idle are not a fault: the image ships oneshots, templates and
-// connectivity-gated units that are meant to be inactive.
 func checkServices(e env) Result {
-	result := Result{Name: "services"}
-	if e.failedUnits == nil {
-		result.Verdict = VerdictUnknown
-		result.Detail = "systemd not available"
+	result := Result{Name: "services", Verdict: VerdictUnknown, Detail: "systemd not available"}
+	if e.failedUnits == nil || e.inactiveServices == nil {
 		return result
 	}
-	failed := e.failedUnits()
-	if len(failed) == 0 {
+	failed, failedErr := e.failedUnits()
+	inactive, inactiveErr := e.inactiveServices()
+	var details []string
+	if len(failed) > 0 {
+		sort.Strings(failed)
+		details = append(details, strings.Join(failed, ", ")+" failed")
+	}
+	if len(inactive) > 0 {
+		details = append(details, strings.Join(inactive, ", ")+" enabled but not running")
+	}
+	if len(details) > 0 {
+		result.Verdict = VerdictAttention
+		result.Detail = strings.Join(details, "; ")
+		result.Hint = "Use `lsc service logs <unit>` to inspect the service."
+	} else if failedErr == nil && inactiveErr == nil {
 		result.Verdict = VerdictOK
-		result.Detail = "no failed units"
-		return result
+		result.Detail = "no failed units or stopped enabled continuous services"
 	}
-	sort.Strings(failed)
-	result.Verdict = VerdictAttention
-	result.Detail = fmt.Sprintf("%s failed", strings.Join(failed, ", "))
-	result.Hint = "Use `lsc service logs <unit>` to see why it failed, or `lsc service restart <unit>` to restart it."
+	if failedErr != nil || inactiveErr != nil {
+		result.Detail += "; some service states could not be read"
+	}
 	return result
 }
 

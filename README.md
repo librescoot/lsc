@@ -49,6 +49,25 @@ lsc --json gps status
 lsc watch vehicle battery:0
 ```
 
+## Doctor
+
+`lsc doctor` runs read-only checks for board links, kernel consistency, local
+systemd services, updates, vehicle faults and free space on `/data`.
+`lsc doctor --json` returns `schema_version: 1`, a `checks` array with `name`,
+`verdict`, `detail` and `hint`, and counts for `attention`, `warnings` and `unknown`.
+A report containing attention items exits nonzero but still contains valid JSON.
+
+Service checks include failed units and enabled continuous services that are
+inactive. Completed oneshots, uninstantiated templates, socket/timer-activated
+services, unmet conditions and remain-after-exit units are not reported as stopped
+daemons. Disabled services are not assumed to be required. An unreadable systemd
+query is unknown, never healthy. Each local diagnostic subprocess has a five-second
+deadline. If Redis is unavailable, local checks still run and datastore-dependent
+checks report unknown. Doctor does not start, stop or repair anything.
+
+Run Doctor on each board to inspect that board's services and storage; pointing
+`--redis-addr` at another board does not move the local system checks there.
+
 ## Web interface and cloud pairing
 
 The `lsd` web interface serves the management address and, when configured, WireGuard. Its Cloud page can explicitly start Connect pairing, show the short code and expiry, and observe completion after browser approval. Stopping requests a pause between steps rather than interrupting an in-progress configuration transaction. The Connect CLI and radio-gaga must be installed, and the scooter needs network access. The existing optional management token and same-origin protections apply to these endpoints.

@@ -131,6 +131,13 @@ All commands support JSON output mode (--json) for automation and scripting.`,
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting to Redis: %v\n", err)
+			if cmd == doctor.DoctorCmd {
+				_ = redisClient.Close()
+				redisClient = nil
+				doctor.SetRedisClient(nil)
+				doctor.SetJSONOutput(&JSONOutput)
+				return nil
+			}
 			return cli.ErrSilent
 		}
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -51,11 +50,16 @@ a link running on its backup transport) are printed without failing.`,
 
 func run(cmd *cobra.Command) error {
 	e := env{
-		state:       RedisClient,
-		failedUnits: failedUnits,
-		freeBytes:   freeBytes,
-		link:        localLink,
-		now:         time.Now,
+		state:            RedisClient,
+		failedUnits:      failedUnits,
+		inactiveServices: inactiveServices,
+		freeBytes:        freeBytes,
+		link:             localLink,
+		now:              time.Now,
+	}
+
+	if RedisClient == nil {
+		e.state = unavailableState{}
 	}
 
 	results := make([]Result, 0, 6)
@@ -87,10 +91,11 @@ func run(cmd *cobra.Command) error {
 			})
 		}
 		payload, err := json.MarshalIndent(map[string]any{
-			"checks":    text,
-			"attention": attention,
-			"warnings":  warnings,
-			"unknown":   unknown,
+			"schema_version": 1,
+			"checks":         text,
+			"attention":      attention,
+			"warnings":       warnings,
+			"unknown":        unknown,
 		}, "", "  ")
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), format.Error("Error marshaling JSON: %v\n"), err)
@@ -173,7 +178,7 @@ func localLink() (Link, error) {
 		return Link{}, nil
 	}
 
-	out, err := exec.Command("ip", "route", "show", peerAddress+"/32").Output()
+	out, err := diagnosticCommand("ip", "route", "show", peerAddress+"/32")
 	if err != nil {
 		return Link{}, err
 	}
@@ -208,11 +213,11 @@ func boardVariant() (string, error) {
 
 // failedUnits lists systemd units in the failed state. --no-legend also drops the
 // footer, so every line is a unit.
-func failedUnits() []string {
-	out, err := exec.Command("systemctl", "list-units", "--state=failed",
-		"--no-legend", "--plain", "--no-pager").Output()
-	if err != nil && len(out) == 0 {
-		return nil
+func failedUnits() ([]string, error) {
+	out, err := diagnosticCommand("systemctl", "list-units", "--state=failed",
+		"--no-legend", "--plain", "--no-pager")
+	if err != nil {
+		return nil, err
 	}
 	var units []string
 	for _, line := range strings.Split(string(out), "\n") {
@@ -226,7 +231,16 @@ func failedUnits() []string {
 		}
 		units = append(units, fields[0])
 	}
-	return units
+	return units, nil
+}
+
+type unavailableState struct{}
+
+func (unavailableState) HGetAll(string) (map[string]string, error) {
+	return nil, fmt.Errorf("Redis unavailable")
+}
+func (unavailableState) SMembers(string) ([]string, error) {
+	return nil, fmt.Errorf("Redis unavailable")
 }
 
 // freeBytes reports the space left on the filesystem holding path.

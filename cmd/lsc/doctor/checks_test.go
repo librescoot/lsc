@@ -37,10 +37,11 @@ func healthyEnv() env {
 			"version:dbc": {"id": "librescoot-dbc", "kernel_check": "ok", "kernel_release": "6.12.34-dbc"},
 			"ota":         {"status:mdb": "idle", "status:dbc": "idle"},
 		}},
-		failedUnits: func() []string { return nil },
-		freeBytes:   func(string) (uint64, uint64, error) { return 2 << 30, 6 << 30, nil },
-		link:        func() (Link, error) { return Link{Peer: "DBC", Path: LinkUSB}, nil },
-		now:         func() time.Time { return time.Unix(1_700_000_000, 0) },
+		failedUnits:      func() ([]string, error) { return nil, nil },
+		inactiveServices: func() ([]string, error) { return nil, nil },
+		freeBytes:        func(string) (uint64, uint64, error) { return 2 << 30, 6 << 30, nil },
+		link:             func() (Link, error) { return Link{Peer: "DBC", Path: LinkUSB}, nil },
+		now:              func() time.Time { return time.Unix(1_700_000_000, 0) },
 	}
 }
 
@@ -259,13 +260,22 @@ func TestCheckServices(t *testing.T) {
 	if got := checkServices(e); got.Verdict != VerdictOK {
 		t.Fatalf("healthy = %v (%s)", got.Verdict, got.Detail)
 	}
-	e.failedUnits = func() []string { return []string{"librescoot-vehicle.service"} }
+	e.failedUnits = func() ([]string, error) { return []string{"librescoot-vehicle.service"}, nil }
 	got := checkServices(e)
 	if got.Verdict != VerdictAttention {
 		t.Fatalf("failed unit = %v", got.Verdict)
 	}
 	if got.Detail != "librescoot-vehicle.service failed" {
 		t.Fatalf("detail = %q", got.Detail)
+	}
+	e.failedUnits = func() ([]string, error) { return nil, errors.New("unavailable") }
+	if got := checkServices(e); got.Verdict != VerdictUnknown {
+		t.Fatalf("failed query = %v", got.Verdict)
+	}
+	e = healthyEnv()
+	e.inactiveServices = func() ([]string, error) { return []string{"librescoot-ecu.service"}, nil }
+	if got := checkServices(e); got.Verdict != VerdictAttention {
+		t.Fatalf("stopped daemon = %v", got.Verdict)
 	}
 	e.failedUnits = nil
 	if got := checkServices(e); got.Verdict != VerdictUnknown {
