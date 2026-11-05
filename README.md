@@ -49,6 +49,15 @@ lsc --json gps status
 lsc watch vehicle battery:0
 ```
 
+## Update channel switch
+
+`lsc ota switch testing` requests a reboot-safe switch for both boards and waits
+for MDB acceptance. The DBC may complete later when it is powered on. Inspect
+`lsc ota status` for update progress. `lsc ota cancel-plan mdb` or `dbc` requests
+cancellation of a stopped v2 transport plan; it does not roll back Mender and
+is refused while Mender has a pending update. `lsc ota channel` retains its
+existing transient settings behavior.
+
 ## Doctor
 
 `lsc doctor` runs read-only checks for board links, kernel consistency, local
