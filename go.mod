@@ -7,7 +7,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088
 	github.com/librescoot/eventbus v0.1.0
-	github.com/librescoot/redis-ipc v0.15.3
+	github.com/librescoot/redis-ipc v0.15.4
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.41.0
