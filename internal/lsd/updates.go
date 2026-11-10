@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	dataupload "github.com/librescoot/data-server/client"
 	"librescoot/lsc/internal/redis"
 )
 
@@ -286,28 +287,7 @@ func pushToDBC(ctx context.Context, client *redis.Client, local, name string) er
 			}
 		}
 	}
-	f, err := os.Open(local)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, dbcDataServer+"/ota/dbc/"+name, f)
-	if err != nil {
-		return err
-	}
-	req.ContentLength = info.Size()
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("dashboard data-server answered %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	return nil
+	return dataupload.UploadFile(ctx, dbcDataServer+"/ota/dbc/"+name, local, dataupload.Options{
+		RequestTimeout: 2 * time.Minute,
+	})
 }

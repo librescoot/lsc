@@ -5,6 +5,7 @@ go 1.25.7
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/alicebob/miniredis/v2 v2.39.0
+	github.com/librescoot/data-server v0.1.5
 	github.com/librescoot/event-service v0.0.0-20260908211927-c2830086e088
 	github.com/librescoot/eventbus v0.1.0
 	github.com/librescoot/redis-ipc v0.15.4
